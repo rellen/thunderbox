@@ -430,7 +430,7 @@ async fn the_renderer_draws_no_panel_that_a_collapsed_row_panel_hides() {
 /// A person cannot see a hidden panel, so the key `Tab` must not select it. A
 /// key that selected it would seem to do nothing.
 #[test]
-fn tab_passes_over_the_panels_that_a_collapsed_row_panel_hides() {
+fn tab_skips_the_panels_that_a_collapsed_row_panel_hides() {
     let dash = dashboard();
     let snapshot = Snapshot {
         collapsed: CollapsedRows::of(&dash),

@@ -2,8 +2,9 @@
 //!
 //! This program owns the terminal and the event loop. It drives
 //! `thunderbox-dashboard`, which runs the queries. The same runtime serves this
-//! program, the SSH server, and another program that holds a thunderbox
-//! dashboard. Only the owner of the terminal changes.
+//! program, and another program that holds a thunderbox dashboard. Only the
+//! owner of the terminal changes. A server for SSH does not exist yet, and ADR
+//! 0013 in `docs/contributor/adr` states the plan for it.
 
 use std::path::PathBuf;
 use std::time::Duration;
