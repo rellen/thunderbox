@@ -7,7 +7,7 @@
 //! process. It takes an owned request and returns an owned result, and it holds
 //! no borrowed value. A later version can therefore add a data source that runs
 //! in a separate process, or one that runs as a WebAssembly module. Neither
-//! addition changes a panel. See `docs/ARCHITECTURE.md` section 10.
+//! addition changes a panel. See ADR 0011 in `docs/contributor/adr`.
 //!
 //! # The rule for the author of a data source
 //!
@@ -102,8 +102,8 @@ pub struct SourceDescriptor {
     ///
     /// No code reduces the number of points when this field is `false`. Every
     /// read of this field sits inside a test module today, and `Cargo.lock`
-    /// holds no crate that reduces a series. Item 7 of section 13 of
-    /// `docs/ARCHITECTURE.md` records that absence.
+    /// holds no crate that reduces a series. ADR 0062 in `docs/contributor/adr` records that
+    /// absence.
     pub downsamples: bool,
     /// The longest time that this data source takes to answer one query.
     ///

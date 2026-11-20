@@ -84,8 +84,8 @@ enum Kept {
 ///
 /// This type behaves as a library. It never makes an async runtime, it never
 /// owns the terminal, it never owns the key bindings, and it never changes
-/// anything outside itself. `docs/ARCHITECTURE.md` section 12 states those
-/// rules in full.
+/// anything outside itself. ADR 0015 in `docs/contributor/adr` states those rules in
+/// full.
 ///
 /// The runtime holds no lock that the code which draws must wait for. A set of
 /// queries runs in a background task, and it publishes a whole [`Snapshot`]

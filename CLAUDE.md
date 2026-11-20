@@ -86,6 +86,7 @@ A writer can use these abbreviations without a definition:
 
 | abbreviation | meaning |
 |---|---|
+| ADR | architecture decision record, a file that states one decision of the project |
 | API | application programming interface |
 | CA | certificate authority, an organization that signs the certificate of a server |
 | CSV | comma separated values, a file format |
@@ -323,15 +324,22 @@ does not cover an item that a private module holds.
 
 ## 3. The project
 
-thunderbox is a dashboard platform for the terminal. Read `docs/ARCHITECTURE.md`
-first. It records the design and the decisions. `docs/RESEARCH.md` records the
-evidence for the choice of each library.
+thunderbox is a dashboard platform for the terminal. Read
+`docs/contributor/architecture.md` first. It describes the parts of the program.
+`docs/contributor/adr` holds one architecture decision record for each decision,
+and its file `README.md` lists them. Read the records that govern the part that
+you change. `docs/contributor/research.md` records the evidence for the choice
+of each library.
 
-`docs/OPEN_FINDINGS.md` holds the findings of a sweep that no other file records.
-Each item there names a fault of the code or of a document, with a citation and
-a measurement. Read an item as a hypothesis until you check the code. An item
-leaves that file when a change repairs it, or when section 13 of
-`docs/ARCHITECTURE.md` takes it.
+`docs/user` holds the documentation for a person who uses thunderbox, and
+`docs/contributor` holds the documentation for a person who changes it. Section
+8 states the documentation that each feature holds.
+
+`docs/contributor/open-findings.md` holds the findings of a sweep that no other
+file records. Each item there names a fault of the code or of a document, with a
+citation and a measurement. Read an item as a hypothesis until you check the
+code. An item leaves that file when a change repairs it, or when a record of
+the status Proposed takes it.
 
 ## 4. The commands that check the code
 
@@ -432,7 +440,7 @@ and each one passed while it held nothing. One drove no clock, so no set of
 queries ever ran. The other named a terminal of 24 rows, and the renderer draws
 every panel of that dashboard at 24 rows.
 
-Section 12 of `docs/ARCHITECTURE.md` holds the same step for the way from
+ADR 0032 in `docs/contributor/adr` holds the same step for the way from
 `DashboardRuntime::set_panel_area` to `run_all`. This project has met that fault
 on that path more often than on any other.
 
@@ -441,8 +449,9 @@ on that path more often than on any other.
 Nix is a package manager, and a flake is the file that tells Nix what a
 repository offers. `flake.nix` offers the package of the program, and
 `default.nix` holds that package. `flake.nix` also offers a shell that holds
-each tool of this section and of section 6. `README.md` gives the commands for
-a person who installs the program.
+each tool of this section and of section 6.
+`docs/user/how-to/install-thunderbox.md` gives the commands for a person who
+installs the program. ADR 0055 and ADR 0056 record the decisions of the flake.
 
 `nix develop` starts the shell. The flake reads the release of Rust from
 `rust-toolchain.toml`, so the seven commands above then run with the pinned
@@ -614,8 +623,8 @@ last one alone. These are the other six:
 - the age of the numbers.
 
 One scene draws the sentence for a terminal that is too small, and that scene is
-`too_small`. `README.md` quotes that sentence as the text beside the picture of
-that scene.
+`too_small`. `docs/user/how-to/read-a-dashboard-on-a-small-terminal.md` quotes
+that sentence as the text beside the picture of that scene.
 
 A change to a program that a scene records alters that scene, even when the
 change leaves every panel as it was.
@@ -639,8 +648,8 @@ Do not record every scene of the project for a change that reaches one of them.
 
 ### The steps
 
-1. Pick the scene that reaches the change. The section "Make the picture again"
-   of `README.md` names each scene and what it records. The `app` scene reaches
+1. Pick the scene that reaches the change. `docs/contributor/pictures.md` names
+   each scene, what it records, and the page that shows its picture. The `app` scene reaches
    most changes, because the dashboard that it draws holds every type of panel.
    Pass `--cols N` and `--rows N` when the scene draws the change too small.
 2. Build the program, record the scene, and write the picture. The next section
@@ -651,7 +660,8 @@ Do not record every scene of the project for a change that reaches one of them.
    must show the change. Record the scene again when the picture fails.
 5. Commit the picture by itself. Start the subject of the commit with
    `docs: record`. A new scene is the one exception, because that commit also
-   holds `scripts/record-demo.py` and `README.md`.
+   holds `scripts/record-demo.py`, `docs/contributor/pictures.md`, and the page
+   of `docs/user` that shows the picture.
 6. Push the branch.
 7. Read the identifier of the commit that holds the picture. The command below
    reads it for `docs/media/demo.gif`, and another picture takes its own path.
@@ -721,17 +731,18 @@ key is the whole text of a dashboard file, and not a path. The function
 `stack_dashboard` of the same script builds such a text.
 
 The script accepts a new name without any other change. Add a scene rather than
-skip the picture. A new scene takes two changes in `README.md`. Add a row to the
-table of scenes. Also draw the new picture in `README.md`.
+skip the picture. A new scene takes two more changes. Add a row to the table of
+scenes in `docs/contributor/pictures.md`. Also draw the new picture in the page
+of `docs/user` that describes the feature.
 
 ### 6.1 The address of the picture
 
-A path such as `docs/media/demo.gif` draws a picture in `README.md`, and it
-draws nothing in the description of a pull request. Write the whole address, in
+A relative path such as `docs/media/demo.gif` draws a picture in a file of the
+repository. It draws nothing in the description of a pull request. Write the whole address, in
 this form:
 
 ```
-![the sentence that README.md holds](https://github.com/rellen/thunderbox/raw/COMMIT/docs/media/demo.gif)
+![the alternative text of the page that shows the picture](https://github.com/rellen/thunderbox/raw/COMMIT/docs/media/demo.gif)
 ```
 
 The address follows two rules:
@@ -755,7 +766,7 @@ that way.
 Write the picture in this form when that happens, which loses no character:
 
 ```
-<img alt="the sentence that README.md holds" src="https://github.com/rellen/thunderbox/raw/COMMIT/docs/media/demo.gif">
+<img alt="the alternative text of the page that shows the picture" src="https://github.com/rellen/thunderbox/raw/COMMIT/docs/media/demo.gif">
 ```
 
 A push that replaces the history of a branch takes the old commit off that
@@ -773,16 +784,17 @@ picture:
 > before this change, because the panel cut a name that no pattern had built.
 
 The alternative text is the text between the two square brackets. A reviewer
-reads it when the picture draws nothing. Copy the alternative text from
-`README.md` when `README.md` holds the same picture.
+reads it when the picture draws nothing. Copy the alternative text from the
+page of `docs/user` that shows the same picture.
 
-### The pictures that README.md holds
+### The pages that show each picture
 
-`README.md` draws each picture of `docs/media`. A new picture of a scene
-therefore changes `README.md` as well. The file keeps its name, so `README.md`
-draws the new picture immediately. Read every sentence of `README.md` that
-stands beside that picture. Correct each sentence that the new picture does not
-match.
+Each picture of `docs/media` appears in one page of `docs/user`, and
+`docs/contributor/pictures.md` names that page. `README.md` shows
+`docs/media/demo.gif` as well. A new picture of a scene keeps its file name, so
+each of those pages draws the new picture immediately. Read every sentence of
+each page that stands beside that picture. Correct each sentence that the new
+picture does not match.
 
 No check compares a picture against the program. The workflow in
 `.github/workflows/checks.yml` never runs the script, so a picture that no
@@ -812,16 +824,17 @@ A description often holds the reason that a design failed. A person who clones
 this repository cannot read a description, so that reason then lives outside the
 project.
 
-Write such a reason into `docs/ARCHITECTURE.md` in the same pull request. A
-design that the project examined and rejected takes an item of section 13, and
-that item names three things:
+Write such a reason into a decision record of `docs/contributor/adr` in the same
+pull request. A design that the project examined and rejected takes a record of
+the status Rejected. A question that the change leaves open takes a record of
+the status Proposed, and that record names three things:
 
 - the work that remains, and what it is worth;
 - each design that the project rejected, with the fault that a reader measured
   in it;
 - the question that the next design must answer.
 
-The description of the pull request can then point at that item.
+The description of the pull request can then point at that record.
 
 ---
 
@@ -852,3 +865,57 @@ of the branch:
 ```
 git diff the-branch origin/main
 ```
+
+---
+
+## 8. Each feature holds its documentation
+
+A change that adds a feature, or that changes what a person sees or does, holds
+its documentation in the same pull request. A pull request that changes a
+feature and no document is a fault. In the same way, a pull request that
+changes the screen and holds no picture is a fault. No tool checks this rule,
+so a reader checks it before each commit.
+
+### 8.1 The user documentation
+
+`docs/user` holds four kinds of documentation, and the change updates each kind
+that the feature reaches. This division follows Diátaxis, which is a method that
+divides documentation by the need of the reader.
+
+| kind | folder | when the change needs it |
+|---|---|---|
+| reference | `docs/user/reference` | Always. Each new field, key, kind of panel, data source, query, option, and message takes an entry. A changed fact changes its entry. |
+| how-to guide | `docs/user/how-to` | When the feature serves a task that a person names. The title names that task. |
+| explanation | `docs/user/explanation` | When the feature changes how a person must think about thunderbox. |
+| tutorial | `docs/user/tutorials` | When a beginner meets the feature on the first path through the program. |
+
+Follow these steps:
+
+1. Search `docs/user` for each name that the change touches: each field, each
+   key, each kind, each query. Correct each page that states the old fact.
+2. Write each new page that the table above asks for. Add a row for it to
+   `docs/user/README.md`.
+3. Load each dashboard file that a page holds. A file that does not load is a
+   fault of the page.
+
+### 8.2 The contributor documentation
+
+`docs/contributor` holds the documentation for a person who changes thunderbox.
+The change updates it in these ways:
+
+- Each decision that the change takes gets a record in `docs/contributor/adr`.
+  Copy `0000-template.md`, take the next free number, and add a row to the
+  table of `README.md` of that folder.
+- Each question that the change leaves open gets a record of the status
+  Proposed. Each design that the change examined and did not take gets a
+  record of the status Rejected. Section 6.2 states what such a record holds.
+- A record never changes its decision. A new decision takes a new record, and
+  that record supersedes the old one.
+- A change to the parts of the program, or to the way between them, changes
+  `docs/contributor/architecture.md`. A new feature also takes a row in the
+  table of the features of that file.
+- A code comment cites a record by its number, in the form
+  `ADR 0021 in docs/contributor/adr`.
+
+Section 1 governs every page of both folders, as it governs every other text of
+this project.

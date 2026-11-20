@@ -59,8 +59,8 @@ impl PanelState {
 /// A panel that the renderer drops is the one exception. No query of such a
 /// panel ran, so its answer comes from an older set of queries. That answer
 /// always describes the window in `range`, because a new window puts every
-/// panel back to [`PanelState::Loading`]. Section 12 of `docs/ARCHITECTURE.md`
-/// states that rule in full.
+/// panel back to [`PanelState::Loading`]. ADR 0027 in `docs/contributor/adr` states that
+/// rule in full.
 #[derive(Debug, Clone, Default)]
 pub struct Snapshot {
     /// The state of each panel, in the order of the dashboard.

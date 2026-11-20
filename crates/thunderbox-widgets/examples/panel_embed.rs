@@ -6,7 +6,7 @@
 //!
 //! Note what this example never does. It never builds a thunderbox data source, a
 //! thunderbox runtime, or a thunderbox dashboard. thunderbox never touches the
-//! terminal. `docs/ARCHITECTURE.md` section 1 states this promise.
+//! terminal. ADR 0004 in `docs/contributor/adr` states this promise.
 //!
 //! Run the example with this command:
 //!

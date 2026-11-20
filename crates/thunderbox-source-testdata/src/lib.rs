@@ -21,7 +21,7 @@
 //! nothing of the machine that draws it. The values of the list depend only on
 //! the end of the window, so the list keeps both properties above.
 //!
-//! `docs/ARCHITECTURE.md` section 9 states that this data source comes before
+//! `docs/contributor/architecture.md` states that this data source comes before
 //! any data source that reads real values.
 
 use async_trait::async_trait;

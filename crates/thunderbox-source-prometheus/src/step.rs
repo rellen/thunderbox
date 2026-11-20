@@ -2,8 +2,8 @@
 //!
 //! A panel states how many points it can draw. This module turns that number
 //! into a step, which is the distance between two points. It then aligns the
-//! range to that step. `docs/ARCHITECTURE.md` section 6 states the rule that
-//! this module follows.
+//! range to that step. ADR 0009 in `docs/contributor/adr` states the rule that this module
+//! follows.
 //!
 //! The module does three things to the step that the panel suggests:
 //!

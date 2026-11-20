@@ -2,7 +2,7 @@
 //!
 //! This data source answers a query with a range query of the Prometheus HTTP
 //! API. It is the first data source of thunderbox that reads a server on another
-//! machine. `docs/ARCHITECTURE.md` section 9 lists it.
+//! machine. `docs/contributor/architecture.md` lists it.
 //!
 //! The data source turns the point limit of a panel into the step of the range
 //! query. The step is the distance between two points. A panel that is 80 cells
@@ -52,8 +52,8 @@ pub const KIND: &str = "prometheus";
 /// The client stops a request at the timeout of the settings. This data source
 /// then builds an error that names the server and the fault. The descriptor
 /// states the sum of the two values, so the caller waits for that error and
-/// reports no wait of its own. `docs/ARCHITECTURE.md` section 10 states the
-/// third duty of a data source.
+/// reports no wait of its own. ADR 0012 in `docs/contributor/adr` states the third duty of a
+/// data source.
 const ANSWER_MARGIN: Duration = Duration::from_secs(5);
 
 /// The address that this data source reads when a dashboard names none.
@@ -184,7 +184,7 @@ pub struct Prometheus {
 /// rule binds each `Debug` implementation, each `Display` implementation, each
 /// log message, each panic message and each error. A text that a person reads,
 /// and a text that a file holds, must carry no password.
-/// `docs/ARCHITECTURE.md` section 12 states the rule in full.
+/// ADR 0033 in `docs/contributor/adr` states the rule in full.
 ///
 /// The function keeps the user name. A user name is no secret, and it names
 /// which server the message means.

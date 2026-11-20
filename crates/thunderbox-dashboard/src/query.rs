@@ -263,8 +263,8 @@ where
 /// [`crate::DashboardRuntime::new`] states that duty. The limit also stops a
 /// query at an await point alone. A data source that holds a thread of the
 /// async runtime, and that awaits nothing, therefore runs to its end. The third
-/// duty of a data source covers that condition, and `docs/ARCHITECTURE.md`
-/// section 10 states it.
+/// duty of a data source covers that condition, and ADR 0012 in `docs/contributor/adr`
+/// states it.
 ///
 /// The function puts the value of each variable into the text of the query.
 /// [`Target::to_query`] holds that step. A target that refers to a variable
@@ -829,8 +829,8 @@ mod tests {
         );
     }
 
-    /// `docs/ARCHITECTURE.md` section 12 states this rule. A slow query
-    /// changes one panel, and never the whole picture.
+    /// ADR 0015 in `docs/contributor/adr` states this rule. A slow query changes one panel,
+    /// and never the whole picture.
     #[tokio::test]
     async fn a_data_source_that_never_answers_stops_no_other_panel() {
         let sources = Registry::new()
@@ -899,8 +899,8 @@ mod tests {
         .expect("Three panels that run at the same time must all answer.")
     }
 
-    /// `docs/ARCHITECTURE.md` section 12 states this rule. The data source of
-    /// this test answers no query until three queries have arrived. A set that
+    /// ADR 0045 in `docs/contributor/adr` states this rule. The data source of this test
+    /// answers no query until three queries have arrived. A set that
     /// ran its panels one after another would therefore never end.
     #[tokio::test]
     async fn run_all_runs_the_panels_of_one_set_at_the_same_time() {

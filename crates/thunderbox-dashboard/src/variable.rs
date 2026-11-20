@@ -291,8 +291,8 @@ impl Variables {
 /// below, so a program that wants those keys for itself keeps them. This
 /// function offers a default map from a key to a selection, and it holds the
 /// rule alone. The program decides which key reaches it, and a program that
-/// wants another map ignores this function. `docs/ARCHITECTURE.md` section 12
-/// states that rule.
+/// wants another map ignores this function. ADR 0043 in `docs/contributor/adr` states
+/// that rule.
 ///
 /// The function reads these keys:
 ///

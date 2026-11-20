@@ -9,7 +9,7 @@ repository.workspace = true
 
 # The larger of the two ways to put thunderbox inside another program. This crate
 # runs queries, so it needs an async runtime. It still owns no terminal and no
-# event loop. See docs/ARCHITECTURE.md section 12.
+# event loop. See ADR 0015 in docs/contributor/adr.
 [dependencies]
 thunderbox-core = { workspace = true }
 thunderbox-source = { workspace = true }

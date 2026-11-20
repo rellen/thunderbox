@@ -15,7 +15,7 @@ pub const GRID_COLUMNS: u16 = 24;
 /// A dashboard document.
 ///
 /// The native file format is TOML. A later version can add a reader for the
-/// Grafana JSON format. See `docs/ARCHITECTURE.md` section 12.
+/// Grafana JSON format. See ADR 0014 in `docs/contributor/adr`.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Dashboard {
@@ -100,8 +100,8 @@ impl Dashboard {
     /// method therefore accepts any name in a dashboard that declares no data
     /// source. A program that embeds thunderbox can hold such a dashboard,
     /// because that program supplies its own data sources.
-    /// `docs/ARCHITECTURE.md` section 12 states that rule, and it states how a
-    /// wrong name then reaches the screen.
+    /// ADR 0016 in `docs/contributor/adr` states that rule, and it states how a wrong name
+    /// then reaches the screen.
     pub fn validate(&self) -> Result<()> {
         if self.title.trim().is_empty() {
             return Err(Error::Dashboard("title must not be empty".into()));

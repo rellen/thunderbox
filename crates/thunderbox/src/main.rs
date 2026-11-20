@@ -72,8 +72,9 @@ const RANGE_KEY: &str = "0 range";
 ///
 /// The row writes a short hint for each key, and it writes two spaces between
 /// two hints. A reader then reads the list as one part, and the whole list
-/// fits a terminal of 80 columns. The `--help` text and `README.md` hold the
-/// complete sentence for each key.
+/// fits a terminal of 80 columns. The `--help` text and
+/// `docs/user/reference/command-line.md` hold the complete sentence for each
+/// key.
 ///
 /// `crates/thunderbox-dashboard/examples/full_embed.rs` holds a copy of this
 /// text, character for character. That crate cannot depend on this one, so no
@@ -95,8 +96,8 @@ const ROW_KEY: &str = "enter fold";
 /// The keys that the row of the variables lists.
 ///
 /// The row writes this list after the variables, and it writes it only while
-/// the list fits. The `--help` text and `README.md` hold the complete sentence
-/// for each key.
+/// the list fits. The `--help` text and `docs/user/reference/command-line.md`
+/// hold the complete sentence for each key.
 const VARIABLE_KEYS: &str = "v next variable  [] value";
 
 /// The gap between two sentences of the status row.
@@ -438,7 +439,7 @@ async fn draw_loop(
             let translated = translate(key.code);
             // The program owns each key of the time range. thunderbox consumes
             // none of them, and `thunderbox_dashboard::time_key` holds the rule
-            // alone. `docs/ARCHITECTURE.md` section 12 states that rule. That
+            // alone. ADR 0035 in `docs/contributor/adr` states that rule. That
             // function asks for no range when the key changes nothing.
             let asked = time_key(
                 translated,
