@@ -9,8 +9,9 @@ untrue, or too small to record. About fifteen of the 84 then reached a file of
 this repository. **This file holds the rest.**
 
 Each item carries a `file:line` citation. An item that a reader measured also
-carries the measurement. The number of each item, in the form `N.N`, points back
-at the synthesis of that sweep. Those numbers are not in the order of this file.
+carries the measurement. The number of each item, in the form `N.N`, names an
+item of the synthesis of that sweep. Those numbers are not in the order of this
+file.
 
 Section 6.2 of `CLAUDE.md` asks that a reason of this kind reaches this
 repository, and not the description of a pull request alone. This file answers
@@ -119,8 +120,8 @@ finds nothing. No document names a code that the program returns.
 
 **defect**
 
-Item 6 of section 13 of `docs/ARCHITECTURE.md` names this fault, and it gives
-no detail. The detail below reaches no file.
+[ADR 0061](adr/0061-a-duration-that-does-not-fit-ends-the-program.md) names this
+fault. The detail below reaches no file.
 
 `MIN_SPAN_MS` and `MAX_SPAN_MS` sit at `crates/thunderbox-core/src/time.rs:15` and
 `:22`. One place reads them, which is `TimeRange::with_span_ms` at `:222`. The
@@ -335,6 +336,32 @@ panics when it finds no terminal, and the program then stops with the code 101.
 The text `failed to initialize terminal` comes from the library, and the
 program writes no sentence of its own. The review of
 `docs/user/reference/command-line.md` measured the code 101.
+
+## 7.3 A long error loses the start and the end of its text
+
+**defect**
+
+`render_message` in `crates/thunderbox-widgets/src/panel.rs:265-287` draws an
+error on one line in the middle of the panel. A line that is wider than the
+panel loses cells at both ends. An address that no server answers gives this
+text in a panel of normal width:
+
+```
+data source returned an error. failed to send request to s
+```
+
+The start of the text and the cause of the error are both gone. A person then
+cannot read why the panel holds an error. The page
+`docs/user/reference/panels/README.md` states this behaviour.
+
+## 7.4 A short window far in the past draws three labels that are the same
+
+**defect**
+
+`x_labels` in `crates/thunderbox-widgets/src/timeseries.rs` writes the
+distance of each label from the present moment. A window of one minute that
+ends long before the present moment gets three labels that are the same. The
+review measured `-1101.96d` three times, with `from = "1700000000000"`.
 
 ---
 

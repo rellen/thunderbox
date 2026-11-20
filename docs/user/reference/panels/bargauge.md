@@ -120,7 +120,7 @@ The panel finds each end of the range with the first rule that applies:
 
 ## The pages that give the reason
 
-- [Colour a value that passes a bound](../../how-to/colour-a-value-that-passes-a-bound.md)
+- [Colour a value that reaches a bound](../../how-to/colour-a-value-that-reaches-a-bound.md)
   adds thresholds to a panel.
 - [Name each series](../../how-to/name-each-series.md) writes the pattern of
   the `legend` field.

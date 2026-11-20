@@ -66,7 +66,10 @@ impl<'a> TimeSeriesPanel<'a> {
         self
     }
 
-    /// Sets the unit, the number of decimal places, and the thresholds.
+    /// Sets the unit and the number of decimal places.
+    ///
+    /// The chart reads no threshold of the options. A stat panel, a gauge, a
+    /// bar gauge, a table, and a top panel read the thresholds.
     pub fn options(mut self, options: PanelOptions<'a>) -> Self {
         self.options = options;
         self

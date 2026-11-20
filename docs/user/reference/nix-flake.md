@@ -95,7 +95,7 @@ it.
 |---|---|
 | `nix run github:rellen/thunderbox` | Build the program, and start it with the dashboard inside the program. The command needs no copy of this repository. |
 | `nix run github:rellen/thunderbox -- my-dashboard.toml` | Build the program, and start it with a dashboard file. |
-| `nix profile install github:rellen/thunderbox` | Install the program for one person. |
+| `nix profile add github:rellen/thunderbox` | Install the program for one person. An older release of Nix names this command `nix profile install`. |
 | `nix build` | Build the package from a copy of this repository. |
 | `nix develop` | Start the shell of the flake. Run it from the root of the workspace. |
 | `nix flake check` | Build each check: the package, with its tests, and the shell. |

@@ -33,7 +33,7 @@ the need of the reader. A person who contributes to thunderbox reads
 | [Group panels under row panels](how-to/group-panels-under-row-panels.md) | Add row panels, and collapse them. |
 | [Let a person select a value](how-to/let-a-person-select-a-value.md) | Add a variable, and refer to it in a query. |
 | [Name each series](how-to/name-each-series.md) | Write a pattern in the `legend` field. |
-| [Colour a value that passes a bound](how-to/colour-a-value-that-passes-a-bound.md) | Add thresholds to a panel. |
+| [Colour a value that reaches a bound](how-to/colour-a-value-that-reaches-a-bound.md) | Add thresholds to a panel. |
 | [Show an earlier window](how-to/show-an-earlier-window.md) | Move and scale the time range with the keys. |
 | [Start each chart of a stack at the same cell](how-to/start-each-chart-of-a-stack-at-the-same-cell.md) | Use the rule `align = "column"`. |
 | [Show two data sources on one dashboard](how-to/show-two-data-sources-on-one-dashboard.md) | Declare two data sources, and read both. |
