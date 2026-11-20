@@ -59,8 +59,8 @@
 //!
 //! A variable of this data source takes the name of a signal, and not the value
 //! of a label. [`DataSource::label_values`] returns the names of the signals for
-//! every query. The project has not built variables yet, and
-//! `docs/ARCHITECTURE.md` section 15 lists that work.
+//! every query. ADR 0042 in `docs/contributor/adr` states when the runtime asks for those
+//! names.
 
 mod history;
 mod process;

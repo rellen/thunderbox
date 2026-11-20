@@ -1,6 +1,6 @@
 //! Tests for the rules that make this crate behave as a library.
 //!
-//! `docs/ARCHITECTURE.md` section 12 states those rules. Each test here holds
+//! ADR 0015 and ADR 0016 in `docs/contributor/adr` state those rules. Each test here holds
 //! one of them to its word.
 
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -129,7 +129,7 @@ expr = "up"
 ///
 /// Each panel holds the whole width of the grid and 8 rows of it. The renderer
 /// draws seven of the eight panels on a terminal of 24 rows, and it drops the
-/// first one. `docs/ARCHITECTURE.md` section 12 holds that measurement.
+/// first one. ADR 0024 in `docs/contributor/adr` holds that measurement.
 const EIGHT_PANELS: &str = r#"
 title = "test"
 [source.one]
@@ -706,8 +706,7 @@ async fn the_point_limit_follows_the_width_of_the_panel_and_the_marker() {
 ///
 /// The runtime asked every panel for the points of the whole area before this
 /// rule. Each of the six panels then asked for 220 points, and the dashboard
-/// asked for 1320 points. `docs/ARCHITECTURE.md` section 12 holds the same
-/// numbers.
+/// asked for 1320 points. ADR 0023 in `docs/contributor/adr` holds the same numbers.
 #[tokio::test]
 async fn each_panel_asks_for_the_points_of_its_own_width() {
     let counter = Arc::new(Counter::default());
@@ -770,7 +769,7 @@ async fn the_runtime_asks_about_exactly_the_panels_that_the_renderer_draws() {
 /// The dashboard holds eight panels in one column. A terminal of 24 rows gives
 /// the panels 23 rows, and the renderer then draws seven of the eight panels.
 /// The runtime therefore sends seven queries and not eight.
-/// `docs/ARCHITECTURE.md` section 12 holds that measurement.
+/// ADR 0024 in `docs/contributor/adr` holds that measurement.
 #[tokio::test]
 async fn a_panel_that_the_renderer_drops_asks_a_data_source_for_nothing() {
     let counter = Arc::new(Counter::default());
@@ -1830,7 +1829,7 @@ async fn a_data_source_that_never_answers_does_not_stop_the_next_tick() {
 }
 
 /// A person reads the panels of the dashboard while one data source never
-/// answers. `docs/ARCHITECTURE.md` section 12 states that rule: a slow query
+/// answers. ADR 0015 in `docs/contributor/adr` states that rule: a slow query
 /// changes one panel, and never the whole picture.
 #[tokio::test]
 async fn a_data_source_that_never_answers_stops_no_other_panel() {

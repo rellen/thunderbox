@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 /// gauge panel, and the bar gauge panel each show one number for each series.
 /// The dashboard names the step in the `reduce` field of a panel.
 ///
-/// `docs/ARCHITECTURE.md` section 3 gives a whole crate to the transform
+/// `docs/contributor/architecture.md` gives a whole crate to the transform
 /// pipeline. This type is the one step that a panel cannot do without, so it
 /// sits here until that crate arrives.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]

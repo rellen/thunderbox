@@ -1,7 +1,9 @@
 # The libraries that this project examined
 
-This document records the evidence for the choices in `ARCHITECTURE.md`. Each
-download count is the count for 90 days, from crates.io, on 26 August 2026.
+This document records the evidence for the choices of [the
+architecture](architecture.md) and of [the decision records](adr/README.md).
+Each download count is the count for 90 days, from crates.io, on 26 August
+2026.
 
 ---
 
@@ -225,7 +227,8 @@ small enough to copy.
 
 No code of thunderbox reduces the number of points that a data source returns, and
 `Cargo.lock` holds no crate that reduces a series. Every read of the field
-`SourceDescriptor::downsamples` sits inside a test module. Item 7 of section 13
-of `docs/ARCHITECTURE.md` records that absence. The design that takes the
+`SourceDescriptor::downsamples` sits inside a test module.
+[ADR 0062](adr/0062-downsamples-promises-a-step-that-no-code-takes.md) records
+that absence. The design that takes the
 reduction uses this code only when a data source cannot reduce the points
 itself. The data source does that work first.

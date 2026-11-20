@@ -83,7 +83,7 @@ impl QueryRequest {
 /// A marker can address more positions than the terminal has cells. A braille
 /// marker, for example, addresses two positions in each cell. The number of
 /// points therefore follows the horizontal resolution of the marker. See
-/// `docs/ARCHITECTURE.md` section 6.
+/// ADR 0009 in `docs/contributor/adr`.
 pub fn max_data_points(panel_width_cols: u16, horizontal_subcells: u16) -> u32 {
     u32::from(panel_width_cols.max(1)) * u32::from(horizontal_subcells.max(1))
 }

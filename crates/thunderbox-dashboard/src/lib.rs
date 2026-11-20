@@ -7,7 +7,7 @@
 //!
 //! The same type serves the program that runs alone, the SSH server, and
 //! another program that holds a thunderbox dashboard. Only the owner of the
-//! terminal changes. `docs/ARCHITECTURE.md` section 12 states the rules that
+//! terminal changes. ADR 0015 and ADR 0016 in `docs/contributor/adr` state the rules that
 //! this crate follows.
 //!
 //! [`time_key`] holds the rule that maps a key to a new time range.

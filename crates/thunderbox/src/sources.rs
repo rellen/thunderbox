@@ -6,7 +6,7 @@
 //! module passes the declaration on and reads no option itself.
 //!
 //! A feature selects the types that a build of the program holds.
-//! `docs/ARCHITECTURE.md` section 10 states that rule.
+//! ADR 0011 in `docs/contributor/adr` states that rule.
 
 use std::sync::Arc;
 

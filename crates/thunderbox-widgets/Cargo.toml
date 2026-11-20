@@ -9,7 +9,7 @@ repository.workspace = true
 
 # The panel-embed surface. Deliberately NO backend, NO crossterm, NO tokio:
 # a host application that already owns a Terminal must be able to render these.
-# See docs/ARCHITECTURE.md section 1.
+# See ADR 0004 in docs/contributor/adr.
 [dependencies]
 thunderbox-core = { workspace = true }
 ratatui-core = { workspace = true }

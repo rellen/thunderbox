@@ -30,14 +30,31 @@ Inside each part, the first item is the one most likely to cost a reader time.
 
 ## What this file is not
 
-No item here is a decision of the project. Section 12 of `docs/ARCHITECTURE.md`
-holds the decisions. An item of this file becomes a decision, a repair, or a
-line of section 13, and it then leaves this file.
+No item here is a decision of the project. [The decision records](adr/README.md)
+hold the decisions. An item of this file becomes a repair, or a record of the
+status Proposed, and it then leaves this file.
 
 **Read each item as a hypothesis until you check the code.** Two readers
 verified each item, and a reader can still be wrong. A citation can also age,
 because the line numbers name an earlier tree of this code. Search for the
 named item when a line number does not hold it.
+
+Each citation of `docs/ARCHITECTURE.md` names a line of that file as it stood
+when this repository began. The commit `f2d9f25` holds that text, and a cited
+line can sit one or two lines away from the line that it names. That file no
+longer exists. Its decisions moved to [the decision
+records](adr/README.md), and its description moved to [the
+architecture](architecture.md). Read a cited line with this command:
+
+```
+git show f2d9f25:docs/ARCHITECTURE.md
+```
+
+Each citation of `README.md` names a line of a longer `README.md`, and no commit
+of this repository holds that version. The text of that file moved to the pages
+of [the user documentation](../user/README.md), and to the pages of this folder.
+Search those pages for the named text.
+
 
 ## The items that reached a file already
 
@@ -496,9 +513,8 @@ crate shows that difference: `panel_embed.rs:90` draws the block of the host
 with `Block::bordered()`, which is the plain border, beside two panels of
 thunderbox that draw a round border.
 
-Two smaller facts reach no file. `Marker::from_str` accepts `tty` as a second
+One smaller fact reaches no file. `Marker::from_str` accepts `tty` as a second
 name for `block` (`marker.rs:74`), and no document lists that name.
-`docs/ARCHITECTURE.md:190-194` drops `halfblock`, which `README.md:513` lists.
 
 ## 5.3 Each name of a unit holds a rule, and an unknown name takes another rule
 

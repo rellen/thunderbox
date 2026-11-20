@@ -306,7 +306,7 @@ mod tests {
     }
 
     /// The five widths of the default dashboard, on a terminal of 110 cells.
-    /// `docs/ARCHITECTURE.md` section 12 holds the same numbers.
+    /// ADR 0023 in `docs/contributor/adr` holds the same numbers.
     #[test]
     fn the_default_dashboard_holds_these_widths_on_a_terminal_of_110_cells() {
         assert_eq!(panel_width(at(0, 16), 110), 73, "The panel cpu.");
@@ -454,7 +454,7 @@ mod tests {
     }
 
     /// The renderer drops one panel of eight on a terminal of 24 rows.
-    /// `docs/ARCHITECTURE.md` section 12 holds the same numbers.
+    /// ADR 0024 in `docs/contributor/adr` holds the same numbers.
     ///
     /// The area of the panels is one row shorter than the terminal, because the
     /// program that runs alone keeps one row for the status row.
@@ -472,7 +472,7 @@ mod tests {
     }
 
     /// The renderer drops no panel of the default dashboard above a terminal of
-    /// 9 rows. `docs/ARCHITECTURE.md` section 12 holds the same numbers.
+    /// 9 rows. ADR 0024 in `docs/contributor/adr` holds the same numbers.
     #[test]
     fn the_default_dashboard_drops_a_panel_only_under_a_terminal_of_ten_rows() {
         let dashboard = Dashboard::from_toml(SEVEN_PANELS).expect("The dashboard must be correct.");

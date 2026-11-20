@@ -32,7 +32,7 @@ thunderbox-source-testdata = { path = "crates/thunderbox-source-testdata", versi
 thunderbox-widgets = { path = "crates/thunderbox-widgets", version = "0.0.0" }
 
 # Rendering. `thunderbox-widgets` takes ratatui-core/-widgets ONLY: no backend,
-# no crossterm, no tokio. See docs/ARCHITECTURE.md section 1.
+# no crossterm, no tokio. See ADR 0004 in docs/contributor/adr.
 ratatui-core = "0.1"
 ratatui-widgets = "0.3"
 ratatui = { version = "0.30.2", default-features = false, features = ["crossterm", "layout-cache"] }

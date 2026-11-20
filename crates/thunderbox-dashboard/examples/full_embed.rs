@@ -5,8 +5,8 @@
 //!
 //! Note what the program keeps. It makes the async runtime, and it passes a
 //! `Handle` to thunderbox. It reads every key first, and it passes to thunderbox
-//! only the keys that it does not want. `docs/ARCHITECTURE.md` section 12
-//! states this promise.
+//! only the keys that it does not want. ADR 0015 in `docs/contributor/adr` states this
+//! promise.
 //!
 //! The program also binds the keys of the time range, the keys of a variable,
 //! and the keys of a row panel. thunderbox consumes none of them.
