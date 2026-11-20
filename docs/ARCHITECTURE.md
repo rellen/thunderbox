@@ -1853,6 +1853,40 @@ would then give the order. That order means nothing to a reader.
    The column that gives the order can stand at the right of another column.
    The next design answers one question. Which of those two columns does a
    narrow top panel drop first?
+9. **A machine on Linux that holds no CA certificate cannot read a Prometheus
+   server over plain HTTP.** A CA is a certificate authority. `reqwest` 0.13.4
+   builds the verifier of certificates when it builds a client, for every
+   scheme. On Linux, the verifier of `rustls-platform-verifier` 0.7.0 returns an
+   error when the machine holds no CA certificate. `Prometheus::new` therefore
+   returns an error for `http://127.0.0.1:9090` on such a machine. A container
+   that holds no package of CA certificates is such a machine. The sandbox of
+   Nix is another one.
+
+   The measurement: a test program that ran with `SSL_CERT_FILE` set to a file
+   which does not exist wrote this error:
+   `builder error: unexpected error: No CA certificates were loaded from the system`.
+   The same program built the client with the file of CA certificates of this
+   machine. Without that file, 22 tests of the workspace fail.
+
+   The project states the need, and it does not remove it. The error names its
+   cause, `README.md` states the need, and `default.nix` gives the sandbox a
+   file of certificates.
+
+   Two designs could remove the need. Nobody has examined either one:
+
+   - The client can add the CA certificates that the crate
+     `webpki-root-certs` holds, through `ClientBuilder::tls_certs_merge`. The
+     verifier then returns no error for a machine that holds no CA certificate.
+     The client would also trust each CA of that crate. It would then trust a
+     CA that a person removed from the machine.
+   - The client of a plain HTTP address can skip the verifier of the machine.
+     `ClientBuilder::tls_backend_preconfigured` takes a configuration of
+     `rustls`. That configuration must come from the release of `rustls` that
+     `reqwest` uses, so this project would take `rustls` as a dependency of its
+     own.
+
+   The next design answers one question. Must a client of a plain HTTP address
+   read any certificate at all?
 
 ---
 

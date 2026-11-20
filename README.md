@@ -528,6 +528,17 @@ this command:
 cargo run -p thunderbox -- dashboards/prometheus.toml
 ```
 
+**On Linux, this data source needs a file of CA certificates.** A CA is a
+certificate authority, which is an organization that signs the certificate of a
+server. The data source reads the certificate of each CA from the machine when
+the dashboard loads. It returns an error when the machine holds none, and it
+does so for an address that starts with `http://` as well. The error then ends
+with `No CA certificates were loaded from the system`.
+
+Install the package of CA certificates of your distribution. The variable
+`SSL_CERT_FILE` can also name a file of such certificates. macOS reads the
+certificates of its own system, so it needs no such file.
+
 thunderbox asks the server for the number of points of one panel. It never asks
 for the number of points of the whole screen. Each panel holds a width of its
 own on the grid, so each panel asks for a number of its own. A panel that is 80

@@ -18,6 +18,7 @@
   rustPlatform,
   pkg-config,
   aws-lc,
+  cacert,
 }:
 let
   workspace = (lib.importTOML ./Cargo.toml).workspace.package;
@@ -51,6 +52,14 @@ rustPlatform.buildRustPackage {
   # none. The crate finds the library with `pkg-config`.
   nativeBuildInputs = [ pkg-config ];
   buildInputs = [ aws-lc ];
+
+  # A CA is a certificate authority. A client of the data source prometheus
+  # reads the certificates of each CA from the machine, and it returns an error
+  # when it finds none. It does so even for an address of plain HTTP. The
+  # sandbox holds no such certificate, so 22 tests failed there. The setup hook
+  # of `cacert` gives the check phase a file of certificates through the
+  # variable SSL_CERT_FILE. CLAUDE.md section 4.4 records the measurement.
+  nativeCheckInputs = [ cacert ];
 
   # The check phase runs `cargo test` for the whole workspace. One test file of
   # `thunderbox-source-prometheus` starts a server on this machine. The sandbox

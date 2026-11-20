@@ -206,6 +206,30 @@ fn without_password(address: &str) -> String {
     format!("{scheme}://{name}@{}", &rest[at + 1..])
 }
 
+/// Returns the text of an error, and the text of each error that caused it.
+///
+/// `reqwest` writes `builder error` for each fault of its builder, and it keeps
+/// the real fault in [`std::error::Error::source`]. A person who reads the
+/// first text alone cannot repair the fault. A machine that holds no
+/// certificate of a certificate authority gives this text:
+///
+/// ```text
+/// builder error: unexpected error: No CA certificates were loaded from the system
+/// ```
+///
+/// An error of the builder names no address, so this text holds no password.
+/// A caller that gives this function another error must check that rule.
+fn with_causes(error: &dyn std::error::Error) -> String {
+    let mut text = error.to_string();
+    let mut cause = error.source();
+    while let Some(next) = cause {
+        text.push_str(": ");
+        text.push_str(&next.to_string());
+        cause = next.source();
+    }
+    text
+}
+
 impl std::fmt::Debug for Prometheus {
     /// Writes the address and the settings.
     ///
@@ -230,11 +254,21 @@ impl Prometheus {
     ///
     /// - `url` is not an address that thunderbox can read;
     /// - the program cannot build a client that speaks HTTP.
+    ///
+    /// On Linux, the client reads the certificates of each certificate
+    /// authority from the machine. It returns an error when the machine holds
+    /// none, and it does so for an address of plain HTTP as well. The variable
+    /// `SSL_CERT_FILE` names a file of such certificates.
     pub fn new(url: &str, settings: Settings) -> Result<Self> {
         let http = reqwest::Client::builder()
             .timeout(settings.timeout)
             .build()
-            .map_err(|e| Error::Dashboard(format!("thunderbox cannot build a client. {e}")))?;
+            .map_err(|e| {
+                Error::Dashboard(format!(
+                    "thunderbox cannot build a client. {}",
+                    with_causes(&e)
+                ))
+            })?;
         let client = Client::from(http, url).map_err(|e| {
             Error::Dashboard(format!(
                 "the address {:?} of a prometheus source is not correct. {e}",
@@ -512,6 +546,101 @@ mod tests {
         assert_eq!(
             without_password("http://alice:a@b@127.0.0.1:9090/x"),
             "http://alice@127.0.0.1:9090/x"
+        );
+    }
+
+    /// An error that holds a cause, for the tests of `with_causes`.
+    #[derive(Debug)]
+    struct Layer {
+        text: &'static str,
+        cause: Option<Box<Layer>>,
+    }
+
+    impl std::fmt::Display for Layer {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.text)
+        }
+    }
+
+    impl std::error::Error for Layer {
+        fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+            self.cause
+                .as_deref()
+                .map(|c| c as &(dyn std::error::Error + 'static))
+        }
+    }
+
+    #[test]
+    fn the_text_of_an_error_holds_each_cause() {
+        let error = Layer {
+            text: "builder error",
+            cause: Some(Box::new(Layer {
+                text: "unexpected error",
+                cause: Some(Box::new(Layer {
+                    text: "no certificate",
+                    cause: None,
+                })),
+            })),
+        };
+        assert_eq!(
+            with_causes(&error),
+            "builder error: unexpected error: no certificate"
+        );
+        let alone = Layer {
+            text: "builder error",
+            cause: None,
+        };
+        assert_eq!(with_causes(&alone), "builder error");
+    }
+
+    /// The name of the test below, which a child process runs.
+    #[cfg(target_os = "linux")]
+    const CHILD: &str = "tests::a_client_on_a_machine_that_holds_no_certificate";
+
+    /// A child process runs this test, and it writes the result. The test
+    /// `the_error_of_the_client_names_its_cause` reads that result.
+    ///
+    /// The test asserts nothing, so it passes on a machine that holds a
+    /// certificate as well. The attribute `ignore` keeps it out of an ordinary
+    /// run.
+    #[cfg(target_os = "linux")]
+    #[test]
+    #[ignore = "the test the_error_of_the_client_names_its_cause runs this test"]
+    fn a_client_on_a_machine_that_holds_no_certificate() {
+        match Prometheus::new("http://127.0.0.1:9090", Settings::default()) {
+            Ok(_) => println!("RESULT: the client builds"),
+            Err(error) => println!("RESULT: {error}"),
+        }
+    }
+
+    /// A machine that holds no certificate of a certificate authority cannot
+    /// build a client on Linux. The error must name that cause. The text
+    /// `builder error` alone told a person nothing, and the sandbox of Nix
+    /// showed only that text.
+    ///
+    /// The test sets the variable in a child process. A variable that this
+    /// process set would reach every other test of this process. Cargo also
+    /// replaces a variable that names a file which does not exist. It does so
+    /// before it starts a test, so this process cannot rely on that variable.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn the_error_of_the_client_names_its_cause() {
+        let out = std::process::Command::new(
+            std::env::current_exe().expect("The test must know its own program."),
+        )
+        .args(["--exact", CHILD, "--ignored", "--nocapture"])
+        .env("SSL_CERT_FILE", "/no-cert-file.crt")
+        .env_remove("SSL_CERT_DIR")
+        .output()
+        .expect("The test must be able to start its own program.");
+        let text = String::from_utf8_lossy(&out.stdout);
+        let result = text
+            .lines()
+            .find_map(|line| line.strip_prefix("RESULT: "))
+            .unwrap_or_else(|| panic!("The child process wrote no result. {text}"));
+        assert!(
+            result.contains("thunderbox cannot build a client. builder error: "),
+            "The error must name the cause after the text of the builder. {result}"
         );
     }
 }

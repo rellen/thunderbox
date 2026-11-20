@@ -87,6 +87,7 @@ A writer can use these abbreviations without a definition:
 | abbreviation | meaning |
 |---|---|
 | API | application programming interface |
+| CA | certificate authority, an organization that signs the certificate of a server |
 | CSV | comma separated values, a file format |
 | GIF | Graphics Interchange Format, a file format that holds a short picture that moves |
 | HTTP | HyperText Transfer Protocol, the rules that carry a request to a server |
@@ -475,7 +476,7 @@ The flake offers three systems, and one of them has no build:
 The sandbox keeps a build away from the network and from the files of the
 machine.
 
-Four rules follow from the way that the flake builds the package:
+Five rules follow from the way that the flake builds the package:
 
 - **The package names each path that the build reads.** The list `fileset` of
   `default.nix` holds `Cargo.toml`, `Cargo.lock`, `crates`, and `dashboards`.
@@ -495,6 +496,22 @@ Four rules follow from the way that the flake builds the package:
   tells the crate `aws-lc-sys` to link the library `aws-lc` of nixpkgs. `cargo`
   alone compiles that library from the source inside the crate. The package
   therefore needs `pkg-config` and `aws-lc`, and `default.nix` names both.
+- **The check phase needs a file of CA certificates.** On Linux, a client of
+  the data source prometheus reads the certificates of each CA from the
+  machine. It returns an error when it finds none, even for an address of plain
+  HTTP. The sandbox holds no such certificate. `nativeCheckInputs` of
+  `default.nix` therefore names `cacert`, and the setup hook of that package
+  sets the variable `SSL_CERT_FILE`.
+
+The measurement of the last rule: without a CA certificate, 22 tests fail. The
+log of the workflow `flake` named 3 of them, because `cargo test` stops after
+the first target that fails.
+
+`cargo test` cannot show that fault on a machine that holds a CA certificate.
+Cargo replaced a variable `SSL_CERT_FILE` that named a file which did not
+exist, and the test then read the file of the machine. Run the program of a
+test directly to see the fault. The test
+`the_error_of_the_client_names_its_cause` starts such a program.
 
 ---
 
