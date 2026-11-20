@@ -46,8 +46,8 @@ drops. No query therefore serves a panel that the screen cannot show.
 
 The saving appears only on a terminal that already hides part of the dashboard.
 The default dashboard holds 7 panels and 8 targets. It saves nothing on a
-terminal of 10 rows or more. On a terminal of 9 rows it drops the table and the
-top panel, and it saves 2 queries of 8. A program that reports an area of no
+terminal of 10 rows or more. On a terminal of 9 rows it drops the chart `cpu`
+and the stat panel `cpu now`, and it saves 2 queries of 8. A program that reports an area of no
 cells saves every query. A program that hides a dashboard behind a tab can
 report such an area.
 
