@@ -219,6 +219,8 @@ that. A reader therefore checks all nine rules in each of these:
 - each `description` field of `flake.nix` and of `default.nix`;
 - each comment of a file under `dashboards`, and of
   `crates/thunderbox/src/default.toml`;
+- each comment of `docs/book.toml`, of `docs/site.css`, and of
+  `.cargo/config.toml`;
 - the text that opens each file under `scripts`;
 - each title line of a Markdown file;
 - every string that a person reads on the screen.
@@ -333,7 +335,9 @@ of each library.
 
 `docs/user` holds the documentation for a person who uses thunderbox, and
 `docs/contributor` holds the documentation for a person who changes it. Section
-8 states the documentation that each feature holds.
+8 states the documentation that each feature holds. Section 9 states the rules
+of the site that shows both folders. The site is at
+`https://rellen.github.io/thunderbox/`.
 
 `docs/contributor/open-findings.md` holds the findings of a sweep that no other
 file records. Each item there names a fault of the code or of a document, with a
@@ -353,13 +357,20 @@ cargo clippy --all-targets --all-features -- -D warnings
 cargo test
 cargo test --doc
 RUSTDOCFLAGS="-D warnings" cargo doc --no-deps
+cargo xtask site check
+cargo xtask site build
 ```
 
-`.github/workflows/checks.yml` runs these seven checks, and it runs them in this
+`.github/workflows/checks.yml` runs these nine checks, and it runs them in this
 order. The two commands of the script come first, so one fault in one Markdown
 file ends the run before the workflow compiles anything. The workflow sets
-`RUSTDOCFLAGS` for every step, so the last command there carries no such
-prefix.
+`RUSTDOCFLAGS` for every step, so the command `cargo doc --no-deps` there
+carries no such prefix.
+
+The workflow runs the last two commands on Linux alone. `cargo xtask site build`
+needs the program `mdbook`, which the shell of section 4.4 holds. It also reads
+the output of `cargo doc --no-deps`, so run that command first. Section 9 states
+what these two commands check.
 
 `RUSTDOCFLAGS` turns a warning of rustdoc into an error. Section 2 gives
 `rustdoc::broken_intra_doc_links` the level `warn`, and `cargo doc --no-deps`
@@ -386,7 +397,7 @@ and one deletion takes it to zero.
 
 ### 4.1 The checks that this machine does not run
 
-The workflow holds one step that the seven commands above do not hold. That step
+The workflow holds one step that the nine commands above do not hold. That step
 compiles the workspace with release 1.88.0, which is the release that the field
 `rust-version` of `Cargo.toml` names. The step runs on Linux alone.
 
@@ -399,7 +410,9 @@ That step also passes `--locked`, and it is the one place in this repository
 that passes it. Every command above lets Cargo write `Cargo.lock` again. Read
 `git status` after the checks, and commit a change to that file on purpose.
 
-The workflow runs every check on Linux and on macOS. `thunderbox-source-sysinfo`
+The workflow runs every check on Linux and on macOS, with three exceptions. The
+two commands `cargo xtask site check` and `cargo xtask site build` run on Linux
+alone, and so does the step of release 1.88.0. `thunderbox-source-sysinfo`
 reads this machine, and the crate `sysinfo` holds a separate implementation for
 each operating system.
 
@@ -449,12 +462,13 @@ on that path more often than on any other.
 Nix is a package manager, and a flake is the file that tells Nix what a
 repository offers. `flake.nix` offers the package of the program, and
 `default.nix` holds that package. `flake.nix` also offers a shell that holds
-each tool of this section and of section 6.
+each tool of section 4, of section 6, and of section 9. The shell holds the
+program `mdbook` for the site of section 9.
 `docs/user/how-to/install-thunderbox.md` gives the commands for a person who
 installs the program. ADR 0055 and ADR 0056 record the decisions of the flake.
 
 `nix develop` starts the shell. The flake reads the release of Rust from
-`rust-toolchain.toml`, so the seven commands above then run with the pinned
+`rust-toolchain.toml`, so the nine commands above then run with the pinned
 release. A machine that holds no rustup otherwise runs them with another
 release, and it reports nothing.
 
@@ -894,7 +908,8 @@ Follow these steps:
 1. Search `docs/user` for each name that the change touches: each field, each
    key, each kind, each query. Correct each page that states the old fact.
 2. Write each new page that the table above asks for. Add a row for it to
-   `docs/user/README.md`.
+   `docs/user/README.md`. The command `cargo xtask site generate` then adds the
+   page to the sidebar of the site.
 3. Load each dashboard file that a page holds. A file that does not load is a
    fault of the page.
 
@@ -905,7 +920,8 @@ The change updates it in these ways:
 
 - Each decision that the change takes gets a record in `docs/contributor/adr`.
   Copy `0000-template.md`, take the next free number, and add a row to the
-  table of `README.md` of that folder.
+  table of `README.md` of that folder. The command `cargo xtask site generate`
+  then adds the record to the sidebar of the site.
 - Each question that the change leaves open gets a record of the status
   Proposed. Each design that the change examined and did not take gets a
   record of the status Rejected. Section 6.2 states what such a record holds.
@@ -918,4 +934,121 @@ The change updates it in these ways:
   `ADR 0021 in docs/contributor/adr`.
 
 Section 1 governs every page of both folders, as it governs every other text of
+this project.
+
+---
+
+## 9. The documentation site
+
+The project publishes `docs` as a site at `https://rellen.github.io/thunderbox/`.
+mdBook is a program that builds a site from Markdown files. GitHub Pages is the
+service of GitHub that serves the site. ADR 0066 in `docs/contributor/adr`
+records the decision. ADR 0067 records the designs that the project rejected.
+ADR 0068 states the question that remains.
+
+### 9.1 The parts of the site
+
+The site holds three parts, and it holds the API documentation:
+
+- The home page shows the program and names the other parts.
+- The part "Use thunderbox" holds the pages of `docs/user`.
+- The part "Work on thunderbox" holds the pages of `docs/contributor`. It also
+  holds the page `docs/contributor/rules.md`, which shows this file.
+- The folder `api` of the site holds the output of `cargo doc --no-deps`. This
+  folder holds no page of its own, because `cargo doc --no-deps` writes no
+  `index.html` at the root of `target/doc`. The crate table of the site links
+  to the page of each crate.
+
+These files hold the site:
+
+| file | what it holds |
+|---|---|
+| `docs/book.toml` | The configuration of mdBook. It names `docs` as the source, `target/book` as the output, and the preprocessor of links. |
+| `docs/SUMMARY.md` | The sidebar of the site. The command `cargo xtask site generate` writes it. |
+| `docs/index.md` | The home page. A person writes it, and the generator writes the crate table in it. |
+| `docs/site.css` | The style of the home page. |
+| `docs/contributor/rules.md` | The page that shows this file. |
+| `crates/xtask` | The program that generates and checks the files, builds the site, and rewrites each link. |
+| `.cargo/config.toml` | The alias that lets `cargo xtask` run the crate `xtask`. |
+
+### 9.2 The commands
+
+These commands build the site on this machine. Run them from the root of the
+workspace:
+
+```
+cargo doc --no-deps
+cargo xtask site generate
+cargo xtask site check
+cargo xtask site build
+python3 -m http.server --directory target/book
+```
+
+Each command has one task:
+
+- `cargo xtask site generate` writes the sidebar and the crate tables.
+- `cargo xtask site check` returns an error when a generated part is not
+  current.
+- `cargo xtask site build` runs mdBook, copies `target/doc` into
+  `target/book/api`, and checks every internal link of the built pages.
+- `python3 -m http.server` serves the site at `http://localhost:8000/`.
+
+The program `mdbook` comes from `nix develop`. The command
+`cargo xtask site build` returns an error when it finds no `mdbook`, and when
+`target/doc` does not exist.
+
+### 9.3 The rules of the site
+
+- **A new page takes a row in a table.** Add a row for the page to the table of
+  the nearest `README.md`. Then run `cargo xtask site generate`, which writes
+  the sidebar from those tables. The generator returns an error for a page that
+  no table names. The reason: plain `mdbook build` skips a Markdown file that
+  `SUMMARY.md` does not name, and it still returns 0. The measurement: such a
+  file gave the code 0 and printed only lines of the level INFO. The site would
+  then hold no such page, and no check would say so.
+- **No person edits a generated part.** The generated parts are
+  `docs/SUMMARY.md` and the text between the lines `<!-- crates:begin -->` and
+  `<!-- crates:end -->`. Edit the source of the part instead. The source is a
+  row of a table, or the `description` field of a `Cargo.toml` file. The
+  command `cargo xtask site check` returns an error when a generated part is
+  not current, and the workflow runs it.
+- **The crate table comes from two sources.** The `description` field of each
+  `Cargo.toml` file gives the text of a row. The command `cargo metadata` gives
+  the list of the crates. The generator returns an error for a crate that has
+  no description.
+- **Each relative link must work on the site.** A page of `docs` also reads on
+  GitHub, so its links name files of the repository. A preprocessor is a
+  program that mdBook runs on each page before it builds the site. The
+  preprocessor `cargo xtask mdbook-preprocessor` changes each such link. A link
+  to a page stays a link to a page. A link to another file or folder of the
+  repository becomes a link to GitHub on the branch `main`.
+  `cargo xtask site build` then checks every internal link of the built pages,
+  and it returns an error for a link that reaches nothing.
+- **mdBook has one release in two places.** `checks.yml` names the release in
+  the line `mdbook@0.5.4`. The shell takes mdBook from the nixpkgs that
+  `flake.lock` pins. Raise both places together. Dependabot raises the tag of
+  the action `taiki-e/install-action`, and it does not raise the number after
+  `mdbook@`. Run `mdbook --version` in the shell after `nix flake update`.
+  Compare the answer with that number.
+- **A pull request builds the site, and only `main` publishes it.** The step
+  that builds the site runs for every pull request, so a fault reaches the
+  reviewer. Only a run on `main` uploads the site. The job `deploy` then
+  publishes it, after both jobs of the matrix pass. The environment
+  `github-pages` accepts a deployment from `main` alone. The workflow never
+  cancels a run on `main`, because a cancel could stop a deployment before it
+  ends.
+- **This file holds no include directive of mdBook.** An include directive is a
+  line that tells mdBook to copy a file into a page. The page
+  `docs/contributor/rules.md` includes this file, so an include directive in
+  this file makes mdBook include the file again without end. Do not write that
+  directive here. mdBook also reads the directive inside back quotes and
+  inside a fence. The measurement: a directive inside back quotes in an
+  included file made mdBook print
+  `ERROR Stack depth exceeded in a.md. Check for cyclic includes`.
+- **The page that shows this file is `rules.md`.** Never name it `claude.md`.
+  Claude Code loads the file `CLAUDE.md` of each folder as a file of
+  instructions. macOS ignores the case of a name, so Claude Code also loads a
+  file `claude.md` in that way.
+
+Section 1 governs every page of the site, as it governs every other text of
 this project.
