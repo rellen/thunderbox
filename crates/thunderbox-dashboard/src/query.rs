@@ -16,6 +16,7 @@ use thunderbox_core::{Frame, Query, QueryRequest, Target, TimeRange, Timestamp, 
 use thunderbox_source::{DataSource, Registry};
 use tokio::task::JoinSet;
 
+use crate::grid::CollapsedRows;
 use crate::snapshot::{PanelState, Snapshot};
 use crate::variable::Choices;
 
@@ -191,6 +192,10 @@ pub async fn run_all(
         variables: values.clone(),
         updated_at: Some(now),
         refreshing: false,
+        // The runtime owns the row panels that are collapsed. `publish` writes
+        // the state that the channel holds into this snapshot, so a set of
+        // queries never carries a state of its own.
+        collapsed: CollapsedRows::default(),
     }
 }
 

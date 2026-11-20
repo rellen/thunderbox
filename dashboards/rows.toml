@@ -1,0 +1,84 @@
+# A dashboard that shows the row panels.
+#
+# A row panel holds each panel below it on the grid, up to the next row panel.
+# This file lists every panel beside the row panels, and never inside one. A
+# collapsed row panel hides the panels that it holds, and the panels below it
+# move up.
+#
+# The data source is the test data of this project, so this dashboard needs no
+# server. Press Tab to select a row panel. Press Enter or Space to collapse it,
+# or to expand it.
+#
+#     cargo run -p thunderbox -- dashboards/rows.toml
+
+title = "rows"
+refresh = "1s"
+
+[time]
+from = "now-1m"
+to = "now"
+
+[source.test]
+kind = "testdata"
+series = 2
+
+[[panel]]
+title = "load"
+kind = "row"
+grid = { x = 0, y = 0, w = 24, h = 1 }
+
+[[panel]]
+title = "cpu"
+kind = "timeseries"
+unit = "percent"
+grid = { x = 0, y = 1, w = 16, h = 8 }
+[[panel.target]]
+source = "test"
+expr = "random_walk"
+legend = "series {{series}}"
+
+[[panel]]
+title = "cpu now"
+kind = "stat"
+unit = "percent"
+decimals = 0
+grid = { x = 16, y = 1, w = 8, h = 8 }
+[[panel.target]]
+source = "test"
+expr = "random_walk"
+legend = "series {{series}}"
+
+[[panel]]
+title = "network"
+kind = "row"
+grid = { x = 0, y = 9, w = 24, h = 1 }
+
+[[panel]]
+title = "network in"
+kind = "timeseries"
+unit = "bytes/s"
+grid = { x = 0, y = 10, w = 24, h = 7 }
+[[panel.target]]
+source = "test"
+expr = "sine"
+legend = "series {{series}}"
+
+# This row panel starts collapsed, so its panel waits until a person expands
+# it. thunderbox asks the data source nothing for a hidden panel.
+[[panel]]
+title = "processes"
+kind = "row"
+collapsed = true
+grid = { x = 0, y = 17, w = 24, h = 1 }
+
+[[panel]]
+title = "the busiest processes"
+kind = "top"
+sort = "cpu"
+grid = { x = 0, y = 18, w = 24, h = 8 }
+[[panel.threshold]]
+value = 85.0
+color = "critical"
+[[panel.target]]
+source = "test"
+expr = "processes"

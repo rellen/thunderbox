@@ -14,9 +14,222 @@
 //! `thunderbox-widgets` holds that function, because a panel of that crate draws
 //! nothing at a smaller size. The smallest size therefore belongs to the panel
 //! that draws, and this crate reads it.
+//!
+//! # Row panels
+//!
+//! A row panel holds each panel below it on the grid, up to the next row
+//! panel. [`places`] gives each row panel one line of the terminal, and it
+//! scales the other rows of the grid onto the lines that remain. A collapsed
+//! row panel hides the panels that it holds. The rows of the grid that those
+//! panels held then leave the scale, so the panels below move up and every
+//! panel that remains grows.
+//!
+//! A dashboard that holds no row panel gives every panel the place that it
+//! held before row panels existed. The test
+//! `a_dashboard_with_no_row_panel_keeps_every_place` holds that rule.
 
-use ratatui_core::layout::Size;
-use thunderbox_core::{Dashboard, GRID_COLUMNS, GridPos};
+use std::collections::BTreeSet;
+
+use ratatui_core::layout::Rect;
+use thunderbox_core::{Dashboard, GRID_COLUMNS, GridPos, PanelKind};
+
+/// The row panels that are collapsed now, by their position in the dashboard.
+///
+/// [`crate::DashboardRuntime`] holds this value, and each [`crate::Snapshot`]
+/// carries a copy of it. [`crate::DashboardView`] draws the copy of the
+/// snapshot, so the renderer and the runtime hide the same panels.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct CollapsedRows(BTreeSet<usize>);
+
+impl CollapsedRows {
+    /// Returns the row panels that the dashboard states as collapsed.
+    ///
+    /// The field `collapsed` of a row panel states its first state.
+    pub fn of(dashboard: &Dashboard) -> Self {
+        Self(
+            dashboard
+                .panels
+                .iter()
+                .enumerate()
+                .filter(|(_, panel)| panel.kind == PanelKind::Row && panel.collapsed == Some(true))
+                .map(|(index, _)| index)
+                .collect(),
+        )
+    }
+
+    /// Returns `true` when the panel at this position is a collapsed row panel.
+    pub fn contains(&self, index: usize) -> bool {
+        self.0.contains(&index)
+    }
+
+    /// Collapses an expanded row panel, or expands a collapsed one.
+    pub(crate) fn toggle(&mut self, index: usize) {
+        if !self.0.remove(&index) {
+            self.0.insert(index);
+        }
+    }
+}
+
+/// Returns the row panel that holds each panel, in the order of the dashboard.
+///
+/// A row panel holds each panel that starts below its line, up to the line of
+/// the next row panel. A panel above the first row panel belongs to no row
+/// panel, and neither does a row panel itself. `Dashboard::validate` rejects a
+/// panel that crosses the line of a row panel, so each panel belongs to one
+/// place.
+pub(crate) fn owners(dashboard: &Dashboard) -> Vec<Option<usize>> {
+    let rows = row_lines(dashboard);
+    dashboard
+        .panels
+        .iter()
+        .map(|panel| {
+            if panel.kind == PanelKind::Row {
+                return None;
+            }
+            rows.iter()
+                .rev()
+                .find(|row| row.y < panel.grid.y)
+                .map(|row| row.index)
+        })
+        .collect()
+}
+
+/// Returns `true` for each panel that a collapsed row panel hides, in the order
+/// of the dashboard.
+pub(crate) fn hidden(dashboard: &Dashboard, collapsed: &CollapsedRows) -> Vec<bool> {
+    owners(dashboard)
+        .into_iter()
+        .map(|owner| owner.is_some_and(|row| collapsed.contains(row)))
+        .collect()
+}
+
+/// One row panel, and the rows of the grid that its line covers.
+#[derive(Debug, Clone, Copy)]
+struct RowLine {
+    /// The position of the row panel in the dashboard.
+    index: usize,
+    /// The first row of the grid that the line covers.
+    y: u16,
+    /// The number of rows of the grid that the line covers.
+    h: u16,
+}
+
+/// Returns each row panel of the dashboard, from the top to the bottom.
+fn row_lines(dashboard: &Dashboard) -> Vec<RowLine> {
+    let mut rows: Vec<RowLine> = dashboard
+        .panels
+        .iter()
+        .enumerate()
+        .filter(|(_, panel)| panel.kind == PanelKind::Row)
+        .map(|(index, panel)| RowLine {
+            index,
+            y: panel.grid.y,
+            h: panel.grid.h,
+        })
+        .collect();
+    rows.sort_by_key(|row| (row.y, row.index));
+    rows
+}
+
+/// Returns the place of each panel inside an area, in the order of the
+/// dashboard.
+///
+/// The value is `None` for a panel that a collapsed row panel hides. Every
+/// other panel takes a place, and that place can be too small to draw.
+/// [`thunderbox_widgets::draws_a_panel`] decides that for a panel that shows
+/// data. A row panel draws when its place holds one line.
+///
+/// The function gives each row panel one line, and it scales the other rows of
+/// the grid onto the lines that remain. Two sets of rows of the grid leave that
+/// scale:
+///
+/// - the rows that the line of a row panel covers;
+/// - the rows that a collapsed row panel holds.
+///
+/// A panel below a collapsed row panel therefore moves up, and each panel that
+/// remains grows.
+///
+/// A terminal can hold fewer lines than the dashboard holds row panels. The
+/// last row panels then take no line at all, and every other panel takes no
+/// height.
+///
+/// The renderer draws each panel at this place, and the runtime asks the data
+/// source of each panel for the points of the same width. One function returns
+/// both numbers, so the two parts cannot differ.
+///
+/// The function holds every place inside the area, and it saturates each sum.
+/// A dashboard that no caller validated therefore cannot make it panic.
+pub(crate) fn places(
+    dashboard: &Dashboard,
+    collapsed: &CollapsedRows,
+    area: Rect,
+) -> Vec<Option<Rect>> {
+    let total = rows_of_grid(dashboard);
+    let rows = row_lines(dashboard);
+    let hidden = hidden(dashboard, collapsed);
+
+    // This list holds the rows of the grid that leave the scale, as pairs of a
+    // start and an end. A collapsed row panel holds the rows up to the next row
+    // panel, or up to the bottom of the grid.
+    let mut gone: Vec<(u16, u16)> = Vec::new();
+    for (k, row) in rows.iter().enumerate() {
+        let line_end = row.y.saturating_add(row.h);
+        gone.push((row.y, line_end));
+        if collapsed.contains(row.index) {
+            let end = rows.get(k + 1).map_or(total, |next| next.y).max(line_end);
+            gone.push((line_end, end));
+        }
+    }
+    // This closure returns the rows of the grid above `y` that stay in the
+    // scale.
+    let kept = |y: u16| -> u16 {
+        let left: u16 = gone
+            .iter()
+            .map(|(start, end)| (*end).min(y).saturating_sub(*start))
+            .fold(0, u16::saturating_add);
+        y.saturating_sub(left)
+    };
+    let units = kept(total);
+    let lines = u16::try_from(rows.len()).unwrap_or(u16::MAX);
+    let pool = area.height.saturating_sub(lines);
+    // This closure returns the number of row panels above `y`. Each one takes
+    // one line.
+    let lines_above = |y: u16| -> u16 {
+        u16::try_from(rows.iter().filter(|row| row.y < y).count()).unwrap_or(u16::MAX)
+    };
+    // This closure returns the distance from the top of the area to the start
+    // of a grid row. It holds that distance inside the area.
+    let offset = |above: u16, y: u16| -> u16 {
+        above
+            .saturating_add(scale(kept(y), units, pool))
+            .min(area.height)
+    };
+
+    dashboard
+        .panels
+        .iter()
+        .zip(hidden)
+        .map(|(panel, hidden)| {
+            if hidden {
+                return None;
+            }
+            let g = panel.grid;
+            let above = lines_above(g.y);
+            let top = offset(above, g.y);
+            let height = if panel.kind == PanelKind::Row {
+                u16::from(top < area.height)
+            } else {
+                offset(above, g.y.saturating_add(g.h)).saturating_sub(top)
+            };
+            Some(Rect {
+                x: area.x + scale(g.x, GRID_COLUMNS, area.width),
+                y: area.y + top,
+                width: panel_width(g, area.width),
+                height,
+            })
+        })
+        .collect()
+}
 
 /// Returns the number of grid rows that a dashboard holds.
 ///
@@ -38,28 +251,6 @@ pub(crate) fn rows_of_grid(dashboard: &Dashboard) -> u16 {
         .max()
         .unwrap_or(1)
         .max(1)
-}
-
-/// Returns the size of one panel, in terminal cells.
-///
-/// The value `rows` is the number of grid rows of the dashboard, which
-/// [`rows_of_grid`] returns. The value `area` is the size of the area that
-/// holds every panel. The function scales the cells of one panel onto that
-/// area.
-///
-/// The height of a panel follows both `y` and `h`, because [`scale`] multiplies
-/// before it divides. The width follows both `x` and `w` for the same reason,
-/// and [`panel_width`] states that rule.
-///
-/// The function adds `y` and `h` with `u16::saturating_add`. A dashboard that
-/// no caller validated therefore cannot make this function panic.
-pub(crate) fn panel_size(grid: GridPos, rows: u16, area: Size) -> Size {
-    let top = scale(grid.y, rows, area.height);
-    let bottom = scale(grid.y.saturating_add(grid.h), rows, area.height);
-    Size {
-        width: panel_width(grid, area.width),
-        height: bottom.saturating_sub(top),
-    }
 }
 
 /// Returns the width of one panel, in terminal cells.
@@ -105,6 +296,7 @@ pub(crate) fn scale(value: u16, whole: u16, span: u16) -> u16 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ratatui_core::layout::Size;
     use thunderbox_core::max_data_points;
     use thunderbox_widgets::draws_a_panel;
 
@@ -197,12 +389,15 @@ mod tests {
 
     /// Returns the number of panels that the renderer draws in this area.
     fn drawn(dashboard: &Dashboard, area: Size) -> usize {
-        let rows = rows_of_grid(dashboard);
-        dashboard
-            .panels
-            .iter()
-            .filter(|panel| draws_a_panel(panel_size(panel.grid, rows, area)))
-            .count()
+        places(
+            dashboard,
+            &CollapsedRows::default(),
+            Rect::new(0, 0, area.width, area.height),
+        )
+        .into_iter()
+        .flatten()
+        .filter(|place| draws_a_panel(place.as_size()))
+        .count()
     }
 
     /// Returns a dashboard of `count` panels, one above the other.
@@ -245,15 +440,16 @@ mod tests {
             "This dashboard passes the check that the runtime makes."
         );
         assert_eq!(rows_of_grid(&dashboard), u16::MAX);
-        let size = panel_size(
-            dashboard.panels[0].grid,
-            rows_of_grid(&dashboard),
-            Size::new(100, 40),
-        );
+        let place = places(
+            &dashboard,
+            &CollapsedRows::default(),
+            Rect::new(0, 0, 100, 40),
+        )[0]
+        .expect("No row panel hides this panel.");
         assert!(
-            size.height <= 40,
-            "A panel must hold no cell past the area. It held {} cells.",
-            size.height
+            place.bottom() <= 40,
+            "A panel must hold no cell past the area. It reached the row {}.",
+            place.bottom()
         );
     }
 
@@ -325,4 +521,216 @@ title = "processes"
 kind = "top"
 grid = { x = 12, y = 13, w = 12, h = 6 }
 "#;
+
+    /// A dashboard of two row panels. The first row panel holds one chart, and
+    /// the second holds two panels side by side.
+    ///
+    /// The panels stand at these positions:
+    ///
+    /// - 0 is the chart above both row panels;
+    /// - 1 is the first row panel, and 2 is its chart;
+    /// - 3 is the second row panel, and 4 and 5 are its two panels.
+    const ROWS: &str = r#"
+title = "rows"
+[[panel]]
+title = "top"
+kind = "timeseries"
+grid = { x = 0, y = 0, w = 24, h = 6 }
+[[panel]]
+title = "first"
+kind = "row"
+grid = { x = 0, y = 6, w = 24, h = 1 }
+[[panel]]
+title = "a"
+kind = "timeseries"
+grid = { x = 0, y = 7, w = 24, h = 6 }
+[[panel]]
+title = "second"
+kind = "row"
+grid = { x = 0, y = 13, w = 24, h = 1 }
+[[panel]]
+title = "b"
+kind = "timeseries"
+grid = { x = 0, y = 14, w = 12, h = 6 }
+[[panel]]
+title = "c"
+kind = "table"
+grid = { x = 12, y = 14, w = 12, h = 6 }
+"#;
+
+    fn rows() -> Dashboard {
+        Dashboard::from_toml(ROWS).expect("The dashboard must be correct.")
+    }
+
+    /// Returns the row panels that are collapsed, from a list of positions.
+    fn collapsed(positions: &[usize]) -> CollapsedRows {
+        let mut set = CollapsedRows::default();
+        for position in positions {
+            set.toggle(*position);
+        }
+        set
+    }
+
+    /// The layout that the renderer used before row panels existed. A
+    /// dashboard that holds no row panel must keep each of these places.
+    fn old_place(dashboard: &Dashboard, grid: GridPos, area: Rect) -> Rect {
+        let rows = rows_of_grid(dashboard);
+        let top = scale(grid.y, rows, area.height);
+        let bottom = scale(grid.y.saturating_add(grid.h), rows, area.height);
+        Rect {
+            x: area.x + scale(grid.x, GRID_COLUMNS, area.width),
+            y: area.y + top,
+            width: panel_width(grid, area.width),
+            height: bottom.saturating_sub(top),
+        }
+    }
+
+    #[test]
+    fn a_dashboard_with_no_row_panel_keeps_every_place() {
+        for dashboard in [column(3), column(8)] {
+            for width in [0_u16, 7, 80, 133] {
+                for height in 0..=70_u16 {
+                    let area = Rect::new(3, 2, width, height);
+                    let placed = places(&dashboard, &CollapsedRows::default(), area);
+                    for (panel, place) in dashboard.panels.iter().zip(placed) {
+                        assert_eq!(
+                            place,
+                            Some(old_place(&dashboard, panel.grid, area)),
+                            "{} on {width} by {height}.",
+                            panel.title
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_row_panel_holds_each_panel_below_it_up_to_the_next_row_panel() {
+        assert_eq!(
+            owners(&rows()),
+            vec![None, None, Some(1), None, Some(3), Some(3)],
+            "The chart above both row panels belongs to no row panel."
+        );
+    }
+
+    #[test]
+    fn each_row_panel_takes_one_line_at_every_height() {
+        let dash = rows();
+        for height in 2..=60_u16 {
+            let placed = places(
+                &dash,
+                &CollapsedRows::default(),
+                Rect::new(0, 0, 80, height),
+            );
+            for index in [1, 3] {
+                let place = placed[index].expect("A row panel is never hidden.");
+                assert_eq!(
+                    place.height, 1,
+                    "The row panel {index} must take one line of {height} lines."
+                );
+                assert_eq!(place.width, 80, "A row panel spans the whole area.");
+            }
+        }
+    }
+
+    /// The panel above a row panel ends where the line of that row panel
+    /// starts, and the panel below starts where the line ends. The renderer
+    /// leaves no gap and no overlap.
+    #[test]
+    fn the_panels_around_a_row_panel_touch_its_line() {
+        let dash = rows();
+        for height in 2..=60_u16 {
+            let placed = places(
+                &dash,
+                &CollapsedRows::default(),
+                Rect::new(0, 5, 80, height),
+            );
+            let at = |index: usize| placed[index].expect("No row panel is collapsed.");
+            assert_eq!(at(0).bottom(), at(1).y, "{height}");
+            assert_eq!(at(1).bottom(), at(2).y, "{height}");
+            assert_eq!(at(2).bottom(), at(3).y, "{height}");
+            assert_eq!(at(3).bottom(), at(4).y, "{height}");
+            assert_eq!(
+                at(4).y,
+                at(5).y,
+                "The two panels share one row of the grid."
+            );
+            assert_eq!(
+                at(4).bottom(),
+                5 + height,
+                "The last panels reach the bottom."
+            );
+        }
+    }
+
+    #[test]
+    fn a_collapsed_row_panel_hides_the_panels_that_it_holds() {
+        let placed = places(&rows(), &collapsed(&[3]), Rect::new(0, 0, 80, 30));
+        assert!(placed[4].is_none() && placed[5].is_none(), "{placed:?}");
+        assert!(placed[3].is_some(), "The row panel itself stays.");
+        assert!(placed[0].is_some() && placed[2].is_some(), "{placed:?}");
+    }
+
+    /// The person chose this behaviour: the panels below a collapsed row panel
+    /// move up, and every panel that remains grows to fill the terminal.
+    #[test]
+    fn the_panels_below_a_collapsed_row_panel_move_up_and_every_panel_grows() {
+        let dash = rows();
+        let area = Rect::new(0, 0, 80, 30);
+        let open = places(&dash, &CollapsedRows::default(), area);
+        let shut = places(&dash, &collapsed(&[1]), area);
+        let (open_top, shut_top) = (open[0].unwrap(), shut[0].unwrap());
+        assert!(
+            shut_top.height > open_top.height,
+            "{open_top:?} {shut_top:?}"
+        );
+        let (open_b, shut_b) = (open[4].unwrap(), shut[4].unwrap());
+        assert!(
+            shut_b.y < open_b.y,
+            "The panel below moves up. {open_b:?} {shut_b:?}"
+        );
+        assert!(shut_b.height > open_b.height, "{open_b:?} {shut_b:?}");
+        assert_eq!(
+            shut[1].unwrap().bottom(),
+            shut[3].unwrap().y,
+            "The two lines must touch."
+        );
+        assert_eq!(
+            shut_b.bottom(),
+            30,
+            "The last panels still reach the bottom."
+        );
+    }
+
+    /// A terminal can hold fewer lines than the dashboard holds row panels. No
+    /// place may then reach past the area, and no two places may overlap.
+    #[test]
+    fn every_place_stays_inside_the_area_and_no_two_places_overlap() {
+        let dash = rows();
+        for state in [vec![], vec![1], vec![3], vec![1, 3]] {
+            for height in 0..=40_u16 {
+                let area = Rect::new(2, 3, 50, height);
+                let placed: Vec<Rect> = places(&dash, &collapsed(&state), area)
+                    .into_iter()
+                    .flatten()
+                    .filter(|place| place.height > 0)
+                    .collect();
+                for place in &placed {
+                    assert!(
+                        area.contains(place.as_position()) && place.bottom() <= area.bottom(),
+                        "{place:?} lies outside {area:?}. {state:?}"
+                    );
+                }
+                for (i, one) in placed.iter().enumerate() {
+                    for other in &placed[i + 1..] {
+                        assert!(
+                            !one.intersects(*other),
+                            "{one:?} and {other:?} overlap at {height} lines. {state:?}"
+                        );
+                    }
+                }
+            }
+        }
+    }
 }

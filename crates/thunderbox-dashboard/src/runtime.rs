@@ -4,9 +4,9 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
-use ratatui_core::layout::Size;
+use ratatui_core::layout::{Rect, Size};
 use thunderbox_core::{
-    Dashboard, Query, Result, TimeRange, max_data_points, now_ms, parse_duration_ms,
+    Dashboard, PanelKind, Query, Result, TimeRange, max_data_points, now_ms, parse_duration_ms,
 };
 use thunderbox_source::Registry;
 use thunderbox_widgets::{Marker, draws_a_panel};
@@ -14,7 +14,7 @@ use tokio::runtime::Handle;
 use tokio::sync::{oneshot, watch};
 use tokio::task::JoinHandle;
 
-use crate::grid::{panel_size, panel_width, rows_of_grid};
+use crate::grid::{CollapsedRows, hidden, panel_width, places};
 use crate::query::{PanelJob, PanelQueries, load_choices, run_all};
 use crate::snapshot::{PanelState, Snapshot};
 use crate::variable::{Choices, Variables};
@@ -138,6 +138,13 @@ pub struct DashboardRuntime {
     /// every second frame. Neither [`AREA_QUIET_TIME`] nor [`AREA_MAX_HOLD`]
     /// could then pass, and that area would never reach a data source.
     area_wait_since: Option<Instant>,
+    /// The row panels that are collapsed now.
+    ///
+    /// The runtime asks a data source for nothing about a panel that a
+    /// collapsed row panel hides. Each snapshot carries a copy of this value,
+    /// and the renderer reads that copy. [`DashboardRuntime::toggle_row`]
+    /// changes it.
+    collapsed: CollapsedRows,
     range: TimeRange,
     /// The choices of each variable, and the value that each one holds.
     variables: Variables,
@@ -219,8 +226,10 @@ impl DashboardRuntime {
         };
         let variables = Variables::new(&dashboard.variables);
         let choices = ask_for_choices(&dashboard, &sources, &handle);
+        let collapsed = CollapsedRows::of(&dashboard);
         let mut first = Snapshot::loading(dashboard.panels.len(), range.clone());
         first.variables = variables.values();
+        first.collapsed = collapsed.clone();
         let (tx, rx) = watch::channel(Arc::new(first));
         let mut runtime = Self {
             dashboard,
@@ -231,6 +240,7 @@ impl DashboardRuntime {
             pending_area: None,
             area_changed_at: Instant::now(),
             area_wait_since: None,
+            collapsed,
             range,
             variables,
             choices,
@@ -480,6 +490,55 @@ impl DashboardRuntime {
         }
     }
 
+    /// Collapses an expanded row panel, or expands a collapsed one.
+    ///
+    /// The value `index` is the position of the row panel in the dashboard.
+    /// The method does nothing for a position that holds no row panel.
+    /// [`crate::row_key`] maps a key to that position.
+    ///
+    /// The method writes the new state into the snapshot that the channel
+    /// holds, so the next frame draws it. It then compares the point limit of
+    /// each panel before and after the change:
+    ///
+    /// - A panel that now draws, and that drew nothing before, starts a set of
+    ///   queries. An expanded row panel shows such panels. A collapse can show
+    ///   one too, because each panel that remains grows. The runtime asked no
+    ///   data source about such a panel, so the answer that it holds can be
+    ///   old.
+    /// - A change that only hides panels starts no set of queries. A width
+    ///   decides the point limit of a panel, and a collapse changes no width.
+    ///   The runtime clears the error of each panel that it hides, because no
+    ///   later set of queries reaches such a panel.
+    ///
+    /// A program calls this method from a key press. The method starts at most
+    /// one set of queries for each call. A key that a person holds down
+    /// therefore costs one set for each repeat.
+    pub fn toggle_row(&mut self, index: usize) {
+        if self.dashboard.panels.get(index).map(|p| p.kind) != Some(PanelKind::Row) {
+            return;
+        }
+        let before = self.point_limits();
+        self.collapsed.toggle(index);
+        let collapsed = self.collapsed.clone();
+        self.tx
+            .send_modify(|held| Arc::make_mut(held).collapsed = collapsed);
+        let appears = self
+            .point_limits()
+            .iter()
+            .zip(&before)
+            .any(|(after, before)| after.is_some() && before.is_none());
+        if appears {
+            self.refresh();
+        } else {
+            self.clear_the_error_of_each_panel_that_the_area_drops();
+        }
+    }
+
+    /// Returns the row panels that are collapsed now.
+    pub fn collapsed_rows(&self) -> &CollapsedRows {
+        &self.collapsed
+    }
+
     /// Sets the time range that every panel shares, and starts the queries
     /// again.
     ///
@@ -709,11 +768,15 @@ impl DashboardRuntime {
     /// then knows no height, so it can drop no panel. It reads the width
     /// `ASSUMED_WIDTH` for the point limit of each panel.
     ///
-    /// The method reads the size of each panel from
-    /// [`crate::grid::panel_size`], which is the function that the renderer
-    /// reads for the place of that panel. A panel therefore asks a data source
-    /// for the points of the width that it draws, and the two parts drop the
-    /// same panels.
+    /// The method reads the place of each panel from [`crate::grid::places`],
+    /// which is the function that the renderer reads for the place of that
+    /// panel. A panel therefore asks a data source for the points of the width
+    /// that it draws, and the two parts drop the same panels.
+    ///
+    /// The value is `None` for a row panel, which shows no data. It is `None`
+    /// as well for a panel that a collapsed row panel hides, with an area or
+    /// without one. The runtime knows which row panels are collapsed before
+    /// any caller reports an area.
     ///
     /// A panel that holds few cells asks for few points. The default dashboard
     /// holds a panel of 8 grid columns of 24, and that panel asked for the
@@ -734,17 +797,28 @@ impl DashboardRuntime {
     /// can therefore ask what an area would cost before it takes that area.
     fn limits_for(&self, area: Option<Size>) -> Vec<Option<u32>> {
         let subcells = self.marker.horizontal_subcells();
-        let rows = rows_of_grid(&self.dashboard);
+        let hidden = hidden(&self.dashboard, &self.collapsed);
+        let placed = area.map(|area| {
+            places(
+                &self.dashboard,
+                &self.collapsed,
+                Rect::new(0, 0, area.width, area.height),
+            )
+        });
         self.dashboard
             .panels
             .iter()
-            .map(|panel| {
-                let Some(area) = area else {
+            .enumerate()
+            .map(|(index, panel)| {
+                if panel.kind == PanelKind::Row || hidden[index] {
+                    return None;
+                }
+                let Some(placed) = &placed else {
                     let width = panel_width(panel.grid, ASSUMED_WIDTH);
                     return Some(max_data_points(width, subcells));
                 };
-                let size = panel_size(panel.grid, rows, area);
-                draws_a_panel(size).then(|| max_data_points(size.width, subcells))
+                let place = placed[index]?;
+                draws_a_panel(place.as_size()).then(|| max_data_points(place.width, subcells))
             })
             .collect()
     }
@@ -868,6 +942,7 @@ impl DashboardRuntime {
                 Kept::Nothing => {
                     let mut no_answer = Snapshot::loading(panel_count, range.clone());
                     no_answer.variables = values.clone();
+                    no_answer.collapsed = held.collapsed.clone();
                     no_answer.refreshing = true;
                     *held = Arc::new(no_answer);
                 }
@@ -1026,12 +1101,17 @@ fn publish(
     tx: &watch::Sender<Arc<Snapshot>>,
     generation: &AtomicU64,
     mine: u64,
-    snapshot: Snapshot,
+    mut snapshot: Snapshot,
 ) -> bool {
     tx.send_if_modified(|held| {
         if generation.load(Ordering::Relaxed) != mine {
             return false;
         }
+        // The runtime owns the row panels that are collapsed, and it writes
+        // each change into the channel at once. A collapse that only hides
+        // panels starts no set of queries, so the set that runs does not stop.
+        // Its answer must not carry the state from before that collapse.
+        snapshot.collapsed = held.collapsed.clone();
         *held = Arc::new(snapshot);
         true
     })

@@ -29,11 +29,15 @@
 //! - [`TopPanel`] draws a list of rows in order by one column, with the largest
 //!   value first. The program `top` shows the processes of a machine in this
 //!   form.
+//!
+//! [`RowPanel`] draws the line of a row panel. A row panel shows no data, so
+//! that renderer takes a title and a theme alone.
 
 mod bargauge;
 mod gauge;
 mod marker;
 mod panel;
+mod row;
 mod stat;
 mod table;
 mod theme;
@@ -45,6 +49,7 @@ pub use bargauge::BarGaugePanel;
 pub use gauge::GaugePanel;
 pub use marker::Marker;
 pub use panel::{LOADING, NO_DATA, PanelOptions, draws_a_panel};
+pub use row::RowPanel;
 pub use stat::StatPanel;
 pub use table::TablePanel;
 pub use theme::Theme;

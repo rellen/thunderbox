@@ -184,6 +184,28 @@ mod tests {
         }
     }
 
+    /// The project offers this file to every person, as it offers the file of
+    /// the variables. A fault in it would reach that person, and not a test.
+    #[test]
+    fn the_dashboard_that_shows_the_row_panels_is_correct() {
+        let text = include_str!("../../../dashboards/rows.toml");
+        let dash = Dashboard::from_toml(text).expect("The dashboard must be correct.");
+        build(&dash).expect("The program must be able to make the data source.");
+        let rows: Vec<&str> = dash
+            .panels
+            .iter()
+            .filter(|panel| panel.kind == thunderbox_core::PanelKind::Row)
+            .map(|panel| panel.title.as_str())
+            .collect();
+        assert_eq!(rows, vec!["load", "network", "processes"]);
+        assert!(
+            dash.panels
+                .iter()
+                .any(|panel| panel.collapsed == Some(true)),
+            "The file shows a row panel that starts collapsed."
+        );
+    }
+
     #[cfg(feature = "prometheus")]
     #[test]
     fn build_returns_an_error_for_a_prometheus_address_that_is_not_correct() {

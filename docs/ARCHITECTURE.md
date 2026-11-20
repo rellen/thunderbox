@@ -120,7 +120,7 @@ thunderbox-core        Frame, Field, Values, TimeRange, Query, Dashboard, Panel.
                      serde. No ratatui, no tokio.
 thunderbox-widgets     ratatui-core and ratatui-widgets ONLY. The panel
                      renderers: TimeSeries, Stat, Gauge, BarGauge, Table,
-                     Top, Heatmap, Logs.  <-- the smaller way in
+                     Top, Row, Heatmap, Logs.  <-- the smaller way in
 thunderbox-transform   A pipeline from frame to frame: reduce, filter, rename,
                      join, group.
 thunderbox-source      The DataSource trait and the registry.
@@ -254,6 +254,12 @@ of one signal holds one unit.
 the border, the three states that a panel reports, the reduce step, and the
 step that cuts a name to a width. A renderer that repeated any of those would
 drift away from the others.
+
+**A row panel draws no data.** `RowPanel` draws the line of a row panel, and it
+takes a title and a theme alone. A row panel holds the panels below it on the
+grid, and a person collapses it to hide them. Section 12 records its rules.
+The table above therefore leaves it out, and so does each count of the panel
+types in this document.
 
 The table panel and the top panel share a second module.
 `thunderbox-widgets/src/table.rs` holds the layout of a sheet of rows and
@@ -899,7 +905,8 @@ one number to every panel.
 
 `thunderbox_dashboard::grid::panel_width` now returns the width of one panel. The
 runtime reads that function for the point limit of each panel. The renderer
-reads the same function inside `place_panel`, for the place of that same panel.
+reads the same function inside `grid::places`, for the place of that same
+panel.
 One function returns both numbers, so a panel cannot ask for the points of a
 width that it does not draw. The test
 `the_place_of_a_panel_holds_the_width_that_the_point_limit_reads` holds the two
@@ -997,11 +1004,15 @@ the function.
 `thunderbox_dashboard::grid` holds the arithmetic that gives a panel its size:
 
 - `rows_of_grid` returns the rows of the grid of a dashboard;
-- `panel_size` returns the size of one panel, in terminal cells.
+- `places` returns the place of every panel, in terminal cells.
 
-`place_panel` reads both for the place of a panel.
-`DashboardRuntime::point_limits` reads both for the point limit of that same
+`DashboardView::render` reads `places` for the place of a panel.
+`DashboardRuntime::point_limits` reads it for the point limit of that same
 panel. Each of the two then gives that size to `draws_a_panel`.
+
+The functions `panel_size` and `place_panel` held this work before the row
+panels. A row panel moves each panel below it, so the place of one panel now
+depends on the other panels. One function therefore returns every place.
 
 The test `the_runtime_asks_about_exactly_the_panels_that_the_renderer_draws`
 holds the two parts together. It draws the dashboard into a buffer and counts
@@ -1009,7 +1020,7 @@ the titles that the renderer wrote. It then counts the queries that reached a
 data source. The two counts must agree at each height from 3 rows to 30 rows.
 
 **The rows of the grid belong to the dashboard, and not to the area.**
-`place_panel` reads `dashboard.panels` for that number, and it reads nothing of
+`rows_of_grid` reads `dashboard.panels` for that number, and it reads nothing of
 the area. The area supplies its height alone, and `scale` divides the rows of
 the dashboard onto that height. The runtime therefore needs the height of the
 area and nothing else.
@@ -1668,6 +1679,74 @@ the process 1234, because a panel shortens a large number. A top panel that
 names no column takes its first column of numbers, and the number of a process
 would then give the order. That order means nothing to a reader.
 
+**A row panel holds the panels below it by their place on the grid. The file
+never puts a panel inside a row panel.** Grafana moves the panels of a row into
+that row when the row collapses, and it moves them out again when the row
+expands. Its file therefore changes shape with the state of the screen.
+
+thunderbox keeps one flat list of panels. A row panel holds each panel below its
+line, up to the line of the next row panel. The field `collapsed` states the
+first state alone, and the program never writes the file.
+`thunderbox_dashboard::grid::owners` holds that rule. `Dashboard::validate`
+rejects a panel that crosses the line of a row panel, because such a panel would
+belong to two places. A row panel spans the whole grid with one row, and it
+holds no target.
+
+**A row panel takes one line, and a collapse gives its rows to the other
+panels.** `grid::places` gives each row panel one line of the terminal. It
+scales the other rows of the grid onto the lines that remain. The rows that a
+collapsed row panel holds leave that scale. The panels below therefore move up,
+and every panel that remains grows. A person chose this behaviour over two
+others: the panels below could keep their size, or the space could stay empty.
+
+A dashboard that holds no row panel keeps every place that it held before. The
+test `a_dashboard_with_no_row_panel_keeps_every_place` compares the two layouts
+at every height up to 70 rows.
+
+**The runtime owns the collapse, and each snapshot carries it.**
+`DashboardRuntime::toggle_row` changes the state, and `Snapshot::collapsed`
+carries it to the renderer. The renderer and the runtime then hide the same
+panels.
+
+The project examined the shape of the marker. In that shape the view holds the
+state, and the program reports it to the runtime on every frame. A program that
+forgot that report would draw an expanded panel that no query ever reached.
+That panel would read `loading…` for ever, and nothing would name the fault.
+The shape of the time range does less harm when a program forgets it. A
+program that routes no key to `row_key` cannot collapse a row panel, and every
+panel still holds an answer.
+
+The runtime writes each change into the channel at once. A collapse that only
+hides panels starts no set of queries, so a set that started before the
+collapse can end after it. `publish` therefore keeps the state that the channel
+holds, and it never takes the state of the set. Without that rule, such a set
+expanded the row panel again. The test
+`a_set_of_queries_that_started_before_a_collapse_keeps_the_collapse` holds it.
+
+**A panel that appears costs a set of queries. A panel that hides costs none.**
+`toggle_row` compares the point limit of each panel before and after the
+change. A panel that draws now, and that drew nothing before, starts a set. An
+expanded row panel shows such panels. A collapse can show one as well, because
+each panel
+that remains grows and can reach the smallest size. A collapse changes no width,
+so it changes no other point limit.
+
+A panel that a row panel hides keeps the answer that it held, as a panel that
+the renderer drops does. A panel that appears therefore draws an old answer
+until its set of queries answers. The runtime clears the error of a hidden
+panel, because no later set of queries reaches it.
+
+**The program binds `Enter` and `Space`. thunderbox consumes neither.**
+`thunderbox_dashboard::row_key` maps a key to the row panel that the selection
+holds, as `time_key` maps a key to a range. It answers only while the selection
+holds a row panel, so the program keeps both keys at every other time.
+`DashboardView::handle_key` reports `Consumed::No` for both.
+
+The key `Tab` skips each hidden panel. `DashboardView::handle_key` reads
+the snapshot for that rule, and it still selects a panel that the renderer
+drops. The item "Three things that this change does not do" above records that
+second limit.
+
 ---
 
 ## 13. The decisions that remain open
@@ -1706,7 +1785,7 @@ would then give the order. That order means nothing to a reader.
    | 8 | 16 to 23 | 8 |
    | 12 | 24 to 35 | 12 |
 
-   The height of a step is not 3P in general. `panel_size` scales each panel by
+   The height of a step is not 3P in general. `places` scales each panel by
    its own `h` against `rows_of_grid`. The step of a dashboard therefore sits at
    about 3 times `rows_of_grid`, divided by the smallest `h` of that
    dashboard. A
@@ -1996,6 +2075,16 @@ Section 12 records the four decisions that this work took. The list is a kind of
 panel of its own. The list of processes keeps no past. That list reads the
 machine through a `System` of its own. The number of a process is text. Section
 13 records the one fault that this work left open, which is item 8.
+
+### The row panels
+
+A row panel holds the panels below it on the grid, and a person collapses it to
+hide them. The file lists every panel beside the row panels, and never inside
+one. Section 12 records the five decisions that this work took.
+
+The default dashboard holds no row panel. Each row panel takes one line, and
+that dashboard must fit a small terminal. `dashboards/rows.toml` demonstrates
+the row panels instead, and the `rows` scene records it.
 
 ### The pattern that names a series
 

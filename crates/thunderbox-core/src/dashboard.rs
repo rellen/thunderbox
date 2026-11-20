@@ -79,6 +79,11 @@ impl Dashboard {
     /// - a panel sets a `min` that is not smaller than its `max`;
     /// - a panel that is not a top panel states a `sort` column;
     /// - a top panel states a `sort` column that has an empty name;
+    /// - a row panel does not span the whole width of the grid with one row;
+    /// - a row panel holds a target;
+    /// - a panel that is not a row panel states the field `collapsed`;
+    /// - a panel crosses the line of a row panel;
+    /// - two row panels stand on one line;
     /// - a panel names a data source that the dashboard does not declare, and
     ///   the dashboard declares at least one data source;
     /// - a variable has a name that no query can refer to;
@@ -105,6 +110,7 @@ impl Dashboard {
             crate::time::parse_duration_ms(r)?;
         }
         let names = self.validate_variables()?;
+        self.validate_rows()?;
         for panel in &self.panels {
             let g = &panel.grid;
             if g.w == 0 || g.h == 0 {
@@ -162,6 +168,64 @@ impl Dashboard {
                             panel.title, name
                         )));
                     }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Checks each row panel, and each panel against the line of a row panel.
+    ///
+    /// A row panel holds the panels below it by their place on the grid. A
+    /// panel that crossed the line of a row panel would belong to two places,
+    /// so this method rejects it. A row panel spans the whole width with one
+    /// row of the grid, because the renderer draws it as one line across the
+    /// screen.
+    ///
+    /// # Errors
+    ///
+    /// This method returns an error in each of the conditions that
+    /// [`Dashboard::validate`] states for a row panel.
+    fn validate_rows(&self) -> Result<()> {
+        for panel in &self.panels {
+            let is_row = panel.kind == PanelKind::Row;
+            if panel.collapsed.is_some() && !is_row {
+                return Err(Error::Dashboard(format!(
+                    "panel {:?} states the field collapsed. Only a panel of the kind row \
+                     reads that field",
+                    panel.title
+                )));
+            }
+            if !is_row {
+                continue;
+            }
+            let g = &panel.grid;
+            if g.x != 0 || g.w != GRID_COLUMNS || g.h != 1 {
+                return Err(Error::Dashboard(format!(
+                    "row {:?} must span the whole grid with one row, as in \
+                     grid = {{ x = 0, y = {}, w = {GRID_COLUMNS}, h = 1 }}",
+                    panel.title, g.y
+                )));
+            }
+            if !panel.targets.is_empty() {
+                return Err(Error::Dashboard(format!(
+                    "row {:?} holds a target. A row panel shows no data",
+                    panel.title
+                )));
+            }
+            for other in &self.panels {
+                if std::ptr::eq(other, panel) {
+                    continue;
+                }
+                let o = &other.grid;
+                // The other panel covers the rows from `o.y` up to
+                // `o.y + o.h`. The addition saturates, as the check of the
+                // width does.
+                if o.y <= g.y && g.y < o.y.saturating_add(o.h) {
+                    return Err(Error::Dashboard(format!(
+                        "panel {:?} crosses the line of the row {:?} at y = {}",
+                        other.title, panel.title, g.y
+                    )));
                 }
             }
         }
@@ -320,6 +384,17 @@ pub struct Panel {
     /// [`Dashboard::validate`] rejects the field on every other kind of panel.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sort: Option<String>,
+    /// States whether a row panel starts collapsed.
+    ///
+    /// A collapsed row panel hides the panels that it holds, and the panels
+    /// below it move up. A person can collapse and expand a row panel while
+    /// the program runs. This field states the first state alone, and the
+    /// program never writes the file.
+    ///
+    /// Only a panel of the kind [`PanelKind::Row`] reads this field.
+    /// [`Dashboard::validate`] rejects the field on every other kind of panel.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub collapsed: Option<bool>,
     /// The place of the panel on the grid.
     pub grid: GridPos,
     /// The thresholds that change the colour of a value.
@@ -437,6 +512,17 @@ pub enum PanelKind {
     /// panel reads the field [`Panel::sort`] for the column that puts the rows
     /// in order.
     Top,
+    /// A line across the whole grid that holds the panels below it.
+    ///
+    /// A row panel holds each panel below it on the grid, up to the next row
+    /// panel. The file lists those panels beside the row panel, and never
+    /// inside it. A person collapses a row panel to hide the panels that it
+    /// holds, and the panels below then move up. The field
+    /// [`Panel::collapsed`] states the first state.
+    ///
+    /// A row panel shows no data, so it holds no target. It takes one line of
+    /// the terminal, whatever the height of the terminal.
+    Row,
 }
 
 /// The place of a panel on the grid.
@@ -700,6 +786,114 @@ grid = {{ x = 0, y = 0, w = 12, h = 8 }}
             .unwrap_err()
             .to_string();
         assert!(err.contains("empty name"), "The message is wrong. {err}");
+    }
+
+    /// A dashboard of two row panels. The first one holds the chart, and the
+    /// second one starts collapsed and holds the table.
+    const ROWS: &str = r#"
+title = "rows"
+[[panel]]
+title = "now"
+kind = "stat"
+grid = { x = 0, y = 0, w = 24, h = 4 }
+[[panel]]
+title = "processor"
+kind = "row"
+grid = { x = 0, y = 4, w = 24, h = 1 }
+[[panel]]
+title = "cpu"
+kind = "timeseries"
+grid = { x = 0, y = 5, w = 24, h = 6 }
+[[panel]]
+title = "details"
+kind = "row"
+collapsed = true
+grid = { x = 0, y = 11, w = 24, h = 1 }
+[[panel]]
+title = "table"
+kind = "table"
+grid = { x = 0, y = 12, w = 24, h = 6 }
+"#;
+
+    #[test]
+    fn a_dashboard_reads_a_row_panel_and_the_state_that_it_starts_in() {
+        let dash = Dashboard::from_toml(ROWS).expect("The reader must accept row panels.");
+        assert_eq!(dash.panels[1].kind, PanelKind::Row);
+        assert_eq!(dash.panels[1].collapsed, None);
+        assert_eq!(dash.panels[3].collapsed, Some(true));
+        let round = Dashboard::from_toml(&dash.to_toml().unwrap()).unwrap();
+        assert_eq!(round, dash, "The row panels must survive a round trip.");
+    }
+
+    /// Returns the error of the dashboard `ROWS` after one change to its text.
+    fn rows_error(old: &str, new: &str) -> String {
+        assert!(
+            ROWS.contains(old),
+            "The test must change a line that exists."
+        );
+        Dashboard::from_toml(&ROWS.replacen(old, new, 1))
+            .unwrap_err()
+            .to_string()
+    }
+
+    /// The renderer draws a row panel as one line across the screen. A row
+    /// panel of another shape would draw a line that the file does not state.
+    #[test]
+    fn validate_returns_an_error_for_a_row_panel_that_does_not_span_the_grid() {
+        for grid in [
+            "grid = { x = 2, y = 4, w = 22, h = 1 }",
+            "grid = { x = 0, y = 4, w = 12, h = 1 }",
+            "grid = { x = 0, y = 4, w = 24, h = 2 }",
+        ] {
+            let err = rows_error("grid = { x = 0, y = 4, w = 24, h = 1 }", grid);
+            assert!(
+                err.contains("whole grid"),
+                "The message must state the shape. {grid} {err}"
+            );
+        }
+    }
+
+    #[test]
+    fn validate_returns_an_error_for_a_row_panel_that_holds_a_target() {
+        let err = rows_error(
+            "grid = { x = 0, y = 4, w = 24, h = 1 }",
+            "grid = { x = 0, y = 4, w = 24, h = 1 }\n[[panel.target]]\nsource = \"s\"\nexpr = \"cpu\"",
+        );
+        assert!(err.contains("shows no data"), "The message is wrong. {err}");
+    }
+
+    /// Every other kind of panel ignores the field. A person who writes it on
+    /// such a panel expects a collapse that the panel never draws.
+    #[test]
+    fn validate_returns_an_error_for_the_field_collapsed_on_a_panel_that_is_not_a_row() {
+        let err = rows_error("kind = \"table\"", "kind = \"table\"\ncollapsed = false");
+        assert!(err.contains("kind row"), "The message is wrong. {err}");
+    }
+
+    /// A row panel holds the panels below it by their place on the grid. A
+    /// panel that crosses the line of a row panel would belong to two places.
+    #[test]
+    fn validate_returns_an_error_for_a_panel_that_crosses_the_line_of_a_row_panel() {
+        let err = rows_error(
+            "grid = { x = 0, y = 5, w = 24, h = 6 }",
+            "grid = { x = 0, y = 5, w = 24, h = 7 }",
+        );
+        assert!(
+            err.contains("crosses the line of the row \"details\""),
+            "The message must name the panel and the row panel. {err}"
+        );
+    }
+
+    #[test]
+    fn validate_returns_an_error_for_two_row_panels_on_one_line() {
+        let err = rows_error(
+            "grid = { x = 0, y = 11, w = 24, h = 1 }",
+            "grid = { x = 0, y = 4, w = 24, h = 1 }",
+        );
+        assert!(
+            err.contains("crosses the line"),
+            "The message is wrong. {err}"
+        );
     }
 
     #[test]
