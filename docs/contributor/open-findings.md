@@ -58,22 +58,26 @@ Search those pages for the named text.
 
 ## The items that reached a file already
 
-Do not record these again. `CLAUDE.md` now holds nine of them:
+Do not record these again. `CLAUDE.md`, [the contributor guide](guide.md),
+and [Make the pictures again](pictures.md) now hold nine of them:
 
 - the four lints for documentation coverage;
 - the standard of section 1 as a gate of the build;
 - the list of commands that check the code;
-- the count of 22 doctests;
+- the count of the doctests;
 - `clap`;
 - the licence;
 - the sizes of the pictures;
 - the scene `too_small` in the table of scenes;
 - the second `dropped_text`.
 
-`docs/ARCHITECTURE.md` now holds the four rules that a program which embeds
-thunderbox must keep, the corrected `Snapshot::is_loading`, and the items 5 to 7
-of section 13. Those three items are the licence, the
-overflow of `refresh`, and the field `downsamples` that no code reads.
+[The decision records](adr/README.md) now hold five more items:
+
+- the four rules that a program which embeds thunderbox must keep, in ADR 0016;
+- the corrected `Snapshot::is_loading`, in ADR 0031;
+- the licence, in ADR 0057;
+- the overflow of `refresh`, in ADR 0061;
+- the field `downsamples` that no code reads, in ADR 0062.
 
 The code now holds two more duties of a data source. It also holds the three
 helpers that use `unsafe`, and a comment on the two copies of the list of the
@@ -370,27 +374,6 @@ then reads no data for ever. The source returns a frame that holds nothing, and
 it returns no error. `README.md:375` names the signal, and it states no
 condition. The first sample of `network.rx` and of `network.tx` holds nothing
 for a different reason, and `sample.rs:238-244` states that one.
-
-## 1.9 Two sections of ARCHITECTURE.md describe things that do not exist
-
-**doc wrong**
-
-Four statements of sections 3 and 4 name a thing that the code does not hold,
-and each one stands in the present tense. Section 8, at `:339-342`, correctly
-marks `Heatmap`, `Logs` and `thunderbox-transform` as later work, so those three
-are not at fault.
-
-- `:137` reads "Each way to run thunderbox is a subcommand behind a feature".
-  `crates/thunderbox/src/main.rs:113-124` reads `-h`, `--help`, `-V`, `--version`
-  and one path. `--help` writes `Usage: thunderbox [FILE]`.
-- `:163` holds
-  `ratatui = { version = "0.30.2", features = ["crossterm", "layout-cache", "unstable-backend-writer"] }`.
-  The real `Cargo.toml:38` sets `default-features = false`, and it turns
-  `unstable-backend-writer` off. A reader can copy that block, because the file
-  holds it as TOML.
-- `:164` names `crossterm = "0.29"` as a dependency of the top level. No crate
-  of this workspace names `crossterm` itself.
-- The map of the crates of section 3 marks no crate as a plan.
 
 ## 1.7 README.md states that the recorder starts one program for each core
 

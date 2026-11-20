@@ -73,7 +73,7 @@ git show 4d8c223a0e7ea3bd62b85e7819be8c4ee10cb451:docs/ARCHITECTURE.md
 | [0028](0028-the-caller-reports-one-area-as-a-size.md) | The caller reports one area as a size | Accepted | `docs/ARCHITECTURE.md` section 12 |
 | [0029](0029-the-runtime-asks-about-every-panel-until-an-area-arrives.md) | The runtime asks about every panel until an area arrives | Accepted | `docs/ARCHITECTURE.md` section 12 |
 | [0030](0030-a-set-of-queries-holds-one-job-for-each-panel.md) | A set of queries holds one job for each panel | Accepted | `docs/ARCHITECTURE.md` section 12 |
-| [0031](0031-snapshot-is-loading-gains-a-third-case.md) | `Snapshot::is_loading` gains a third case | Accepted | `docs/ARCHITECTURE.md` section 12 |
+| [0031](0031-a-snapshot-waits-in-a-third-case.md) | `Snapshot::is_loading` gains a third case | Accepted | `docs/ARCHITECTURE.md` section 12 |
 | [0032](0032-each-rule-of-the-path-of-an-area-holds-a-test.md) | Each rule of the path of an area holds a test | Accepted | `docs/ARCHITECTURE.md` section 12 |
 | [0033](0033-no-text-writes-the-password-of-an-address.md) | No text writes the password of an address | Accepted | `docs/ARCHITECTURE.md` section 12 |
 | [0034](0034-a-dashboard-reads-more-than-one-data-source.md) | A dashboard reads more than one data source | Accepted | `docs/ARCHITECTURE.md` section 12 |

@@ -1,7 +1,7 @@
 //! The arithmetic that divides the grid of a dashboard onto the cells of a
 //! terminal.
 //!
-//! The renderer draws each panel inside the size that [`panel_size`] returns.
+//! The renderer draws each panel inside the place that [`places`] returns.
 //! The runtime asks the data source of that panel for the points of the same
 //! width. One module holds both numbers, so the two can never differ.
 //!

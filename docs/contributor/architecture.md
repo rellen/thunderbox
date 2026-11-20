@@ -176,7 +176,7 @@ agree about the size of each panel.
 |---|---|
 | the width of each panel, and its point limit | [0023](adr/0023-each-panel-asks-for-the-points-of-its-own-width.md) |
 | the rows of the grid | [0025](adr/0025-the-rows-of-the-grid-belong-to-the-dashboard.md) |
-| a panel that the renderer drops | [0024](adr/0024-a-panel-that-the-renderer-drops-asks-for-nothing.md), [0026](adr/0026-panel-state-gains-no-fourth-variant.md), [0031](adr/0031-snapshot-is-loading-gains-a-third-case.md) |
+| a panel that the renderer drops | [0024](adr/0024-a-panel-that-the-renderer-drops-asks-for-nothing.md), [0026](adr/0026-panel-state-gains-no-fourth-variant.md), [0031](adr/0031-a-snapshot-waits-in-a-third-case.md) |
 | a stack of charts | [0039](adr/0039-a-stack-of-charts-can-share-one-width.md) |
 | row panels | [0050](adr/0050-a-row-panel-holds-panels-by-their-place.md), [0051](adr/0051-a-row-panel-takes-one-line.md), [0052](adr/0052-the-runtime-owns-the-collapse.md), [0053](adr/0053-a-panel-that-appears-costs-a-set-of-queries.md) |
 

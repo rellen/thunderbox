@@ -5,10 +5,11 @@
 //! the time range and the state of each panel. The program keeps its terminal,
 //! its event loop, and its key bindings.
 //!
-//! The same type serves the program that runs alone, the SSH server, and
-//! another program that holds a thunderbox dashboard. Only the owner of the
-//! terminal changes. ADR 0015 and ADR 0016 in `docs/contributor/adr` state the rules that
-//! this crate follows.
+//! The same type serves the program that runs alone, and another program that
+//! holds a thunderbox dashboard. Only the owner of the terminal changes. A
+//! server for SSH does not exist yet. ADR 0013 in `docs/contributor/adr` states
+//! the plan for it, and that server will use the same type. ADR 0015 and ADR
+//! 0016 in `docs/contributor/adr` state the rules that this crate follows.
 //!
 //! [`time_key`] holds the rule that maps a key to a new time range.
 //! [`variable_key`] holds the rule that maps a key to a choice of a variable.

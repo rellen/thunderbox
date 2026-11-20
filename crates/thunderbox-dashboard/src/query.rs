@@ -86,8 +86,6 @@ pub(crate) enum PanelJob {
     /// The renderer draws this panel. The runtime asks the data source of the
     /// panel for these queries.
     Ask(PanelQueries),
-    /// The renderer drops this panel. The runtime asks a data source for
-    /// nothing, and the panel keeps the state that has no answer.
     /// The renderer drops this panel, so no data source answers it. The value
     /// holds the state that the panel already had, and the set of queries
     /// writes that state back. A panel that answered therefore keeps its
@@ -109,8 +107,8 @@ pub(crate) enum PanelJob {
 /// [`PanelJob::Skip`] therefore moves no other panel.
 ///
 /// A [`PanelJob::Skip`] names a panel that the renderer drops. The function
-/// starts no task for such a panel, and that panel holds
-/// [`PanelState::Loading`] in the snapshot.
+/// starts no task for such a panel. The snapshot holds the state that the
+/// [`PanelJob::Skip`] carries, so a panel that answered keeps its answer.
 ///
 /// Each panel carries a point limit of its own, and the queries of that panel
 /// take that limit. A narrow panel therefore asks a data source for fewer
