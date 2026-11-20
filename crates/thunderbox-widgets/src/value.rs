@@ -215,22 +215,46 @@ fn units(count: i64, name: &str) -> String {
 ///
 /// The letters are `K`, `M`, `G`, `T`, and `P`. Each letter is 1000 times the
 /// letter before it. A system monitor shows a number in this form.
+///
+/// The function rounds the number before it keeps a letter. The value 999.9
+/// rounds to 1000 with no decimal place, so the function takes the next letter
+/// and writes `1K`. The whole part of the text therefore holds three digits at
+/// most. The letter `P` is the one exception, because no larger letter exists.
 fn si(v: f64, decimals: Option<u8>) -> String {
     const UNITS: [&str; 6] = ["", "K", "M", "G", "T", "P"];
-    let neg = v < 0.0;
+    let sign = if v < 0.0 { "-" } else { "" };
     let mut n = v.abs();
     let mut i = 0;
     while n >= 1000.0 && i < UNITS.len() - 1 {
         n /= 1000.0;
         i += 1;
     }
-    let automatic = if i == 0 || n >= 100.0 { 0 } else { 1 };
-    format!(
-        "{}{}{}",
-        if neg { "-" } else { "" },
-        places(n, decimals, automatic),
-        UNITS[i]
-    )
+    let mut text = scaled(n, i, decimals);
+    // The rounded number can reach 1000. The function then takes the next
+    // letter, and the number needs fewer digits.
+    if whole_digits(&text) > 3 && i < UNITS.len() - 1 {
+        n /= 1000.0;
+        i += 1;
+        text = scaled(n, i, decimals);
+    }
+    format!("{sign}{text}{}", UNITS[i])
+}
+
+/// Returns the text of a number that the caller divided by its scale.
+///
+/// The `step` argument is the position of the letter in the list of `si`. The
+/// function selects no decimal place by itself for a number with no letter, or
+/// for a number of 100 or more.
+fn scaled(n: f64, step: usize, decimals: Option<u8>) -> String {
+    let automatic = if step == 0 || n >= 100.0 { 0 } else { 1 };
+    places(n, decimals, automatic)
+}
+
+/// Returns the number of digits before the decimal point of a text.
+///
+/// The text holds no sign, because `si` formats the absolute value.
+fn whole_digits(text: &str) -> usize {
+    text.find('.').unwrap_or(text.len())
 }
 
 /// Returns the text of a number with a number of decimal places.
@@ -297,6 +321,59 @@ mod tests {
         assert_eq!(format_value(1_500.0, Some("bytes"), Some(2)), "1.50KB");
         assert_eq!(format_value(2.6, Some("seconds"), Some(0)), "3s");
         assert_eq!(format_value(7.0, None, Some(1)), "7.0");
+    }
+
+    /// A number that rounds to 1000 takes the next letter of the scale.
+    /// Each row holds a value, a unit, a count of decimal places, and the text.
+    #[test]
+    fn format_value_takes_the_next_letter_when_the_rounded_number_reaches_1000() {
+        for (value, unit, decimals, expected) in [
+            (999.9, Some("bytes"), None, "1KB"),
+            (999_999.0, Some("bytes"), Some(2), "1.00MB"),
+            (999_999.0, Some("bytes"), None, "1MB"),
+            (999.6, None, Some(0), "1K"),
+            (-999.9, Some("bytes"), None, "-1KB"),
+            (999_600.0, None, None, "1M"),
+            (999_600_000.0, None, None, "1G"),
+            (999_600_000_000.0, None, None, "1T"),
+            (999_600_000_000_000.0, None, None, "1P"),
+        ] {
+            assert_eq!(
+                format_value(value, unit, decimals),
+                expected,
+                "The value {value} must take the next letter."
+            );
+        }
+    }
+
+    /// A number that rounds to less than 1000 keeps its letter. Each row holds
+    /// a value just below one step of the scale.
+    #[test]
+    fn format_value_keeps_the_letter_of_a_number_that_rounds_below_1000() {
+        for (value, unit, decimals, expected) in [
+            (999.4, None, None, "999"),
+            (999.4, Some("bytes"), Some(0), "999B"),
+            (999_400.0, None, None, "999K"),
+            (999_400_000.0, None, None, "999M"),
+            (999_400_000_000.0, None, None, "999G"),
+            (999_400_000_000_000.0, None, None, "999T"),
+            (999_994.0, Some("bytes"), Some(2), "999.99KB"),
+            (1234.5678, None, Some(4), "1.2346K"),
+        ] {
+            assert_eq!(
+                format_value(value, unit, decimals),
+                expected,
+                "The value {value} must keep its letter."
+            );
+        }
+    }
+
+    /// No letter is larger than `P`. A number of 1000 `P` or more therefore
+    /// keeps the letter `P`, and its whole part holds four digits or more.
+    #[test]
+    fn format_value_keeps_the_largest_letter_for_a_number_of_1000_or_more() {
+        assert_eq!(format_value(1.5e18, None, Some(0)), "1500P");
+        assert_eq!(format_value(999.6e15, None, None), "1000P");
     }
 
     #[test]

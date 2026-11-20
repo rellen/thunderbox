@@ -1,8 +1,9 @@
 //! The panel that draws one large number for each series.
 //!
 //! A person reads this panel from across a room. The panel therefore draws the
-//! number with block characters when the tile has room for them. It falls back
-//! to plain text in a tile that is too small.
+//! number with block characters when the tile has room for them. It draws
+//! plain text in a tile that is too small. The panel never cuts a number. It
+//! draws the symbol `MISSING` in place of a number that does not fit its tile.
 
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::{Alignment, Rect};
@@ -14,10 +15,10 @@ use ratatui_widgets::sparkline::{RenderDirection, Sparkline};
 use thunderbox_core::{Frame, Reduce};
 
 use crate::panel::{
-    NO_DATA, Reduced, clip, dropped_text, frames_or_message, panel_block, reduce_frames,
+    NO_DATA, Reduced, cells_of, clip, dropped_text, frames_or_message, panel_block, reduce_frames,
     render_message,
 };
-use crate::{Marker, PanelData, PanelOptions, Theme, draws_a_panel};
+use crate::{MISSING, Marker, PanelData, PanelOptions, Theme, draws_a_panel};
 
 /// The number of rows that one large character holds.
 const GLYPH_ROWS: usize = 3;
@@ -435,6 +436,20 @@ fn draw_centred(area: Rect, y: u16, text: &str, style: Style, buf: &mut Buffer) 
         );
 }
 
+/// Returns the text of a number, or [`MISSING`] for a text that does not fit.
+///
+/// The panel never cuts a number. The shared function `clip` ends a cut text
+/// with a full stop, and a reader takes that full stop for a decimal point. The
+/// cut text `1.234.` of the value `1.2346K` then states a number that is 1000
+/// times too small. A text that fills the width exactly fits.
+fn whole_number(text: &str, width: u16) -> &str {
+    if cells_of(text) <= usize::from(width) {
+        text
+    } else {
+        MISSING
+    }
+}
+
 /// Draws the number of series that the panel dropped.
 ///
 /// The note takes one row. The shared function `dropped_text` supplies the
@@ -511,7 +526,8 @@ impl StatPanel<'_> {
             Some(plan) => self.draw_large(&plan, value_area, color, buf),
             None => {
                 let y = value_area.y + (value_area.height - 1) / 2;
-                draw_centred(value_area, y, &text, Style::default().fg(color), buf);
+                let shown = whole_number(&text, value_area.width);
+                draw_centred(value_area, y, shown, Style::default().fg(color), buf);
             }
         }
         if chart_rows > 0 {
@@ -1305,5 +1321,50 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// Returns a panel that writes the value of `f` with 4 decimal places.
+    ///
+    /// The value 1234.5678 then reads `1.2346K`, and that text takes 7 cells.
+    fn four_places<'a>(f: &'a [Frame], theme: &'a Theme) -> StatPanel<'a> {
+        let options = PanelOptions {
+            decimals: Some(4),
+            ..Default::default()
+        };
+        StatPanel::new("n", PanelData::Frames(f), theme).options(options)
+    }
+
+    /// A cut text such as `1.234.` states a number that is 1000 times too
+    /// small, because a reader takes the full stop for a decimal point.
+    #[test]
+    fn the_panel_draws_the_symbol_in_place_of_a_number_that_does_not_fit() {
+        let f = frames(vec![Some(1234.5678)]);
+        let theme = Theme::default();
+        // The border takes two columns, so the tile holds 6 cells.
+        let out = text(&render(&four_places(&f, &theme), 8, 4));
+        assert!(
+            !out.chars().any(|c| c.is_ascii_digit()),
+            "A number that lost its last digits would mislead a reader. {out}"
+        );
+        assert!(
+            out.contains(crate::MISSING),
+            "The panel must draw the symbol in place of the number. {out}"
+        );
+    }
+
+    #[test]
+    fn the_panel_draws_a_number_that_fills_the_tile_exactly() {
+        let f = frames(vec![Some(1234.5678)]);
+        let theme = Theme::default();
+        // The border takes two columns, so the tile holds 7 cells.
+        let out = text(&render(&four_places(&f, &theme), 9, 4));
+        assert!(
+            out.contains("1.2346K"),
+            "A text that fills the tile exactly fits the tile. {out}"
+        );
+        assert!(
+            !out.contains(crate::MISSING),
+            "The panel must draw the number, and not the symbol. {out}"
+        );
     }
 }

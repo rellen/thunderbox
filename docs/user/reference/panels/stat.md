@@ -83,6 +83,8 @@ its series.
 - Every tile follows the plan of the smallest tile. Each tile therefore draws
   the same parts.
 - The panel cuts a name that is too long. A full stop marks the cut.
+- The panel never cuts a number. It shows `—` in the place of a number that does
+  not fit its tile. A number that fills the tile exactly fits.
 - The panel can hold too few tiles for every series. The last row then holds a
   note that counts the series that the panel drops. The note needs a panel of 2
   rows or more inside the border.
@@ -107,6 +109,7 @@ its series.
 | the text of the error | The data source returned an error. |
 | `no data` | No series holds a value that the step can use. |
 | `—` | The number is not finite. The sum of two very large numbers is an example. |
+| `—` | The number does not fit its tile. |
 | `1 series does not fit.` or `N series do not fit.` | The panel holds too few tiles for every series, and the sentence fits the width. |
 | `+N` | The panel holds too few tiles for every series, and the sentence does not fit the width. |
 
@@ -117,6 +120,7 @@ its series.
 - A tile that becomes smaller drops the small chart first.
 - A tile that has no room for the large characters then writes the number as
   plain text.
+- A tile that has no room for that plain text shows `—`.
 - A tile of one row shows the number and no name. The number is the last part
   that a tile keeps.
 
@@ -126,3 +130,5 @@ its series.
   adds thresholds to a panel.
 - [Numbers and units](../numbers-and-units.md) lists the units and the steps of
   `reduce`.
+- [Architecture decision record 0065](../../../contributor/adr/0065-no-panel-cuts-a-number.md)
+  states why no panel cuts a number.

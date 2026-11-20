@@ -304,9 +304,9 @@ documents of each feature that exists.
 | the dashboard file | [reference](../user/reference/dashboard-file.md), [tutorial](../user/tutorials/write-your-first-dashboard.md) | 0014, 0041 |
 | the program that runs alone | [tutorial](../user/tutorials/watch-this-machine.md), [reference](../user/reference/command-line.md) | 0010 |
 | the time series panel | [reference](../user/reference/panels/timeseries.md) | 0007, 0008, 0036 |
-| the stat panel, the gauge panel, the bar gauge panel | [stat](../user/reference/panels/stat.md), [gauge](../user/reference/panels/gauge.md), [bar gauge](../user/reference/panels/bargauge.md) | 0007 |
-| the table panel | [reference](../user/reference/panels/table.md) | 0007 |
-| the top panel | [how-to](../user/how-to/show-the-busiest-processes.md), [reference](../user/reference/panels/top.md) | 0046, 0047, 0048, 0049, 0063 |
+| the stat panel, the gauge panel, the bar gauge panel | [stat](../user/reference/panels/stat.md), [gauge](../user/reference/panels/gauge.md), [bar gauge](../user/reference/panels/bargauge.md) | 0007, 0065 |
+| the table panel | [reference](../user/reference/panels/table.md) | 0007, 0065 |
+| the top panel | [how-to](../user/how-to/show-the-busiest-processes.md), [reference](../user/reference/panels/top.md) | 0046, 0047, 0048, 0049, 0063, 0065 |
 | the row panels | [how-to](../user/how-to/group-panels-under-row-panels.md), [reference](../user/reference/panels/row.md), [explanation](../user/explanation/row-panels-and-the-place-of-a-panel.md) | 0050, 0051, 0052, 0053, 0054 |
 | the time range | [how-to](../user/how-to/show-an-earlier-window.md), [reference](../user/reference/time-ranges.md), [explanation](../user/explanation/the-time-range-and-the-window.md) | 0035, 0036, 0037, 0038 |
 | the variables | [how-to](../user/how-to/let-a-person-select-a-value.md), [reference](../user/reference/variables.md) | 0040, 0041, 0042, 0043, 0044 |
