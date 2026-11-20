@@ -64,7 +64,10 @@ ALLOWED_ING = {
     "everything",
 }
 
-SKIP_DIRS = {".git", "target", "node_modules"}
+# direnv is a program that loads the shell of the flake for a directory. It
+# writes `.direnv`, and that directory can hold a link to the source of nixpkgs.
+# The source of nixpkgs holds many files of other projects.
+SKIP_DIRS = {".git", "target", "node_modules", ".direnv"}
 
 
 def strip_spans(text, in_span):

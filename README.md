@@ -523,6 +523,63 @@ This project calls each such part a sub-cell.
 
 The `m` key moves between them.
 
+## Run it with Nix
+
+Nix is a package manager. This repository holds a flake, which is the file that
+tells Nix what a repository offers. The flake offers the program and a shell.
+
+This command builds the program and starts it. It needs no copy of this
+repository:
+
+```
+nix run github:rellen/thunderbox
+```
+
+Name a file after two dashes to show your own dashboard:
+
+```
+nix run github:rellen/thunderbox -- my-dashboard.toml
+```
+
+This command installs the program for one person:
+
+```
+nix profile install github:rellen/thunderbox
+```
+
+An input is a repository that a flake reads. A configuration of NixOS or of
+home-manager can name this flake as an input. The package is
+`packages.SYSTEM.default`, and `SYSTEM` holds the place of the name of a
+system. The flake also offers `overlays.default`, which adds `pkgs.thunderbox`
+to the package set of the configuration.
+
+The flake supports these systems:
+
+- `x86_64-linux`;
+- `aarch64-linux`;
+- `aarch64-darwin`.
+
+### The shell of the flake
+
+This command starts a shell that holds each tool that this project needs. Run
+it from the root of the workspace:
+
+```
+nix develop
+```
+
+The shell holds these tools:
+
+- the release of Rust that `rust-toolchain.toml` names, with `rustfmt` and
+  `clippy`;
+- `rust-analyzer`, which is the program that reads the code for an editor;
+- `python3`, which runs the two files of `scripts`;
+- `agg`, together with the font Unifont.
+
+direnv is a program that loads a shell when a person enters a directory. The
+file `.envrc` tells direnv to load the shell of the flake. Run `direnv allow`
+once to permit that.
+
 ## The release of Rust
 
 This project pins the release of Rust. The file `rust-toolchain.toml` names it.
@@ -540,9 +597,19 @@ rustup toolchain install
 The command reads `rust-toolchain.toml`. It installs the release, the profile,
 and the components that the file names.
 
-Only rustup reads this file. A `rustc` that a package manager installed ignores
-the file, and it reports nothing. Install rustup from https://rustup.rs to get
-the pinned release.
+rustup reads this file, and the flake of this project reads it also. A `rustc`
+that another package manager installed ignores the file, and it reports
+nothing. Install rustup from https://rustup.rs to get the pinned release, or
+use the shell of the flake.
+
+The flake takes each release of Rust from its input `rust-overlay`, and
+`flake.lock` pins one commit of that input. That commit does not hold a release
+that is newer than itself. Run this command when you raise the release and Nix
+then reports that it does not hold it:
+
+```
+nix flake update rust-overlay
+```
 
 ## The documents
 
@@ -559,6 +626,10 @@ then turns that file into a GIF. Install `agg` with this command:
 ```
 cargo install --git https://github.com/asciinema/agg --locked agg
 ```
+
+The shell of the flake already holds `agg`, so a person inside that shell does
+not run that command. That `agg` reads Unifont from the directory where Nix
+keeps each package.
 
 Then run these commands. The first one builds every program that a scene names:
 

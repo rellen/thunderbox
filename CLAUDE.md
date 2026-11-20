@@ -206,6 +206,7 @@ that. A reader therefore checks all nine rules in each of these:
 - the `description` field of each `Cargo.toml` file;
 - each comment of `.github/workflows/checks.yml`, of
   `.github/dependabot.yml`, and of `rust-toolchain.toml`;
+- each comment of `flake.nix`, and each `description` field of that file;
 - each comment of a file under `dashboards`, and of
   `crates/thunderbox/src/default.toml`;
 - the text that opens each file under `scripts`;
@@ -426,6 +427,52 @@ Section 12 of `docs/ARCHITECTURE.md` holds the same step for the way from
 `DashboardRuntime::set_panel_area` to `run_all`. This project has met that fault
 on that path more often than on any other.
 
+### 4.4 The flake
+
+Nix is a package manager, and a flake is the file that tells Nix what a
+repository offers. `flake.nix` offers the package of the program. It also
+offers a shell that holds each tool of this section and of section 6.
+`README.md` gives the commands for a person who installs the program.
+
+`nix develop` starts the shell. The flake reads the release of Rust from
+`rust-toolchain.toml`, so the seven commands above then run with the pinned
+release. A machine that holds no rustup otherwise runs them with another
+release, and it reports nothing.
+
+The measurement: one machine held no rustup, and its `cargo` reported release
+1.96.1. Inside the shell on that machine, `cargo` reported release 1.98.0.
+
+Run this command after a change to `flake.nix`, to `flake.lock`, to
+`Cargo.lock`, or to `rust-toolchain.toml`:
+
+```
+nix flake check
+```
+
+The command builds the package, and the build runs `cargo test` for the whole
+workspace. No step of the workflow runs that command. A fault of the flake
+therefore stays until a person runs it.
+
+A person built the package on `aarch64-darwin`, with the sandbox of Nix on. The
+sandbox keeps a build away from the network and from the files of the machine.
+Nobody built the package on Linux, and the flake still offers it there.
+
+Three rules follow from the way that the flake builds the package:
+
+- **The flake names each path that the build reads.** The list `fileset` of
+  `flake.nix` holds `Cargo.toml`, `Cargo.lock`, `crates`, and `dashboards`. Code
+  that includes a file from another directory compiles with `cargo`, and
+  `nix build` then returns an error. Add the path to that list.
+- **A new release of Rust can need a new `flake.lock`.** The flake takes each
+  release from its input `rust-overlay`, and `flake.lock` pins one commit of
+  that input. Dependabot raises the release in `rust-toolchain.toml` alone. Run
+  `nix flake update rust-overlay` when Nix reports that it does not hold the
+  release.
+- **The package links one C library that `cargo` alone does not link.** nixpkgs
+  tells the crate `aws-lc-sys` to link the library `aws-lc` of nixpkgs. `cargo`
+  alone compiles that library from the source inside the crate. The package
+  therefore needs `pkg-config` and `aws-lc`, and `flake.nix` names both.
+
 ---
 
 ## 5. The title of a pull request
@@ -584,6 +631,11 @@ cast file into a picture:
 ```
 cargo install --git https://github.com/asciinema/agg --locked agg
 ```
+
+The shell of section 4.4 already holds `agg`. That `agg` reads Unifont from the
+directory where Nix keeps each package. `agg` alone reads the fonts of the
+machine. On a machine that holds no Unifont it writes
+`no faces matching font family options`, and it writes no picture.
 
 This command builds every program that a scene names:
 

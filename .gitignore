@@ -26,3 +26,9 @@ target
 
 # The byte code that Python writes beside a script
 __pycache__/
+
+# The link that `nix build` writes to the package
+/result
+
+# The files that direnv writes for the shell of the flake
+.direnv/
