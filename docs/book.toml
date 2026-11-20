@@ -24,3 +24,11 @@ additional-css = ["site.css"]
 # The code of a page needs the crates of this workspace, and the playground of
 # the Rust project does not hold them.
 runnable = false
+
+[preprocessor.site-links]
+# mdBook runs this command from this directory.
+command = "cargo xtask mdbook-preprocessor"
+# The preprocessor runs before the built-in preprocessors. It then reads the
+# directive that includes a file, and it sees the name README.md before the
+# preprocessor `index` renames the chapter to index.md.
+before = ["index", "links"]
