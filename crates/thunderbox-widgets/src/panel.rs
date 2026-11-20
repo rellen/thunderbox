@@ -3,7 +3,7 @@
 //! Every panel draws the same border, and every panel reports the same three
 //! states: the data source has not answered, the data source returned an
 //! error, and the result holds no value. This module holds those parts once,
-//! so that five panels agree.
+//! so that six panels agree.
 
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::{Alignment, Rect, Size};

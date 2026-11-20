@@ -15,12 +15,18 @@
 //! points to the width of the panel. A test of that step needs a signal that
 //! does not change when the number of points changes.
 //!
+//! The query `processes` returns a list of invented processes, and not a
+//! signal over time. The list has the shape of the list of the sysinfo data
+//! source. A top panel can therefore draw it, and the picture then shows
+//! nothing of the machine that draws it. The values of the list depend only on
+//! the end of the window, so the list keeps both properties above.
+//!
 //! `docs/ARCHITECTURE.md` section 9 states that this data source comes before
 //! any data source that reads real values.
 
 use async_trait::async_trait;
 use thunderbox_core::{
-    Error, Field, FieldConfig, Frame, QueryRequest, Result, SourceDecl, Timestamp,
+    Error, Field, FieldConfig, Frame, QueryRequest, Result, SourceDecl, Timestamp, Values,
 };
 use thunderbox_source::{DataSource, SourceDescriptor};
 
@@ -55,11 +61,39 @@ impl Shape {
             "gappy" => Ok(Self::Gappy),
             other => Err(Error::Query(format!(
                 "unknown testdata expression {other:?}; expected one of \
-                 random_walk, sine, ramp, gappy"
+                 random_walk, sine, ramp, gappy, {PROCESSES}"
             ))),
         }
     }
 }
+
+/// The text of the query that returns a list of invented processes.
+const PROCESSES: &str = "processes";
+
+/// The invented processes of the query `processes`.
+///
+/// Each row holds three values:
+///
+/// - the name of the process;
+/// - the largest share of the processor that the process reaches;
+/// - the memory that the process holds on average, in millions of bytes.
+///
+/// A share of 100 is one whole core, as the sysinfo data source reports it. The
+/// process `compiler` therefore reaches almost two cores.
+const PROCESS_TABLE: [(&str, f64, f64); 12] = [
+    ("init", 2.0, 12.0),
+    ("shell", 4.0, 6.0),
+    ("editor", 25.0, 180.0),
+    ("compiler", 190.0, 900.0),
+    ("browser", 60.0, 2100.0),
+    ("database", 45.0, 1400.0),
+    ("server", 35.0, 350.0),
+    ("indexer", 80.0, 260.0),
+    ("backup", 30.0, 120.0),
+    ("logger", 6.0, 40.0),
+    ("player", 15.0, 210.0),
+    ("terminal", 8.0, 90.0),
+];
 
 /// Mixes the bits of a number. This function is the splitmix64 algorithm.
 ///
@@ -201,6 +235,54 @@ impl TestData {
             .collect()
     }
 
+    /// Returns the list of invented processes at one moment.
+    ///
+    /// The frame holds one row for each process, and the four columns of the
+    /// list of the sysinfo data source: `pid` as text, `name`, `cpu` as a
+    /// share, and `memory` in bytes. The rows come in the order of the number
+    /// of each process, as the rows of that list do.
+    ///
+    /// Each value depends only on the seed and on `at`. The share of each
+    /// process moves slowly, so the order of a top panel changes over a few
+    /// seconds and not on every refresh.
+    fn processes(&self, at: Timestamp) -> Frame {
+        let count = PROCESS_TABLE.len();
+        let mut pids = Vec::with_capacity(count);
+        let mut names = Vec::with_capacity(count);
+        let mut cpu = Vec::with_capacity(count);
+        let mut memory = Vec::with_capacity(count);
+        for (index, (name, peak, megabytes)) in PROCESS_TABLE.iter().enumerate() {
+            pids.push(Some((1 + 211 * index).to_string()));
+            names.push(Some((*name).to_string()));
+            cpu.push(Some(peak * drift(self.seed, index, at)));
+            // The memory reads a series of its own, so its value does not
+            // follow the share of the processor.
+            let swing = 0.8 + 0.4 * drift(self.seed, count + index, at);
+            memory.push(Some(megabytes * 1_000_000.0 * swing));
+        }
+        let text = |name: &str, values: Vec<Option<String>>| Field {
+            name: name.into(),
+            values: Values::Str(values),
+            ..Default::default()
+        };
+        let number = |name: &str, unit: &str, values: Vec<Option<f64>>| {
+            Field::f64(name, values).with_config(FieldConfig {
+                unit: Some(unit.into()),
+                min: Some(0.0),
+                ..Default::default()
+            })
+        };
+        Frame::named(
+            PROCESSES,
+            vec![
+                text("pid", pids),
+                text("name", names),
+                number("cpu", "percent", cpu),
+                number("memory", "bytes", memory),
+            ],
+        )
+    }
+
     /// Returns the value at one moment in time.
     ///
     /// The result depends only on `t_ms`. It never depends on the position of
@@ -243,6 +325,12 @@ impl DataSource for TestData {
     }
 
     async fn query(&self, req: QueryRequest) -> Result<Vec<Frame>> {
+        if req.query.expr.trim() == PROCESSES {
+            // The list describes one moment, and the end of the window is that
+            // moment. A window in the past therefore shows the list of that
+            // moment.
+            return Ok(vec![self.processes(req.to)]);
+        }
         let shape = Shape::parse(&req.query.expr)?;
         let stamps = Self::timestamps(&req);
 
@@ -434,6 +522,135 @@ mod tests {
         assert!(
             err.contains("random_walk"),
             "The message must list the correct names. {err}"
+        );
+        assert!(
+            err.contains("processes"),
+            "The message must list the query of the processes. {err}"
+        );
+    }
+
+    /// Returns the list of invented processes for a window that ends at `at`.
+    fn processes_at(src: &TestData, at: Timestamp) -> Frame {
+        processes_for(src, at, at)
+    }
+
+    /// Returns the list of invented processes for a window that ends at `at`,
+    /// asked at the present moment `now`.
+    fn processes_for(src: &TestData, at: Timestamp, now: Timestamp) -> Frame {
+        let request = QueryRequest::new(
+            Query {
+                source: "t".into(),
+                expr: "processes".into(),
+            },
+            &TimeRange {
+                from: RelativeTime::Absolute(at - 60_000),
+                to: RelativeTime::Absolute(at),
+            },
+            now,
+            10,
+        );
+        let mut frames = block_on(src.query(request)).expect("The query must answer.");
+        assert_eq!(frames.len(), 1, "The list of processes is one frame.");
+        frames.remove(0)
+    }
+
+    /// Returns the names of the processes, from the largest share of the
+    /// processor to the smallest.
+    fn busiest_first(frame: &Frame) -> Vec<String> {
+        let Values::Str(names) = &frame.fields[1].values else {
+            panic!("The second column must hold the names.");
+        };
+        let cpu = frame.fields[2].values.as_f64().expect("cpu holds numbers.");
+        let mut rows: Vec<(f64, String)> = cpu
+            .iter()
+            .zip(names)
+            .map(|(c, n)| (c.unwrap_or(0.0), n.clone().unwrap_or_default()))
+            .collect();
+        rows.sort_by(|a, b| b.0.total_cmp(&a.0));
+        rows.into_iter().map(|(_, n)| n).collect()
+    }
+
+    /// The list has the shape of the list of the sysinfo data source. A
+    /// dashboard can then read either data source, and the scene of the program
+    /// reads this one.
+    #[test]
+    fn processes_returns_the_columns_of_the_sysinfo_list() {
+        let frame = processes_at(&TestData::new(), 1_000_000);
+        let names: Vec<&str> = frame.fields.iter().map(|f| f.name.as_str()).collect();
+        assert_eq!(names, vec!["pid", "name", "cpu", "memory"]);
+        assert_eq!(frame.len(), PROCESS_TABLE.len());
+        assert!(frame.fields.iter().all(|f| f.len() == frame.len()));
+        assert!(frame.time_field().is_none(), "A row describes a process.");
+        assert_eq!(frame.fields[2].config.unit.as_deref(), Some("percent"));
+        assert_eq!(frame.fields[3].config.unit.as_deref(), Some("bytes"));
+        let Values::Str(pids) = &frame.fields[0].values else {
+            panic!("The number of a process is text.");
+        };
+        let pids: Vec<usize> = pids
+            .iter()
+            .map(|p| p.as_deref().and_then(|t| t.parse().ok()).unwrap())
+            .collect();
+        assert!(
+            pids.windows(2).all(|pair| pair[0] < pair[1]),
+            "The rows come in the order of the number of each process. {pids:?}"
+        );
+    }
+
+    #[test]
+    fn processes_returns_the_same_list_for_the_same_moment() {
+        let a = processes_at(&TestData::new(), 1_000_000);
+        let b = processes_at(&TestData::new(), 1_000_000);
+        assert_eq!(a, b, "A test that compares a picture depends on this.");
+    }
+
+    /// The list describes the end of the window, and not the moment of the
+    /// question. A person who moves the window one hour back then reads the
+    /// list of that moment, as every other query of this data source does.
+    #[test]
+    fn processes_describes_the_end_of_the_window() {
+        let src = TestData::new();
+        let asked_then = processes_for(&src, 1_000_000, 1_000_000);
+        let asked_later = processes_for(&src, 1_000_000, 1_000_000 + 3_600_000);
+        assert_eq!(
+            asked_then, asked_later,
+            "The present moment must change nothing."
+        );
+        assert_ne!(
+            asked_then,
+            processes_at(&src, 1_000_000 + 3_600_000),
+            "Another end of the window must give another list."
+        );
+    }
+
+    #[test]
+    fn each_process_stays_inside_its_own_range() {
+        for at in (0..50).map(|i| i * 7_000) {
+            let frame = processes_at(&TestData::new(), at);
+            let cpu = frame.fields[2].values.as_f64().unwrap();
+            let memory = frame.fields[3].values.as_f64().unwrap();
+            for (index, (_, peak, megabytes)) in PROCESS_TABLE.iter().enumerate() {
+                let share = cpu[index].unwrap();
+                assert!((0.0..=*peak).contains(&share), "{share} {peak}");
+                let bytes = memory[index].unwrap();
+                assert!(
+                    (0.8 * megabytes * 1e6..=1.2 * megabytes * 1e6).contains(&bytes),
+                    "{bytes} {megabytes}"
+                );
+            }
+        }
+    }
+
+    /// The scene of the program records about seventeen seconds. A list whose
+    /// order never changed would show a reader no movement at all.
+    #[test]
+    fn the_busiest_process_changes_over_one_minute() {
+        let src = TestData::new();
+        let leaders: std::collections::BTreeSet<String> = (0..60)
+            .map(|second| busiest_first(&processes_at(&src, 1_000_000 + second * 1_000))[1].clone())
+            .collect();
+        assert!(
+            leaders.len() > 1,
+            "The second row of a top panel must change in one minute. {leaders:?}"
         );
     }
 

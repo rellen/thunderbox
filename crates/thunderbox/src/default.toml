@@ -82,8 +82,25 @@ title = "the most recent rows for each core"
 kind = "table"
 unit = "percent"
 decimals = 1
-grid = { x = 0, y = 13, w = 24, h = 6 }
+grid = { x = 0, y = 13, w = 12, h = 6 }
 [[panel.target]]
 source = "machine"
 expr = "cpu.cores"
 legend = "core {{core}}"
+
+# The settings of a top panel describe the column that puts the rows in
+# order. The column memory keeps the unit bytes that the data source states.
+[[panel]]
+title = "processes"
+kind = "top"
+sort = "cpu"
+grid = { x = 12, y = 13, w = 12, h = 6 }
+[[panel.threshold]]
+value = 60.0
+color = "warning"
+[[panel.threshold]]
+value = 85.0
+color = "critical"
+[[panel.target]]
+source = "machine"
+expr = "processes"

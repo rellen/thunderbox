@@ -8,7 +8,7 @@ use ratatui_core::widgets::Widget;
 use thunderbox_core::{Align, Dashboard, GRID_COLUMNS, GridPos, Panel, PanelKind};
 use thunderbox_widgets::{
     BarGaugePanel, GaugePanel, Marker, PanelData, PanelOptions, StatPanel, TablePanel, Theme,
-    TimeSeriesPanel, draws_a_panel,
+    TimeSeriesPanel, TopPanel, draws_a_panel,
 };
 
 use crate::grid::{panel_size, rows_of_grid, scale};
@@ -299,6 +299,15 @@ impl DashboardView {
                 .options(options)
                 .focused(selected)
                 .render(area, buf),
+            PanelKind::Top => {
+                let mut top = TopPanel::new(title, data, &self.theme)
+                    .options(options)
+                    .focused(selected);
+                if let Some(column) = panel.sort.as_deref() {
+                    top = top.sort_by(column);
+                }
+                top.render(area, buf);
+            }
         }
     }
 }

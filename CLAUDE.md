@@ -113,7 +113,7 @@ therefore left them as they are.
 | `loading…` | `thunderbox-widgets`, the panel that has no answer yet | Rule 3 and rule 4 ask for "The data source has not answered yet." A panel can be eight cells wide. The long form does not fit. |
 | `no data` | `thunderbox-widgets`, the panel that has an empty result | Rule 4 asks for a complete sentence. The same width problem applies. |
 | `—` | `thunderbox-widgets`, the text of a value that is not finite | Rule 8 forbids an em dash as punctuation. This em dash is not punctuation. It is the symbol that a chart shows in place of a missing number. |
-| `+3` | `thunderbox-widgets`, the note that counts the series that a panel dropped | Rule 4 asks for a complete sentence. The panel writes one, and it takes this form only where the sentence does not fit. No file holds this text. `dropped_text` builds the form with `format!("+{dropped}")`, and the tests compare against `+4` and against `+12`. |
+| `+3` | `thunderbox-widgets`, the note that counts the series, the columns, or the rows that a panel dropped | Rule 4 asks for a complete sentence. The panel writes one, and it takes this form only where the sentence does not fit. No file holds this text. Each `dropped_text` function builds the form with `format!("+{dropped}")`, and the tests compare against `+2`, `+4`, and `+12`. |
 
 ### The rule for a short label inside a panel
 
@@ -130,10 +130,12 @@ Three panels call it, so a reader meets the same words everywhere. A new short
 label follows the same three steps, and it takes a row in the table above.
 
 `thunderbox-widgets/src/table.rs` holds a second function of that name. The table
-panel counts a column, and the other three panels count a series, so the two
-functions write different words. The two functions also measure the width in
-different units. The function of `panel.rs` compares `long.chars().count()`, and
-the function of `table.rs` compares `display_width(&long)`. One character is not
+panel and the top panel call it. It counts a column for both panels, and it
+counts a row for the top panel. The other three panels count a series, so the
+two functions write different words. The two functions also measure the width
+in different units. The function of `panel.rs` compares
+`long.chars().count()`, and the function of `table.rs` compares
+`display_width(&long)`. One character is not
 always one cell, and `cells_of` of `panel.rs` states that rule. Change both
 functions when you change this rule. Each function holds tests of its own, so a
 change to one function alone leaves every test green.
@@ -354,12 +356,12 @@ The measurement: one link to an item that does not exist gives
 `cargo doc --no-deps` one warning and the code 0. The same link gives
 `RUSTDOCFLAGS="-D warnings" cargo doc --no-deps` the code 101.
 
-The count of the doctests must not fall. That count is 22 today:
+The count of the doctests must not fall. That count is 23 today:
 
 | crate | doctests |
 |---|---|
 | `thunderbox-core` | 10 |
-| `thunderbox-widgets` | 10 |
+| `thunderbox-widgets` | 11 |
 | `thunderbox-dashboard` | 1 |
 | `thunderbox-source-prometheus` | 1 |
 | each other crate | 0 |

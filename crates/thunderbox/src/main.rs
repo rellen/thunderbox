@@ -28,7 +28,7 @@ const HELP: &str = "\
 thunderbox is a dashboard platform for the terminal.
 
 The dashboard inside the program reads this machine. It draws the processor,
-each core, the memory, and the network.
+each core, the memory, the network, and the processes.
 
 Usage:
     thunderbox [FILE]
@@ -433,7 +433,7 @@ mod tests {
     fn the_dashboard_inside_the_program_is_correct() {
         let dash = load_dashboard(None).expect("The default dashboard must be correct.");
         assert_eq!(dash.title, "thunderbox");
-        assert_eq!(dash.panels.len(), 6);
+        assert_eq!(dash.panels.len(), 7);
     }
 
     #[test]
@@ -465,6 +465,7 @@ mod tests {
             PanelKind::Gauge,
             PanelKind::BarGauge,
             PanelKind::Table,
+            PanelKind::Top,
         ] {
             assert!(
                 dash.panels.iter().any(|p| p.kind == kind),

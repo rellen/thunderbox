@@ -26,6 +26,9 @@
 //! - [`GaugePanel`] draws one value against a range, as a meter.
 //! - [`BarGaugePanel`] draws one bar for each series, against a range.
 //! - [`TablePanel`] draws the columns of the frames, as rows and columns.
+//! - [`TopPanel`] draws a list of rows in order by one column, with the largest
+//!   value first. The program `top` shows the processes of a machine in this
+//!   form.
 
 mod bargauge;
 mod gauge;
@@ -35,6 +38,7 @@ mod stat;
 mod table;
 mod theme;
 mod timeseries;
+mod top;
 mod value;
 
 pub use bargauge::BarGaugePanel;
@@ -45,6 +49,7 @@ pub use stat::StatPanel;
 pub use table::TablePanel;
 pub use theme::Theme;
 pub use timeseries::{TimeSeriesPanel, last_value};
+pub use top::TopPanel;
 pub use value::{MISSING, format_from_now, format_time, format_value, format_window};
 
 use thunderbox_core::Frame;

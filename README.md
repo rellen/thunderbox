@@ -16,9 +16,9 @@ cargo run -p thunderbox
 ```
 
 The program reads this machine. It draws the processor, each core, the memory,
-and the network. The picture above draws the same panels over the data source
-testdata. No picture of this project shows data of the machine that records it.
-Name a file to show your own dashboard:
+the network, and the processes. The picture above draws the same panels over
+the data source testdata. No picture of this project shows data of the machine
+that records it. Name a file to show your own dashboard:
 
 ```
 cargo run -p thunderbox -- my-dashboard.toml
@@ -117,6 +117,7 @@ and no type names a data source.
 | `gauge` | One value against a range, as a meter. |
 | `bargauge` | One bar for each series, against a range. |
 | `table` | The columns of the frames, as rows and columns. |
+| `top` | A list of rows in order by one column, with the largest value first. The program `top` shows its processes in this form. |
 
 The stat panel, the gauge panel, and the bar gauge panel each show one number
 for each series. Each one reduces the column of numbers to that one number
@@ -140,10 +141,55 @@ These fields of a panel control how it shows a number:
 | `decimals` | The number of decimal places. |
 | `min` and `max` | The range of a meter. A gauge and a bar gauge read this range. |
 | `reduce` | The step that turns a column of numbers into one number. |
+| `sort` | The column that puts the rows of a top panel in order. Only a top panel reads this field. |
 | `[[panel.threshold]]` | A bound, and the colour above that bound. The colours are `warning` and `critical`. |
 
 A data source can attach the same settings to a column of its answer. The panel
-wins where the two disagree, because a person wrote the panel.
+wins where the two disagree, because a person wrote the panel. A top panel is
+the one exception, and the next section states it.
+
+### The top panel
+
+A top panel puts the rows of its frames in order by one column. The row that
+holds the largest number comes first, and the panel shows the first rows that
+fit. The `sort` field names the column by the text of its header. A panel that
+states no `sort` field takes its first column of numbers.
+
+```toml
+[[panel]]
+title = "processes"
+kind = "top"
+sort = "cpu"
+grid = { x = 12, y = 13, w = 12, h = 6 }
+
+[[panel.threshold]]
+value = 85.0
+color = "critical"
+
+[[panel.target]]
+source = "machine"
+expr = "processes"
+```
+
+The panel follows these rules:
+
+- Two rows that hold the same number keep the order of the data. Most processes
+  of a machine use no share of the processor, and those rows then stay still
+  on each refresh.
+- A row that holds no number in the column comes last.
+- The panel puts the rows of every frame into one list. A column of one frame
+  joins the column of another frame that shows the same header.
+- The bottom border counts the rows that do not fit. The text
+  `312 rows do not fit.` is an example.
+- A line under a header marks the column that gives the order.
+- The settings of the panel describe the column that gives the order, and no
+  other column. Every other column keeps the settings that its data source
+  states. A list of processes holds a share of the processor beside a count of
+  bytes, and one unit cannot describe both.
+
+The panel draws an error in place of the rows when no column of numbers shows
+the header that the `sort` field names. thunderbox rejects a `sort` field on a
+panel of any other kind.
 
 ## Give one width to a stack of charts
 
@@ -338,7 +384,8 @@ query = { source = "prom", expr = "instance" }
 
 The data source reads the text of that query in its own way. The prometheus
 data source reads the name of a label, and it returns every value of that
-label. The sysinfo data source returns the name of each signal that it holds.
+label. The sysinfo data source returns the name of each signal that it holds,
+and the query `processes`.
 A data source that holds no choice for a variable reports that in the status
 row.
 
@@ -383,6 +430,7 @@ signals:
 | `swap` | The share of the swap area in use. | percent | none |
 | `network.rx` | The bytes that the network cards received in each second. | bytes/s | none |
 | `network.tx` | The bytes that the network cards sent in each second. | bytes/s | none |
+| `processes` | The data source returns one row for each process of the machine. The section below states the columns. | percent and bytes | none |
 
 The label `core` holds the position of the core in the list that the machine
 returned. The machine decides what that list holds. It reports one entry for
@@ -416,9 +464,29 @@ while the program runs. It holds nothing from before the program
 started, and the distance between two samples equals the refresh interval of
 the dashboard.
 
+The query `processes` reads no store. It returns one frame, and that frame
+holds one row for each process and these four columns:
+
+| column | what it holds | unit |
+|---|---|---|
+| `pid` | The number of the process, as text. A column of numbers would write `1.2K` for the process 1234. | none |
+| `name` | The short name of the program that the process runs. | none |
+| `cpu` | The share of the processor since the sample before. A value of 100 is one whole core, as in the program `top`. | percent |
+| `memory` | The memory that the process holds in physical memory. | bytes |
+
+A top panel draws this frame. The rows come in the order of the number of each
+process, and the panel puts them in its own order. The first sample reports a
+share of 0 for each process, because the data source needs two samples before
+it can report a share. The data source keeps no list from the past. A window
+that a person moved into the past therefore shows `no data` in that panel. The
+list counts each process one time, and it counts no thread of a process as a
+row of its own.
+
 **`testdata` makes test data.** It needs no server, and the data does not change
-between two runs. The queries are `random_walk`, `sine`, `ramp`, and `gappy`. It
-takes two options:
+between two runs. The queries are `random_walk`, `sine`, `ramp`, and `gappy`.
+The query `processes` returns a list of twelve invented processes, in the
+shape of the list of `sysinfo`. Each value of that list depends on the end of
+the window alone. The data source takes two options:
 
 | option | what it does |
 |---|---|

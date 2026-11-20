@@ -279,22 +279,22 @@ mod tests {
     /// 9 rows. `docs/ARCHITECTURE.md` section 12 holds the same numbers.
     #[test]
     fn the_default_dashboard_drops_a_panel_only_under_a_terminal_of_ten_rows() {
-        let dashboard = Dashboard::from_toml(SIX_PANELS).expect("The dashboard must be correct.");
+        let dashboard = Dashboard::from_toml(SEVEN_PANELS).expect("The dashboard must be correct.");
         let counts: Vec<usize> = (7..=11)
             .map(|terminal| drawn(&dashboard, Size::new(110, terminal - 1)))
             .collect();
         assert_eq!(
             counts,
-            vec![0, 1, 4, 6, 6],
-            "A terminal of 9 rows draws four of the six panels, and a terminal of 10 rows \
+            vec![0, 2, 5, 7, 7],
+            "A terminal of 9 rows draws five of the seven panels, and a terminal of 10 rows \
              draws every panel."
         );
     }
 
     /// The dashboard that holds the grid of the default dashboard. The panels
-    /// of that dashboard hold 16, 8, 8, 8, 8 and 24 columns of the grid, and
-    /// they stand in three rows.
-    const SIX_PANELS: &str = r#"
+    /// of that dashboard hold 16, 8, 8, 8, 8, 12 and 12 columns of the grid,
+    /// and they stand in three rows.
+    const SEVEN_PANELS: &str = r#"
 title = "test"
 [[panel]]
 title = "cpu"
@@ -319,6 +319,10 @@ grid = { x = 16, y = 7, w = 8, h = 6 }
 [[panel]]
 title = "the most recent rows for each core"
 kind = "table"
-grid = { x = 0, y = 13, w = 24, h = 6 }
+grid = { x = 0, y = 13, w = 12, h = 6 }
+[[panel]]
+title = "processes"
+kind = "top"
+grid = { x = 12, y = 13, w = 12, h = 6 }
 "#;
 }

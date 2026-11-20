@@ -16,9 +16,10 @@
 
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::{Alignment, Constraint, Rect};
-use ratatui_core::style::{Color, Style};
+use ratatui_core::style::{Color, Modifier, Style};
 use ratatui_core::text::{Line, Span};
 use ratatui_core::widgets::Widget;
+use ratatui_widgets::block::Block;
 use ratatui_widgets::table::{Cell, Row, Table};
 use thunderbox_core::{Field, Frame, Values};
 
@@ -87,23 +88,30 @@ impl<'a> TablePanel<'a> {
 
 /// One cell of the table, and the style that the panel draws it with.
 #[derive(Debug, Clone)]
-struct Entry {
+pub(crate) struct Entry {
     /// The text that the panel draws.
-    text: String,
+    pub(crate) text: String,
     /// The style that the panel draws the text with.
-    style: Style,
+    pub(crate) style: Style,
 }
 
 /// One column of the table.
 #[derive(Debug, Clone)]
-struct Column {
+pub(crate) struct Column {
     /// The text of the header.
-    header: String,
+    pub(crate) header: String,
     /// One entry for each row that the panel shows.
-    entries: Vec<Entry>,
+    pub(crate) entries: Vec<Entry>,
     /// The panel puts a number at the right of its column. This field is `true`
     /// for a column of numbers.
-    right: bool,
+    pub(crate) right: bool,
+    /// This field is `true` for the column that puts the rows in order.
+    ///
+    /// The top panel sets this field, and [`draw_sheet`] then draws a line
+    /// under the header of that column. A reader therefore sees which column
+    /// gives the order. The table panel keeps the order of the data, so it
+    /// sets the field on no column.
+    pub(crate) sorted: bool,
 }
 
 impl Column {
@@ -172,12 +180,12 @@ fn clip_cells(text: &str, width: usize) -> String {
 
 /// The table that the panel draws.
 #[derive(Debug, Clone)]
-struct Sheet {
+pub(crate) struct Sheet {
     /// The columns, in the order of the frames and then of the fields.
-    columns: Vec<Column>,
+    pub(crate) columns: Vec<Column>,
     /// The number of rows that the panel shows. Every column holds this number
     /// of entries.
-    rows: usize,
+    pub(crate) rows: usize,
 }
 
 /// Returns the text without a control character.
@@ -185,14 +193,14 @@ struct Sheet {
 /// A data source can return a text that holds a line break. Such a character
 /// would damage the row that the panel draws. The function puts one space in
 /// the place of each such character.
-fn plain(text: &str) -> String {
+pub(crate) fn plain(text: &str) -> String {
     text.chars()
         .map(|c| if c.is_control() { ' ' } else { c })
         .collect()
 }
 
 /// Returns the cell that stands for a value that is not there.
-fn missing_entry(theme: &Theme) -> Entry {
+pub(crate) fn missing_entry(theme: &Theme) -> Entry {
     Entry {
         text: MISSING.to_string(),
         style: theme.muted,
@@ -207,7 +215,7 @@ fn missing_entry(theme: &Theme) -> Entry {
 /// - the column holds a hole at this row;
 /// - the value is not finite;
 /// - the column is shorter, and it does not reach this row.
-fn entry(field: &Field, row: usize, options: &PanelOptions<'_>, theme: &Theme) -> Entry {
+pub(crate) fn entry(field: &Field, row: usize, options: &PanelOptions<'_>, theme: &Theme) -> Entry {
     let missing = || missing_entry(theme);
     let plain_entry = |text: String| Entry {
         text,
@@ -296,6 +304,7 @@ fn collect(
                     })
                     .collect(),
                 right: matches!(field.values, Values::F64(_)),
+                sorted: false,
             });
         }
     }
@@ -406,17 +415,32 @@ fn cell_text(text: &str, width: usize, number: bool) -> Option<String> {
     Some(clip_cells(text, width))
 }
 
-/// Returns the text of a note that states how many columns the panel dropped.
+/// The part of a sheet that a note of [`dropped_text`] counts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Counted {
+    /// A column that the panel dropped at the right.
+    Column,
+    /// A row that the panel dropped at the bottom.
+    Row,
+}
+
+/// Returns the text of a note that states how many columns or rows the panel
+/// dropped.
 ///
-/// The panel draws this note at the right of the header row. A reader then
-/// knows that the panel holds more columns. The function returns a short form
-/// for a narrow panel. It returns an empty text for a panel that has no room
-/// for the note.
-fn dropped_text(dropped: usize, width: usize) -> String {
+/// The table panel and the top panel draw a note about a column at the right
+/// of the header row. The top panel draws a note about a row at the right of
+/// the bottom border. A reader then knows that the panel holds more. The
+/// function returns a short form for a narrow panel. It returns an empty text
+/// for a panel that has no room for the note.
+pub(crate) fn dropped_text(dropped: usize, width: usize, counted: Counted) -> String {
+    let (one, many) = match counted {
+        Counted::Column => ("column", "columns"),
+        Counted::Row => ("row", "rows"),
+    };
     let long = if dropped == 1 {
-        "1 column does not fit.".to_string()
+        format!("1 {one} does not fit.")
     } else {
-        format!("{dropped} columns do not fit.")
+        format!("{dropped} {many} do not fit.")
     };
     if display_width(&long) <= width {
         return long;
@@ -443,7 +467,7 @@ fn plan_widths(natural: &[usize], available: usize) -> (Vec<usize>, String) {
     }
     let used = widths.iter().sum::<usize>() + widths.len().saturating_sub(1) * COLUMN_GAP;
     let room = available.saturating_sub(used + COLUMN_GAP);
-    let note = dropped_text(natural.len() - widths.len(), room);
+    let note = dropped_text(natural.len() - widths.len(), room, Counted::Column);
     (widths, note)
 }
 
@@ -472,67 +496,87 @@ impl Widget for &TablePanel<'_> {
             return render_message(block, NO_DATA, self.theme.muted, area, buf);
         };
 
-        let natural: Vec<usize> = sheet.columns.iter().map(Column::natural_width).collect();
-        let (widths, note) = plan_widths(&natural, usize::from(inner.width));
-        if widths.is_empty() {
-            // The panel is too narrow for one column. It draws the border and
-            // the title, and it draws no column.
-            return block.render(area, buf);
-        }
-        let columns = || widths.iter().zip(&sheet.columns);
+        draw_sheet(&sheet, block, self.theme, area, buf);
+    }
+}
 
-        let header = Row::new(
-            columns()
-                .map(|(width, column)| {
-                    let text = clip_cells(&column.header, *width);
-                    cell(text, self.theme.title, column.right)
-                })
-                .collect::<Vec<Cell<'_>>>(),
-        )
-        .style(self.theme.title);
+/// Draws a sheet inside the border of a panel.
+///
+/// The function gives each column a width, and it drops the columns at the
+/// right that have no room. It then draws the header, the rows, and the note
+/// about the columns that it dropped. The table panel and the top panel both
+/// call this function, so the two panels share one layout.
+///
+/// The function draws the border and the title alone when no column fits.
+pub(crate) fn draw_sheet(
+    sheet: &Sheet,
+    block: Block<'_>,
+    theme: &Theme,
+    area: Rect,
+    buf: &mut Buffer,
+) {
+    let inner = block.inner(area);
+    let natural: Vec<usize> = sheet.columns.iter().map(Column::natural_width).collect();
+    let (widths, note) = plan_widths(&natural, usize::from(inner.width));
+    if widths.is_empty() {
+        // The panel is too narrow for one column. It draws the border and the
+        // title, and it draws no column.
+        return block.render(area, buf);
+    }
+    let columns = || widths.iter().zip(&sheet.columns);
 
-        let rows: Vec<Row<'_>> = (0..sheet.rows)
-            .map(|row| {
-                Row::new(
-                    columns()
-                        .map(|(width, column)| {
-                            let Some(found) = column.entries.get(row) else {
-                                return cell(String::new(), self.theme.text, column.right);
-                            };
-                            match cell_text(&found.text, *width, column.right) {
-                                Some(text) => cell(text, found.style, column.right),
-                                // The number does not fit. The panel draws the
-                                // symbol of a value that it cannot show.
-                                None => cell(
-                                    clip_cells(MISSING, *width),
-                                    self.theme.muted,
-                                    column.right,
-                                ),
-                            }
-                        })
-                        .collect::<Vec<Cell<'_>>>(),
-                )
+    let header = Row::new(
+        columns()
+            .map(|(width, column)| {
+                let text = clip_cells(&column.header, *width);
+                let style = if column.sorted {
+                    theme.title.add_modifier(Modifier::UNDERLINED)
+                } else {
+                    theme.title
+                };
+                cell(text, style, column.right)
             })
-            .collect();
+            .collect::<Vec<Cell<'_>>>(),
+    )
+    .style(theme.title);
 
-        let constraints: Vec<Constraint> = widths
-            .iter()
-            .map(|w| Constraint::Length(u16::try_from(*w).unwrap_or(u16::MAX)))
-            .collect();
+    let rows: Vec<Row<'_>> = (0..sheet.rows)
+        .map(|row| {
+            Row::new(
+                columns()
+                    .map(|(width, column)| {
+                        let Some(found) = column.entries.get(row) else {
+                            return cell(String::new(), theme.text, column.right);
+                        };
+                        match cell_text(&found.text, *width, column.right) {
+                            Some(text) => cell(text, found.style, column.right),
+                            // The number does not fit. The panel draws the
+                            // symbol of a value that it cannot show.
+                            None => cell(clip_cells(MISSING, *width), theme.muted, column.right),
+                        }
+                    })
+                    .collect::<Vec<Cell<'_>>>(),
+            )
+        })
+        .collect();
 
-        Table::new(rows, constraints)
-            .header(header)
-            .block(block)
-            .column_spacing(u16::try_from(COLUMN_GAP).unwrap_or(1))
-            .render(area, buf);
+    let constraints: Vec<Constraint> = widths
+        .iter()
+        .map(|w| Constraint::Length(u16::try_from(*w).unwrap_or(u16::MAX)))
+        .collect();
 
-        if !note.is_empty() {
-            // The note sits at the right of the header row, in the cells that
-            // the columns left free.
-            Line::from(Span::styled(note, self.theme.muted))
-                .alignment(Alignment::Right)
-                .render(Rect { height: 1, ..inner }, buf);
-        }
+    Table::new(rows, constraints)
+        .header(header)
+        .block(block)
+        .column_spacing(u16::try_from(COLUMN_GAP).unwrap_or(1))
+        .render(area, buf);
+
+    if !note.is_empty() {
+        // The note sits at the right of the header row, in the cells that the
+        // columns left free.
+        Line::from(Span::styled(note, theme.muted))
+            .alignment(Alignment::Right)
+            .render(Rect { height: 1, ..inner }, buf);
     }
 }
 
@@ -1285,16 +1329,25 @@ mod tests {
 
     #[test]
     fn dropped_text_states_the_number_of_columns() {
-        assert_eq!(dropped_text(1, 30), "1 column does not fit.");
-        assert_eq!(dropped_text(4, 30), "4 columns do not fit.");
+        assert_eq!(
+            dropped_text(1, 30, Counted::Column),
+            "1 column does not fit."
+        );
+        assert_eq!(
+            dropped_text(4, 30, Counted::Column),
+            "4 columns do not fit."
+        );
     }
 
     #[test]
     fn dropped_text_returns_a_short_form_for_a_narrow_panel() {
-        assert_eq!(dropped_text(4, 21), "4 columns do not fit.");
-        assert_eq!(dropped_text(4, 20), "+4");
-        assert_eq!(dropped_text(12, 2), "+.");
-        assert_eq!(dropped_text(4, 0), "");
+        assert_eq!(
+            dropped_text(4, 21, Counted::Column),
+            "4 columns do not fit."
+        );
+        assert_eq!(dropped_text(4, 20, Counted::Column), "+4");
+        assert_eq!(dropped_text(12, 2, Counted::Column), "+.");
+        assert_eq!(dropped_text(4, 0, Counted::Column), "");
     }
 
     #[test]

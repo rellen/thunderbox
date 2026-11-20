@@ -63,12 +63,14 @@ source = "one"
 expr = "up"
 "#;
 
-/// A dashboard whose six panels hold the grid columns of the default
-/// dashboard.
+/// A dashboard whose six panels hold the grid columns that the default
+/// dashboard held when the project took the rule of the point limit.
 ///
 /// The default dashboard sits in `crates/thunderbox/src/default.toml`. Its panels
-/// hold 16, 8, 8, 8, 8 and 24 columns of the grid of 24 columns, and they stand
-/// in three rows.
+/// held 16, 8, 8, 8, 8 and 24 columns of the grid of 24 columns, and they stood
+/// in three rows. A later change gave half of the last row to the panel of the
+/// processes. This dashboard keeps the old grid, because the test below records
+/// the measurement of that rule.
 const SIX_PANELS: &str = r#"
 title = "test"
 [source.one]
@@ -700,7 +702,7 @@ async fn the_point_limit_follows_the_width_of_the_panel_and_the_marker() {
 
 /// Each panel holds a width of its own, and the point limit of a panel follows
 /// that width. The panels of this dashboard hold the grid columns that the
-/// default dashboard gives its own panels.
+/// default dashboard gave its own panels when the project took this rule.
 ///
 /// The runtime asked every panel for the points of the whole area before this
 /// rule. Each of the six panels then asked for 220 points, and the dashboard

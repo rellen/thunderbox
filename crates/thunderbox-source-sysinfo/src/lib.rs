@@ -2,6 +2,8 @@
 //!
 //! The `sysinfo` crate reports the state of the machine at one moment. A panel
 //! draws values against time, so this crate keeps its own store of samples.
+//! The query `processes` is the one exception, and the section below states
+//! it.
 //!
 //! The store fills when a caller runs a query. This crate starts no task of its
 //! own, and it needs no async runtime. The trait gives this crate no place to
@@ -34,12 +36,34 @@
 //! Every other signal returns one series, so no property separates one series
 //! of that signal from another. Those signals therefore carry no label.
 //!
+//! # The list of processes
+//!
+//! The query `processes` returns one frame, and that frame holds one row for
+//! each process of the machine. The four columns are these:
+//!
+//! - `pid`, the number of the process, as text. A column of numbers would
+//!   write `1.2K` for the process 1234;
+//! - `name`, the short name of the program that the process runs;
+//! - `cpu`, the share of the processor since the sample before. A value of 100
+//!   is one whole core, as in the program `top`;
+//! - `memory`, the memory that the process holds in physical memory, in bytes.
+//!
+//! The rows come in the order of the number of each process. A top panel puts
+//! them in another order. The frame holds no time column, because a row
+//! describes a process and not a moment.
+//!
+//! This crate keeps no list of processes from the past. A window that does not
+//! hold the moment of the last sample therefore returns the four columns and no
+//! row. The first sample reports a share of 0 for each process, because the
+//! `sysinfo` crate needs two samples before it can report a share.
+//!
 //! A variable of this data source takes the name of a signal, and not the value
 //! of a label. [`DataSource::label_values`] returns the names of the signals for
 //! every query. The project has not built variables yet, and
 //! `docs/ARCHITECTURE.md` section 15 lists that work.
 
 mod history;
+mod process;
 mod sample;
 
 use std::sync::Mutex;
@@ -55,7 +79,8 @@ use thunderbox_source::{DataSource, SourceDescriptor};
 pub const KIND: &str = "sysinfo";
 
 use crate::history::History;
-use crate::sample::{Sampler, Signal};
+use crate::process::{PROCESSES, ProcessSampler};
+use crate::sample::{Sampler, Signal, query_names};
 
 /// The shortest time between two samples.
 ///
@@ -64,8 +89,8 @@ use crate::sample::{Sampler, Signal};
 /// for one refresh.
 const MIN_SAMPLE_GAP: Duration = Duration::from_millis(250);
 
-/// A data source that reads the processor, the memory, and the network of this
-/// machine.
+/// A data source that reads the processor, the memory, the network, and the
+/// processes of this machine.
 pub struct SysinfoSource {
     inner: Mutex<Inner>,
 }
@@ -74,6 +99,7 @@ struct Inner {
     sampler: Sampler,
     history: History,
     last_sample: Option<Instant>,
+    processes: ProcessSampler,
 }
 
 impl Default for SysinfoSource {
@@ -94,6 +120,7 @@ impl SysinfoSource {
                 sampler: Sampler::new(),
                 history: History::new(),
                 last_sample: None,
+                processes: ProcessSampler::new(),
             }),
         }
     }
@@ -141,11 +168,24 @@ impl DataSource for SysinfoSource {
     }
 
     async fn query(&self, req: QueryRequest) -> Result<Vec<Frame>> {
-        let signal = Signal::parse(&req.query.expr)?;
+        let processes = req.query.expr.trim() == PROCESSES;
+        let signal = if processes {
+            None
+        } else {
+            Some(Signal::parse(&req.query.expr)?)
+        };
         let mut inner = self
             .inner
             .lock()
             .map_err(|_| Error::Query("The store of samples is not usable.".into()))?;
+
+        // The list of processes reads no store. A sample of the processes
+        // costs more than a sample of the other signals. A dashboard that shows
+        // no list of processes therefore takes no such sample.
+        let Some(signal) = signal else {
+            inner.processes.sample_if_due(req.now, MIN_SAMPLE_GAP);
+            return Ok(vec![inner.processes.frame(req.from, req.to)]);
+        };
 
         // The sample carries the moment when the machine produced it, and
         // never the end of the range. This data source would otherwise stamp
@@ -198,8 +238,11 @@ impl DataSource for SysinfoSource {
     /// A variable of this data source takes the name of a signal. It does not
     /// take the value of a label, so this method reads no query. The module
     /// comment states that limit.
+    ///
+    /// The list ends with the query `processes`. A variable can select that
+    /// query for a top panel.
     async fn label_values(&self, _query: &str) -> Result<Vec<String>> {
-        Ok(Signal::names().iter().map(|s| (*s).to_string()).collect())
+        Ok(query_names().iter().map(|s| (*s).to_string()).collect())
     }
 }
 
@@ -313,6 +356,66 @@ mod tests {
         assert!(
             error.contains("cpu.cores"),
             "The message must list the signals. {error}"
+        );
+        assert!(
+            error.contains("processes"),
+            "The message must list the query of the processes. {error}"
+        );
+    }
+
+    #[test]
+    fn a_query_of_the_processes_returns_one_row_for_each_process() {
+        let source = SysinfoSource::new();
+        let frames = ask(&source, " processes ", 1_000_000).expect("The query must answer.");
+        assert_eq!(frames.len(), 1, "The list of processes is one frame.");
+        let frame = &frames[0];
+        assert!(!frame.is_empty(), "A machine runs at least one process.");
+        assert!(
+            frame.time_field().is_none(),
+            "A row describes a process and not a moment."
+        );
+        assert_eq!(
+            frame.numeric_fields().next().map(|f| f.name.as_str()),
+            Some("cpu"),
+            "A top panel that names no column takes the first column of numbers."
+        );
+    }
+
+    /// A list of processes reads no store. A query of that list must therefore
+    /// leave the store as it was. A dashboard that shows only that list then
+    /// pays for no other sample.
+    #[test]
+    fn a_query_of_the_processes_takes_no_sample_of_the_store() {
+        let source = SysinfoSource::new();
+        ask(&source, "processes", 1_000_000).expect("The query must answer.");
+        assert!(
+            stamps_of(&source, "cpu").is_empty(),
+            "The query of the processes must take no sample of the processor."
+        );
+    }
+
+    /// The window of the default dashboard ends at the present moment. A window
+    /// that a person moved one hour into the past holds no list of processes.
+    #[test]
+    fn a_window_in_the_past_returns_no_process() {
+        let source = SysinfoSource::new();
+        let past = TimeRange {
+            from: RelativeTime::Absolute(1_000_000 - 3_600_000),
+            to: RelativeTime::Absolute(1_000_000 - 3_540_000),
+        };
+        let request = QueryRequest::new(
+            Query {
+                source: "machine".into(),
+                expr: "processes".into(),
+            },
+            &past,
+            1_000_000,
+            200,
+        );
+        let frames = block_on(source.query(request)).expect("The query must answer.");
+        assert!(
+            frames[0].is_empty(),
+            "This data source keeps no list of processes from the past."
         );
     }
 
@@ -501,6 +604,7 @@ mod tests {
         let names = block_on(SysinfoSource::new().label_values("")).unwrap();
         assert!(names.contains(&"cpu".to_string()));
         assert!(names.contains(&"network.tx".to_string()));
+        assert!(names.contains(&"processes".to_string()));
     }
 
     /// Runs a future to completion. This function lets the tests of this crate
