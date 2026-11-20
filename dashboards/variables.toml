@@ -1,0 +1,63 @@
+# A dashboard that shows the variables that a person selects.
+#
+# The data source is the test data of this project, so this dashboard needs no
+# server and no measurement of its own. Press v to select the next variable.
+# Press ] for the choice that follows, and press [ for the choice before it.
+#
+#     cargo run -p thunderbox -- dashboards/variables.toml
+
+title = "variables"
+refresh = "1s"
+
+[time]
+from = "now-1m"
+to = "now"
+
+[source.test]
+kind = "testdata"
+series = 3
+
+# The value of this variable is the whole text of the query. The testdata data
+# source reads that text, and each choice names one of its signals.
+#
+# A reference to a variable reaches the `expr` field of a target. It reaches no
+# other field, so the `legend` field below holds no reference.
+[[variable]]
+name = "signal"
+label = "the signal"
+options = ["random_walk", "sine", "ramp", "gappy"]
+current = "random_walk"
+
+[[panel]]
+title = "the signal that you selected"
+kind = "timeseries"
+unit = "percent"
+grid = { x = 0, y = 0, w = 24, h = 10 }
+[[panel.target]]
+source = "test"
+expr = "$signal"
+legend = "series {{series}}"
+
+[[panel]]
+title = "the most recent value"
+kind = "stat"
+unit = "percent"
+decimals = 1
+grid = { x = 0, y = 10, w = 12, h = 6 }
+[[panel.target]]
+source = "test"
+expr = "$signal"
+legend = "series {{series}}"
+
+[[panel]]
+title = "the largest value of each series"
+kind = "bargauge"
+unit = "percent"
+min = 0.0
+max = 100.0
+reduce = "max"
+grid = { x = 12, y = 10, w = 12, h = 6 }
+[[panel.target]]
+source = "test"
+expr = "$signal"
+legend = "series {{series}}"

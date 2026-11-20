@@ -1,0 +1,125 @@
+# The checks that this project runs. CLAUDE.md section 4 lists these commands,
+# and each job runs the same commands in the same order.
+#
+# The matrix runs every check on Linux and on macOS. The tests read this machine
+# through the sysinfo crate, and that crate holds a separate implementation for
+# each operating system. macOS therefore needs a run of its own.
+#
+# Each operating system gets one job on purpose. GitHub rounds the time of each
+# job up to a whole minute, and each job installs the toolchain again. Several
+# small jobs therefore cost more minutes than one large job.
+#
+# Watch the cost of the macOS job. A macOS minute costs about ten times as much
+# as a Linux minute. The `fail-fast` default limits that cost, because a failure
+# on Linux cancels the macOS job.
+name: checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # The manual button on the Actions page. GitHub shows the button only after
+  # this file reaches the default branch.
+  workflow_dispatch:
+
+# A new commit cancels the run of the commit before it. A branch that receives
+# several commits together therefore costs the minutes of the last commit alone.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # A warning from rustdoc fails the run. Cargo.toml sets
+  # `broken_intra_doc_links = "warn"`, and a warning alone would pass.
+  RUSTDOCFLAGS: -D warnings
+
+jobs:
+  checks:
+    name: checks on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    # The default limit is 360 minutes. A job that hangs would cost 6 hours.
+    # macOS needs the larger part of this limit, because the `prometheus`
+    # feature pulls in a dependency that builds C source.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      # rust-toolchain.toml names the release, the profile, and the components.
+      # This command reads that file, and it installs what the file names.
+      # rustup then uses that release for every cargo command below.
+      #
+      # `--no-self-update` stops rustup from an update of itself. Homebrew
+      # installs rustup on the macOS runner, and an update there is wrong.
+      - name: Install the toolchain that rust-toolchain.toml names
+        run: rustup toolchain install --no-self-update
+
+      # The cache holds the Cargo home and the target directory. A run that
+      # finds the cache does not compile the dependencies again. The action
+      # gives each operating system a key of its own. The action reads the
+      # release of the compiler for that key, so the step above comes first.
+      - uses: Swatinem/rust-cache@v2
+
+      # The steps below run in the order of their cost. A cheap step that fails
+      # stops the run, and the expensive steps never start.
+      - name: Confirm that each check of the lint script works
+        run: python3 scripts/ste-lint.py --selftest
+
+      - name: Find the common faults of Simplified Technical English
+        run: python3 scripts/ste-lint.py
+
+      - name: Check the format
+        run: cargo fmt --check
+
+      - name: Run clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Run the tests
+        run: cargo test
+
+      - name: Run the doc tests
+        run: cargo test --doc
+
+      - name: Build the documentation
+        run: cargo doc --no-deps
+
+      # The workspace declares `rust-version = "1.88"`. Cargo checks nothing
+      # against that field, so the field is a statement and not a fact. This
+      # step compiles the workspace with release 1.88.0, and it turns the
+      # statement into a fact.
+      #
+      # `RUSTUP_TOOLCHAIN` outranks rust-toolchain.toml, so the variable wins
+      # over the pin. The variable belongs to this step alone, and every other
+      # step keeps the pinned release.
+      #
+      # The guard reads the number from Cargo.toml, and it compares that number
+      # against the compiler that this step holds. The guard fails when the two
+      # drift apart, and it fails when the pin takes this step over. Without the
+      # guard this step could pass on the pinned release and prove nothing.
+      #
+      # `cargo check` compiles no doc test, so this step leaves the doc tests to
+      # the steps above. This step runs on Linux alone, because the release that
+      # a package needs does not depend on the operating system.
+      - name: Check that the oldest supported release compiles the workspace
+        if: runner.os == 'Linux'
+        env:
+          RUSTUP_TOOLCHAIN: "1.88.0"
+        run: |
+          set -eu
+          rustup toolchain install 1.88.0 --profile minimal --no-self-update
+          declared=$(grep -m1 '^rust-version = ' Cargo.toml | cut -d'"' -f2)
+          actual=$(rustc --version | cut -d' ' -f2)
+          case "$actual" in
+            "$declared" | "$declared".*) ;;
+            *)
+              echo "This step runs $actual. Cargo.toml declares $declared."
+              exit 1
+              ;;
+          esac
+          cargo check --locked --workspace --all-features --all-targets

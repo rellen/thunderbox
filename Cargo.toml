@@ -1,0 +1,44 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/rellen/thunderbox"
+
+# Documentation coverage. Every lint here reported zero faults when the project
+# turned it on. Style is a separate matter: no tool checks Simplified Technical
+# English, so a reviewer reads the text. See CLAUDE.md section 1.
+[workspace.lints.rust]
+missing_docs = "warn"
+
+[workspace.lints.rustdoc]
+broken_intra_doc_links = "warn"
+
+[workspace.lints.clippy]
+missing_errors_doc = "warn"
+missing_panics_doc = "warn"
+
+[workspace.dependencies]
+thunderbox-core = { path = "crates/thunderbox-core", version = "0.0.0" }
+thunderbox-dashboard = { path = "crates/thunderbox-dashboard", version = "0.0.0" }
+thunderbox-source = { path = "crates/thunderbox-source", version = "0.0.0" }
+thunderbox-source-prometheus = { path = "crates/thunderbox-source-prometheus", version = "0.0.0" }
+thunderbox-source-sysinfo = { path = "crates/thunderbox-source-sysinfo", version = "0.0.0" }
+thunderbox-source-testdata = { path = "crates/thunderbox-source-testdata", version = "0.0.0" }
+thunderbox-widgets = { path = "crates/thunderbox-widgets", version = "0.0.0" }
+
+# Rendering. `thunderbox-widgets` takes ratatui-core/-widgets ONLY: no backend,
+# no crossterm, no tokio. See docs/ARCHITECTURE.md section 1.
+ratatui-core = "0.1"
+ratatui-widgets = "0.3"
+ratatui = { version = "0.30.2", default-features = false, features = ["crossterm", "layout-cache"] }
+anyhow = "1"
+async-trait = "0.1"
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+toml = "0.9"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }

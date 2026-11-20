@@ -1,0 +1,42 @@
+# The updates that Dependabot opens for this project. GitHub runs Dependabot
+# itself at no cost. The pull request that Dependabot opens does cost minutes,
+# because that pull request starts the checks workflow.
+#
+# Each entry therefore holds a slow schedule and a low limit. A limit of one
+# keeps one open pull request for each entry.
+version: 2
+updates:
+  # The release of Rust. Dependabot reads the `channel` field of
+  # rust-toolchain.toml, and it opens a pull request for a newer release. A
+  # release of Rust arrives about every 6 weeks.
+  #
+  # Dependabot keeps the shape of the number. The field names three parts, so
+  # each pull request names three parts as well. The word `stable` in that
+  # field would yield no pull request at all.
+  #
+  # Read the new faults of clippy in that pull request. That is the reason for
+  # the pin, and this entry is the way a person meets those faults on purpose.
+  - package-ecosystem: "rust-toolchain"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 1
+    # Dependabot rebases an open pull request when the default branch moves, and
+    # each rebase starts the checks workflow again. A person rebases the pull
+    # request by hand instead.
+    rebase-strategy: "disabled"
+
+  # The actions that .github/workflows/checks.yml names. Each action holds a tag
+  # of one number, such as `v7`, so Dependabot opens a pull request for a new
+  # first number alone. That happens once or twice in a year.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 1
+    rebase-strategy: "disabled"
+    # One group holds every action, so one pull request carries them all, and it
+    # costs one run of the checks.
+    groups:
+      actions:
+        patterns: ["*"]

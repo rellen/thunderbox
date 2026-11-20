@@ -1,0 +1,22 @@
+[package]
+name = "thunderbox-widgets"
+description = "The panel renderers of thunderbox. These widgets need no terminal backend and no async runtime."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# The panel-embed surface. Deliberately NO backend, NO crossterm, NO tokio:
+# a host application that already owns a Terminal must be able to render these.
+# See docs/ARCHITECTURE.md section 1.
+[dependencies]
+thunderbox-core = { workspace = true }
+ratatui-core = { workspace = true }
+ratatui-widgets = { workspace = true }
+
+[dev-dependencies]
+ratatui = { workspace = true }
+
+[lints]
+workspace = true

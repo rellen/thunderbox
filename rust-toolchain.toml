@@ -1,0 +1,23 @@
+# The release of Rust that this project builds with. rustup reads this file, and
+# it then uses this release for every cargo command inside this directory tree.
+#
+# The project pins the release for these reasons:
+#
+# - clippy adds a lint in almost every release. A new lint fails the checks, and
+#   that failure has no connection to the change under review.
+# - `cargo fmt` also changes its output across a release.
+# - Cargo returns an error when the active release is older than the
+#   `rust-version` field of a package. This project sets that field to 1.88.
+#
+# A person raises the number here on purpose, in a commit of its own. That
+# person then reads every new fault in one place.
+#
+# Each change of this file costs one cold run of the checks on each operating
+# system, because the cache key names the release.
+[toolchain]
+channel = "1.98.0"
+# The checks run `cargo fmt` and `cargo clippy`. This file must name both
+# components. This file outranks the toolchain that the workflow installed
+# before it, and the `minimal` profile holds neither component.
+profile = "minimal"
+components = ["rustfmt", "clippy"]

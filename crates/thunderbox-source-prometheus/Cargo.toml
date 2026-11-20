@@ -1,0 +1,26 @@
+[package]
+name = "thunderbox-source-prometheus"
+description = "The Prometheus data source of thunderbox. It reads a Prometheus server with a range query."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+thunderbox-core = { workspace = true }
+thunderbox-source = { workspace = true }
+async-trait = { workspace = true }
+# The TLS library is rustls. A build of thunderbox then needs no C library.
+prometheus-http-query = { version = "0.9", default-features = false, features = ["rustls-tls"] }
+# The program needs this crate for one purpose only. It builds a client that
+# stops a request which takes too long.
+reqwest = { version = "0.13", default-features = false }
+toml = { workspace = true }
+
+[dev-dependencies]
+serde_json = "1"
+tokio = { workspace = true, features = ["net", "io-util"] }
+
+[lints]
+workspace = true

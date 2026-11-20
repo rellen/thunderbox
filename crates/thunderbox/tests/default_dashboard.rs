@@ -1,0 +1,101 @@
+//! Tests for the dashboard that the program holds inside itself.
+//!
+//! A person who runs `cargo run -p thunderbox` reads this dashboard. The names of
+//! its series therefore reach that person, and not a test. These tests read
+//! those names back from the real data source of this machine.
+
+use std::sync::Arc;
+use std::time::Duration;
+
+use thunderbox_core::{Dashboard, Field};
+use thunderbox_dashboard::{DashboardRuntime, PanelState, Snapshot};
+use thunderbox_source::Registry;
+use thunderbox_source_sysinfo::SysinfoSource;
+
+/// The dashboard that the program holds inside itself.
+const DEFAULT_DASHBOARD: &str = include_str!("../src/default.toml");
+
+/// Waits until the set of queries that runs now has finished.
+///
+/// A set of queries is the whole group of queries that one refresh sends. The
+/// helper reads the channel of the runtime, so it never returns on an answer of
+/// the set of queries before.
+async fn settle(runtime: &DashboardRuntime) {
+    let mut rx = runtime.subscribe();
+    let wait = async {
+        while rx.borrow_and_update().is_refreshing() {
+            rx.changed()
+                .await
+                .expect("The runtime must hold the channel.");
+        }
+    };
+    tokio::time::timeout(Duration::from_secs(5), wait)
+        .await
+        .expect("The queries did not answer in time.");
+}
+
+/// Returns the name that every column of numbers in one panel shows.
+fn names(snapshot: &Snapshot, panel: usize) -> Vec<String> {
+    let PanelState::Ready(frames) = snapshot.panel(panel) else {
+        panic!("The panel must hold an answer. {:?}", snapshot.panel(panel));
+    };
+    frames
+        .iter()
+        .flat_map(|f| f.numeric_fields())
+        .map(Field::display_name)
+        .collect()
+}
+
+/// Returns the answer of the default dashboard, over the real data source of
+/// this machine.
+async fn answer() -> Arc<Snapshot> {
+    let dashboard =
+        Dashboard::from_toml(DEFAULT_DASHBOARD).expect("The dashboard must be correct.");
+    let sources = Registry::new().with("machine", Arc::new(SysinfoSource::new()));
+    let runtime = DashboardRuntime::new(dashboard, sources, tokio::runtime::Handle::current())
+        .expect("The runtime must start.");
+    settle(&runtime).await;
+    runtime.snapshot()
+}
+
+/// The sysinfo data source attaches a label to each series of the signal
+/// `cpu.cores`. A label reaches the name of a series, so this test holds the
+/// default dashboard to the names that it drew before that change.
+///
+/// The names stand, and the order of the cores changed. The store of that data
+/// source orders its names by the text, so a machine of ten cores or more drew
+/// `core 0, core 1, core 10, core 11, core 2` before. It now draws the cores in
+/// the order of their position, and this test reads that order back.
+///
+/// Both panels of the cores state a pattern, and a pattern overwrites the name
+/// of a column. This test therefore covers a target that states one. The test
+/// `a_target_of_the_sysinfo_data_source_that_states_no_pattern_keeps_the_short_name`
+/// in `thunderbox-dashboard` covers a target that states none.
+#[tokio::test]
+async fn the_default_dashboard_draws_the_names_that_it_drew_before() {
+    let snapshot = answer().await;
+
+    assert_eq!(
+        names(&snapshot, 0),
+        vec!["cpu"],
+        "The panel of the processor draws one series."
+    );
+    assert_eq!(
+        names(&snapshot, 4),
+        vec!["network.rx", "network.tx"],
+        "The panel of the network draws one series for each direction."
+    );
+
+    for panel in [3, 5] {
+        let cores = names(&snapshot, panel);
+        assert!(
+            !cores.is_empty(),
+            "The machine must report at least one core."
+        );
+        let expected: Vec<String> = (0..cores.len()).map(|n| format!("core {n}")).collect();
+        assert_eq!(
+            cores, expected,
+            "The pattern of this panel names each series after its core. Panel {panel}."
+        );
+    }
+}
