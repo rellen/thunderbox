@@ -30,9 +30,11 @@ updates:
     # request by hand instead.
     rebase-strategy: "disabled"
 
-  # The actions that .github/workflows/checks.yml names. Each action holds a tag
-  # of one number, such as `v7`, so Dependabot opens a pull request for a new
-  # first number alone. That happens once or twice in a year.
+  # The actions that every file under .github/workflows names. Examples are
+  # `actions/upload-pages-artifact@v5`, `actions/deploy-pages@v5`, and
+  # `taiki-e/install-action@v2`. Each action holds a tag of one number, such as
+  # `v7`, so Dependabot opens a pull request for a new first number alone. That
+  # happens once or twice in a year.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

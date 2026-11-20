@@ -5,7 +5,8 @@
 #
 # - the program `thunderbox`, which a person installs with Nix. default.nix
 #   holds that package;
-# - a shell that holds each tool that CLAUDE.md section 4 and section 6 name.
+# - a shell that holds each tool that CLAUDE.md section 4, section 6, and
+#   section 9 name.
 #
 # rust-toolchain.toml names the release of Rust, and this flake reads that file.
 # The package, the shell, rustup, and the workflow therefore use one release.
@@ -101,6 +102,9 @@
               shellToolchain
               pkgs.python3
               agg
+              # mdBook builds the documentation site. CLAUDE.md section 9 gives
+              # the commands.
+              pkgs.mdbook
             ];
           };
         in

@@ -38,6 +38,10 @@ Press `Tab` to select the next panel, and press `q` to stop the program.
 
 ## The documentation
 
+The site [rellen.github.io/thunderbox](https://rellen.github.io/thunderbox/)
+holds the user documentation, the contributor documentation, and the API
+documentation of each crate.
+
 The documentation for a person who uses thunderbox sits in
 [docs/user](docs/user/README.md), and it has four kinds:
 
