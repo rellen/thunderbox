@@ -1,0 +1,67 @@
+# This workflow checks the flake. Nix is a package manager, and flake.nix tells
+# Nix what this repository offers. CLAUDE.md section 4.4 records the rules of
+# the flake.
+#
+# checks.yml runs `cargo`, and it reads no Nix file. A fault of the flake
+# therefore passes every step of that workflow. This workflow builds the flake,
+# so it reports that fault.
+#
+# The job holds no cache, and each run compiles the whole workspace. The list
+# `paths` below limits that cost. The workflow starts only for a change to a
+# file that the list names.
+#
+# The list does not cover one case. A change under `crates` starts no run, and
+# such a change can still break the build of the flake. Code that includes a
+# file from a new directory is one example. The next run that the list starts
+# reports that fault.
+name: flake
+
+on:
+  push:
+    branches: [main]
+    paths: &flake-paths
+      - flake.nix
+      - flake.lock
+      - default.nix
+      - rust-toolchain.toml
+      - Cargo.toml
+      - Cargo.lock
+      - .github/workflows/flake.yml
+  pull_request:
+    paths: *flake-paths
+  # The manual button on the Actions page. Press it to build the flake after a
+  # change that the list above does not name.
+  workflow_dispatch:
+
+# A new commit cancels the run of the commit before it.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  flake:
+    name: check the flake on Linux
+    # The job runs on Linux alone, because a macOS minute costs about ten times
+    # as much as a Linux minute. CLAUDE.md section 4.4 records the systems that
+    # no workflow builds.
+    runs-on: ubuntu-latest
+    # The default limit is 360 minutes. A job that hangs would cost 6 hours.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      # The action installs Nix, and it turns the sandbox on. The sandbox keeps
+      # a build away from the network and from the files of the machine.
+      - uses: cachix/install-nix-action@v31
+
+      # The command builds each check of flake.nix. The first check is the
+      # package, and the build of the package runs `cargo test` for the whole
+      # workspace. The second check is the shell.
+      #
+      # `-L` writes the output of each build, so a test that fails shows its
+      # text in the log of this step.
+      - name: Build the package and the shell, and run the tests
+        run: nix flake check -L

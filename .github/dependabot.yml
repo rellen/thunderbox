@@ -17,8 +17,9 @@ updates:
   # Read the new faults of clippy in that pull request. That is the reason for
   # the pin, and this entry is the way a person meets those faults on purpose.
   #
-  # flake.nix reads the same field, and no check builds the flake. CLAUDE.md
-  # section 4.4 gives the command that such a pull request can need.
+  # flake.nix reads the same field, so that pull request also starts the
+  # workflow `flake`. CLAUDE.md section 4.4 gives the command that the pull
+  # request needs when that workflow reports a release that Nix does not hold.
   - package-ecosystem: "rust-toolchain"
     directory: "/"
     schedule:

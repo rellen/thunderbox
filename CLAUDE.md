@@ -205,8 +205,10 @@ that. A reader therefore checks all nine rules in each of these:
 
 - the `description` field of each `Cargo.toml` file;
 - each comment of `.github/workflows/checks.yml`, of
-  `.github/dependabot.yml`, and of `rust-toolchain.toml`;
-- each comment of `flake.nix`, and each `description` field of that file;
+  `.github/workflows/flake.yml`, of `.github/dependabot.yml`, and of
+  `rust-toolchain.toml`;
+- each comment of `flake.nix`, of `default.nix`, and of `.envrc`;
+- each `description` field of `flake.nix` and of `default.nix`;
 - each comment of a file under `dashboards`, and of
   `crates/thunderbox/src/default.toml`;
 - the text that opens each file under `scripts`;
@@ -430,9 +432,10 @@ on that path more often than on any other.
 ### 4.4 The flake
 
 Nix is a package manager, and a flake is the file that tells Nix what a
-repository offers. `flake.nix` offers the package of the program. It also
-offers a shell that holds each tool of this section and of section 6.
-`README.md` gives the commands for a person who installs the program.
+repository offers. `flake.nix` offers the package of the program, and
+`default.nix` holds that package. `flake.nix` also offers a shell that holds
+each tool of this section and of section 6. `README.md` gives the commands for
+a person who installs the program.
 
 `nix develop` starts the shell. The flake reads the release of Rust from
 `rust-toolchain.toml`, so the seven commands above then run with the pinned
@@ -442,27 +445,45 @@ release, and it reports nothing.
 The measurement: one machine held no rustup, and its `cargo` reported release
 1.96.1. Inside the shell on that machine, `cargo` reported release 1.98.0.
 
-Run this command after a change to `flake.nix`, to `flake.lock`, to
+Run this command after a change to a Nix file, to `flake.lock`, to
 `Cargo.lock`, or to `rust-toolchain.toml`:
 
 ```
 nix flake check
 ```
 
-The command builds the package, and the build runs `cargo test` for the whole
-workspace. No step of the workflow runs that command. A fault of the flake
-therefore stays until a person runs it.
+The command builds each check of `flake.nix`. The first check is the package,
+and the build of the package runs `cargo test` for the whole workspace. The
+second check is the shell.
 
-A person built the package on `aarch64-darwin`, with the sandbox of Nix on. The
-sandbox keeps a build away from the network and from the files of the machine.
-Nobody built the package on Linux, and the flake still offers it there.
+`.github/workflows/flake.yml` runs that command on Linux. `checks.yml` reads no
+Nix file, so the workflow `flake` is the one check that builds the flake. It
+starts only for a change to a file that its list `paths` names. A change under
+`crates` starts no run. Press the manual button of that workflow after such a
+change when the change can alter the build.
 
-Three rules follow from the way that the flake builds the package:
+The flake offers three systems, and one of them has no build:
 
-- **The flake names each path that the build reads.** The list `fileset` of
-  `flake.nix` holds `Cargo.toml`, `Cargo.lock`, `crates`, and `dashboards`. Code
-  that includes a file from another directory compiles with `cargo`, and
+| system | who built the package |
+|---|---|
+| `x86_64-linux` | The workflow `flake` builds it. |
+| `aarch64-darwin` | A person built it, with the sandbox of Nix on. |
+| `aarch64-linux` | Nobody built it. |
+
+The sandbox keeps a build away from the network and from the files of the
+machine.
+
+Four rules follow from the way that the flake builds the package:
+
+- **The package names each path that the build reads.** The list `fileset` of
+  `default.nix` holds `Cargo.toml`, `Cargo.lock`, `crates`, and `dashboards`.
+  Code that includes a file from another directory compiles with `cargo`, and
   `nix build` then returns an error. Add the path to that list.
+- **The overlay does not use the pinned release.** `packages.default` gives
+  `default.nix` the release that `rust-toolchain.toml` names. `overlays.default`
+  gives it the nixpkgs of the configuration that takes the overlay, and that
+  nixpkgs holds a release of its own. No check builds the package of the
+  overlay. A person built it one time, with the nixpkgs that `flake.lock` pins.
 - **A new release of Rust can need a new `flake.lock`.** The flake takes each
   release from its input `rust-overlay`, and `flake.lock` pins one commit of
   that input. Dependabot raises the release in `rust-toolchain.toml` alone. Run
@@ -471,7 +492,7 @@ Three rules follow from the way that the flake builds the package:
 - **The package links one C library that `cargo` alone does not link.** nixpkgs
   tells the crate `aws-lc-sys` to link the library `aws-lc` of nixpkgs. `cargo`
   alone compiles that library from the source inside the crate. The package
-  therefore needs `pkg-config` and `aws-lc`, and `flake.nix` names both.
+  therefore needs `pkg-config` and `aws-lc`, and `default.nix` names both.
 
 ---
 

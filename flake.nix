@@ -3,7 +3,8 @@
 #
 # This flake offers two things:
 #
-# - the program `thunderbox`, which a person installs with Nix;
+# - the program `thunderbox`, which a person installs with Nix. default.nix
+#   holds that package;
 # - a shell that holds each tool that CLAUDE.md section 4 and section 6 name.
 #
 # rust-toolchain.toml names the release of Rust, and this flake reads that file.
@@ -25,22 +26,22 @@
 
   outputs =
     {
-      self,
       nixpkgs,
       rust-overlay,
+      ...
     }:
     let
       inherit (nixpkgs) lib;
 
       # This list holds the systems that this flake supports. CLAUDE.md section
-      # 4.4 records the systems that a person built the package on.
+      # 4.4 records the systems that a person or a workflow built the package
+      # on.
       systems = [
         "x86_64-linux"
         "aarch64-linux"
         "aarch64-darwin"
       ];
 
-      workspace = (lib.importTOML ./Cargo.toml).workspace.package;
       pinned = (lib.importTOML ./rust-toolchain.toml).toolchain;
 
       # The function `outputsOf` makes each output of one system.
@@ -69,58 +70,12 @@
             ];
           };
 
-          rustPlatform = pkgs.makeRustPlatform {
-            cargo = toolchain;
-            rustc = toolchain;
-          };
-
-          thunderbox = rustPlatform.buildRustPackage {
-            pname = "thunderbox";
-            inherit (workspace) version;
-
-            # This set holds the files that the build reads. A change to a
-            # document, or to a picture, therefore starts no new build.
-            #
-            # `crates/thunderbox/src/sources.rs` includes two files of
-            # `dashboards`. Add a path here when the code includes a file from
-            # another directory.
-            src = lib.fileset.toSource {
-              root = ./.;
-              fileset = lib.fileset.unions [
-                ./Cargo.toml
-                ./Cargo.lock
-                ./crates
-                ./dashboards
-              ];
-            };
-
-            # Nix reads the hash of each dependency from Cargo.lock. This file
-            # therefore holds no hash, and a change to Cargo.lock needs no
-            # change here.
-            cargoLock.lockFile = ./Cargo.lock;
-
-            # The feature `prometheus` needs the crate `aws-lc-sys`, and that
-            # crate holds the C source of the library `aws-lc`. nixpkgs tells
-            # the crate to link the `aws-lc` of nixpkgs instead, and the crate
-            # returns an error when it finds none. The crate finds the library
-            # with `pkg-config`.
-            nativeBuildInputs = [ pkgs.pkg-config ];
-            buildInputs = [ pkgs.aws-lc ];
-
-            # The check phase runs `cargo test` for the whole workspace. One
-            # test file of `thunderbox-source-prometheus` starts a server on
-            # this machine. The sandbox of macOS forbids that without this line.
-            __darwinAllowLocalNetworking = true;
-
-            meta = {
-              description = "A dashboard platform for the terminal.";
-              homepage = workspace.repository;
-              license = with lib.licenses; [
-                mit
-                asl20
-              ];
-              mainProgram = "thunderbox";
-              platforms = systems;
+          # default.nix holds the package. This call gives it the toolchain
+          # above, so the package and the shell use one release of Rust.
+          thunderbox = pkgs.callPackage ./default.nix {
+            rustPlatform = pkgs.makeRustPlatform {
+              cargo = toolchain;
+              rustc = toolchain;
             };
           };
 
@@ -138,24 +93,30 @@
                 --add-flags "--font-dir ${pkgs.unifont}/share/fonts"
             '';
           };
-        in
-        {
-          packages.default = thunderbox;
-
-          # `nix flake check` builds the package, and the build runs the tests.
-          checks.default = thunderbox;
 
           # The shell holds the tools alone. It holds no copy of the package, so
           # `nix develop` compiles nothing.
-          devShells.default = pkgs.mkShell {
+          shell = pkgs.mkShell {
             packages = [
               shellToolchain
               pkgs.python3
               agg
             ];
           };
+        in
+        {
+          packages.default = thunderbox;
+          devShells.default = shell;
 
-          # `nix fmt` gives this file one format.
+          # `nix flake check` builds each check. The first check is the package,
+          # and the build of the package runs the tests. The second check is the
+          # shell, so a fault of the shell also stops that command.
+          checks = {
+            default = thunderbox;
+            inherit shell;
+          };
+
+          # `nix fmt` gives one format to each Nix file of this repository.
           formatter = pkgs.nixfmt-tree;
         };
 
@@ -172,8 +133,12 @@
 
       # An overlay adds a package to the package set of another configuration.
       # A configuration that takes this overlay holds `pkgs.thunderbox`.
+      #
+      # That package comes from the nixpkgs of the configuration, and it uses
+      # the release of Rust of that nixpkgs. Cargo returns an error when that
+      # release is older than the field `rust-version` of Cargo.toml.
       overlays.default = final: _prev: {
-        thunderbox = self.packages.${final.stdenv.hostPlatform.system}.default;
+        thunderbox = final.callPackage ./default.nix { };
       };
     };
 }

@@ -550,8 +550,11 @@ nix profile install github:rellen/thunderbox
 An input is a repository that a flake reads. A configuration of NixOS or of
 home-manager can name this flake as an input. The package is
 `packages.SYSTEM.default`, and `SYSTEM` holds the place of the name of a
-system. The flake also offers `overlays.default`, which adds `pkgs.thunderbox`
-to the package set of the configuration.
+system. That package uses the release of Rust that `rust-toolchain.toml` names.
+
+The flake also offers `overlays.default`, which adds `pkgs.thunderbox` to the
+package set of the configuration. That package uses the nixpkgs of the
+configuration, and it therefore uses the release of Rust of that nixpkgs.
 
 The flake supports these systems:
 
