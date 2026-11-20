@@ -247,15 +247,28 @@ mod tests {
         );
     }
 
-    #[test]
-    fn a_second_sample_reports_the_share_of_a_busy_process() {
-        let mut sampler = ProcessSampler::new();
-        sampler.sample_if_due(1_000, GAP);
-        let end = Instant::now() + Duration::from_millis(400);
+    /// Holds one core of the processor for this long.
+    fn spin(time: Duration) {
+        let end = Instant::now() + time;
         let mut spins: u64 = 0;
         while Instant::now() < end {
             spins = std::hint::black_box(spins.wrapping_add(1));
         }
+    }
+
+    /// The process must use the processor before the first sample as well.
+    /// Version 0.38.4 of `sysinfo` reports no share for a process that held no
+    /// time of the processor at the sample before. `compute_cpu_usage` in
+    /// `src/unix/linux/process.rs` returns early in that state. A test program
+    /// that starts this test first holds less than one tick of 10 milliseconds
+    /// at that sample. This test then failed 30 times of 30, and the sandbox
+    /// of Nix ran it in that way.
+    #[test]
+    fn a_second_sample_reports_the_share_of_a_busy_process() {
+        spin(Duration::from_millis(100));
+        let mut sampler = ProcessSampler::new();
+        sampler.sample_if_due(1_000, GAP);
+        spin(Duration::from_millis(400));
         sampler.sample_if_due(1_400, GAP);
         let me = sampler
             .rows
