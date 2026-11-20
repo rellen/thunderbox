@@ -2,9 +2,11 @@
 //!
 //! Run `cargo xtask site generate` to write the generated parts of the
 //! documentation site. Run `cargo xtask site check` to test that they are
-//! current. Run `cargo xtask site build` to build the whole site.
+//! current. Run `cargo xtask site build` to build the whole site. mdBook runs
+//! `cargo xtask mdbook-preprocessor` itself, and a person does not run it.
 
 mod crates;
+mod links;
 mod markers;
 mod site;
 mod summary;
@@ -128,6 +130,11 @@ fn check(root: &Path) -> Result<(), String> {
     ))
 }
 
+/// Returns true when the preprocessor supports the renderer.
+fn supports(renderer: &str) -> bool {
+    renderer == "html"
+}
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let args: Vec<&str> = args.iter().map(String::as_str).collect();
@@ -135,6 +142,10 @@ fn main() -> ExitCode {
         ["site", "generate"] => generate,
         ["site", "check"] => check,
         ["site", "build"] => site::build,
+        ["mdbook-preprocessor", "supports", renderer] => {
+            return ExitCode::from(u8::from(!supports(renderer)));
+        }
+        ["mdbook-preprocessor"] => links::run,
         _ => {
             eprint!("{USAGE}");
             return ExitCode::from(2);
@@ -146,5 +157,16 @@ fn main() -> ExitCode {
             eprintln!("error: {text}");
             ExitCode::from(1)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_preprocessor_supports_html_and_no_other_renderer() {
+        assert!(supports("html"), "The html renderer is supported.");
+        assert!(!supports("epub"), "The epub renderer is not supported.");
     }
 }
