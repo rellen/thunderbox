@@ -12,6 +12,9 @@
 # Watch the cost of the macOS job. A macOS minute costs about ten times as much
 # as a Linux minute. The `fail-fast` default limits that cost, because a failure
 # on Linux cancels the macOS job.
+#
+# The workflow also publishes the documentation site from main. CLAUDE.md
+# section 9 holds the rules of the site.
 name: checks
 
 on:
@@ -24,9 +27,12 @@ on:
 
 # A new commit cancels the run of the commit before it. A branch that receives
 # several commits together therefore costs the minutes of the last commit alone.
+#
+# This workflow never cancels a run on main. Such a run can publish the site, and
+# a cancel could stop that deployment before it ends.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read
@@ -89,6 +95,34 @@ jobs:
       - name: Build the documentation
         run: cargo doc --no-deps
 
+      # The documentation site. CLAUDE.md section 9 holds its rules. The site
+      # does not depend on the operating system, so these steps run on Linux
+      # alone. They come after the step above, because the site build reads the
+      # output of `cargo doc --no-deps`.
+      - name: Install mdBook
+        if: runner.os == 'Linux'
+        uses: taiki-e/install-action@v2
+        with:
+          # flake.lock pins the same release for the shell of the flake.
+          # CLAUDE.md section 9 states how to keep the two equal.
+          tool: mdbook@0.5.4
+
+      - name: Confirm that the generated files of the site are current
+        if: runner.os == 'Linux'
+        run: cargo xtask site check
+
+      - name: Build the site
+        if: runner.os == 'Linux'
+        run: cargo xtask site build
+
+      # A pull request builds the site, so a fault reaches the reviewer. Only a
+      # run on main uploads the site, and the job `deploy` publishes it.
+      - name: Upload the site
+        if: runner.os == 'Linux' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: target/book
+
       # The workspace declares `rust-version = "1.88"`. Cargo checks nothing
       # against that field, so the field is a statement and not a fact. This
       # step compiles the workspace with release 1.88.0, and it turns the
@@ -123,3 +157,25 @@ jobs:
               ;;
           esac
           cargo check --locked --workspace --all-features --all-targets
+
+  # This job publishes the site that the Linux job uploaded. It waits for each
+  # job of the matrix, so a fault on macOS also stops the deployment.
+  deploy:
+    name: publish the site
+    needs: checks
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # These two permissions belong to this job alone. `pages: write` lets the
+    # job replace the site. `id-token: write` lets the job prove to GitHub Pages
+    # that the request comes from this workflow.
+    permissions:
+      pages: write
+      id-token: write
+    # The environment `github-pages` accepts a deployment from main alone.
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
