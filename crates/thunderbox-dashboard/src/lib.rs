@@ -12,8 +12,10 @@
 //!
 //! [`time_key`] holds the rule that maps a key to a new time range.
 //! [`variable_key`] holds the rule that maps a key to a choice of a variable.
-//! thunderbox consumes no key of either rule, so the program decides which key
-//! reaches them. A program that wants another map ignores both functions.
+//! [`row_key`] holds the rule that maps a key to the row panel that it
+//! collapses or expands. thunderbox consumes no key of these rules, so the
+//! program decides which key reaches them. A program that wants another map
+//! ignores these functions.
 //!
 //! The caller gives [`DashboardRuntime::new`] a `Handle` of its own async
 //! runtime. That runtime must hold the timer of tokio, because this crate holds
@@ -28,13 +30,16 @@
 
 mod grid;
 mod query;
+mod row;
 mod runtime;
 mod snapshot;
 mod time;
 mod variable;
 mod view;
 
+pub use grid::CollapsedRows;
 pub use query::DEFAULT_ANSWER_LIMIT;
+pub use row::row_key;
 pub use runtime::{AREA_MAX_HOLD, AREA_QUIET_TIME, DashboardRuntime};
 pub use snapshot::{PanelState, Snapshot};
 pub use time::time_key;

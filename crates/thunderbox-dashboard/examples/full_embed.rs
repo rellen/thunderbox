@@ -8,10 +8,11 @@
 //! only the keys that it does not want. `docs/ARCHITECTURE.md` section 12
 //! states this promise.
 //!
-//! The program also binds the keys of the time range, and the keys of a
-//! variable. thunderbox consumes none of them. `thunderbox_dashboard::time_key`
-//! and `thunderbox_dashboard::variable_key` hold the rules that map such a key,
-//! and the program decides which key reaches each rule.
+//! The program also binds the keys of the time range, the keys of a variable,
+//! and the keys of a row panel. thunderbox consumes none of them.
+//! `thunderbox_dashboard::time_key`, `thunderbox_dashboard::variable_key` and
+//! `thunderbox_dashboard::row_key` hold the rules that map such a key, and the
+//! program decides which key reaches each rule.
 //!
 //! The dashboard of this example declares no variable, so the row of the
 //! variables holds nothing and takes no line. A person who adds a
@@ -31,7 +32,7 @@ use ratatui::layout::{Constraint, Layout, Size};
 use ratatui::widgets::{Block, Paragraph};
 use thunderbox_core::{Dashboard, now_ms};
 use thunderbox_dashboard::{
-    Consumed, DashboardRuntime, DashboardView, Key, time_key, variable_key,
+    Consumed, DashboardRuntime, DashboardView, Key, row_key, time_key, variable_key,
 };
 use thunderbox_source::Registry;
 use thunderbox_source_testdata::TestData;
@@ -203,6 +204,7 @@ async fn run() -> io::Result<()> {
                 KeyCode::BackTab => Key::BackTab,
                 KeyCode::Left => Key::Left,
                 KeyCode::Right => Key::Right,
+                KeyCode::Enter => Key::Enter,
                 KeyCode::Char(c) => Key::Char(c),
                 _ => Key::Other,
             };
@@ -227,8 +229,17 @@ async fn run() -> io::Result<()> {
                 dash.set_variables(selection);
                 continue;
             }
+            // The program binds the keys of a row panel itself, and `row_key`
+            // holds that rule alone. The function answers only while a person
+            // has selected a row panel, so the program keeps the key at every
+            // other time.
+            if let Some(row) = row_key(translated, view.selected(), dash.dashboard()) {
+                own_message = "The program collapsed or expanded a row panel.";
+                dash.toggle_row(row);
+                continue;
+            }
             // thunderbox reads the rest, and it reports what it used.
-            if view.handle_key(translated, dash.dashboard()) == Consumed::No {
+            if view.handle_key(translated, dash.dashboard(), &snapshot) == Consumed::No {
                 own_message = "thunderbox did not use that key, so the program keeps it.";
             } else {
                 own_message = "thunderbox used that key.";

@@ -30,8 +30,8 @@ rustPlatform.buildRustPackage {
   # This set holds the files that the build reads. A change to a document, or to
   # a picture, therefore starts no new build.
   #
-  # `crates/thunderbox/src/sources.rs` includes two files of `dashboards`. Add a
-  # path here when the code includes a file from another directory.
+  # `crates/thunderbox/src/sources.rs` includes three files of `dashboards`. Add
+  # a path here when the code includes a file from another directory.
   src = lib.fileset.toSource {
     root = ./.;
     fileset = lib.fileset.unions [

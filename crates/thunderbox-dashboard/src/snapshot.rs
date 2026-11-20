@@ -5,6 +5,8 @@ use std::sync::Arc;
 
 use thunderbox_core::{Frame, TimeRange, TimeWindow, Timestamp};
 
+use crate::grid::CollapsedRows;
+
 /// The state of one panel at one moment.
 ///
 /// A query that returns an error becomes [`PanelState::Error`]. It never stops
@@ -49,8 +51,10 @@ impl PanelState {
 ///
 /// A set of queries is the whole group of queries that one refresh sends. The
 /// fields `panels`, `range`, `variables` and `updated_at` always come from one
-/// set of queries, and a refresh never separates them. The field `refreshing`
-/// is the one field that reports the set of queries which runs now.
+/// set of queries, and a refresh never separates them. Two fields come from
+/// elsewhere. The field `refreshing` reports the set of queries which runs now.
+/// The field `collapsed` holds the row panels that the runtime holds collapsed
+/// now.
 ///
 /// A panel that the renderer drops is the one exception. No query of such a
 /// panel ran, so its answer comes from an older set of queries. That answer
@@ -96,6 +100,13 @@ pub struct Snapshot {
     /// every panel back because the window changed. A panel that the renderer
     /// drops holds no answer as well.
     pub refreshing: bool,
+    /// The row panels that are collapsed now.
+    ///
+    /// The runtime owns this field, and it writes each change into the
+    /// channel at once. The field is therefore the second field that does not
+    /// come from the set of queries in `panels`. The renderer reads it, so the
+    /// renderer and the runtime hide the same panels.
+    pub collapsed: CollapsedRows,
 }
 
 impl Snapshot {

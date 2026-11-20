@@ -1308,9 +1308,18 @@ async fn a_read_of_a_snapshot_never_waits_for_a_query() {
 fn the_view_leaves_a_key_that_it_does_not_use_to_the_program() {
     let dash = dashboard();
     let mut view = DashboardView::new();
-    assert_eq!(view.handle_key(Key::Char('q'), &dash), Consumed::No);
-    assert_eq!(view.handle_key(Key::Other, &dash), Consumed::No);
-    assert_eq!(view.handle_key(Key::Tab, &dash), Consumed::Yes);
+    assert_eq!(
+        view.handle_key(Key::Char('q'), &dash, &Snapshot::default()),
+        Consumed::No
+    );
+    assert_eq!(
+        view.handle_key(Key::Other, &dash, &Snapshot::default()),
+        Consumed::No
+    );
+    assert_eq!(
+        view.handle_key(Key::Tab, &dash, &Snapshot::default()),
+        Consumed::Yes
+    );
 }
 
 /// thunderbox binds no key of a variable. The view must report that it used none
@@ -1321,7 +1330,7 @@ fn the_view_uses_no_key_of_a_variable() {
     let mut view = DashboardView::new();
     for key in [Key::Char('v'), Key::Char('['), Key::Char(']')] {
         assert_eq!(
-            view.handle_key(key, &dash),
+            view.handle_key(key, &dash, &Snapshot::default()),
             Consumed::No,
             "The program binds this key. thunderbox must leave it alone. {key:?}"
         );
@@ -1343,7 +1352,7 @@ fn the_view_uses_no_key_of_the_time_range() {
         Key::Char('='),
     ] {
         assert_eq!(
-            view.handle_key(key, &dash),
+            view.handle_key(key, &dash, &Snapshot::default()),
             Consumed::No,
             "The program binds this key. thunderbox must leave it alone. {key:?}"
         );
@@ -1451,7 +1460,7 @@ fn the_view_uses_no_key_while_the_program_holds_the_attention() {
     let mut view = DashboardView::new();
     view.set_focused(false);
     assert_eq!(
-        view.handle_key(Key::Tab, &dash),
+        view.handle_key(Key::Tab, &dash, &Snapshot::default()),
         Consumed::No,
         "A program that owns the attention must keep every key."
     );
@@ -1463,15 +1472,15 @@ fn the_tab_key_moves_the_selection_and_returns_to_the_start() {
     let dash = dashboard();
     let mut view = DashboardView::new();
     assert_eq!(view.selected(), 0);
-    view.handle_key(Key::Tab, &dash);
+    view.handle_key(Key::Tab, &dash, &Snapshot::default());
     assert_eq!(view.selected(), 1);
-    view.handle_key(Key::Tab, &dash);
+    view.handle_key(Key::Tab, &dash, &Snapshot::default());
     assert_eq!(
         view.selected(),
         0,
         "The selection must return to the start."
     );
-    view.handle_key(Key::BackTab, &dash);
+    view.handle_key(Key::BackTab, &dash, &Snapshot::default());
     assert_eq!(view.selected(), 1, "The shift key must move the other way.");
 }
 

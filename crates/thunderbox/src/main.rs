@@ -14,9 +14,10 @@ use anyhow::{Context, Result};
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use ratatui::layout::{Constraint, Layout, Size};
 use ratatui::widgets::Paragraph;
-use thunderbox_core::{Dashboard, TimeWindow, now_ms};
+use thunderbox_core::{Dashboard, PanelKind, TimeWindow, now_ms};
 use thunderbox_dashboard::{
-    Consumed, DashboardRuntime, DashboardView, Key, Snapshot, Variables, time_key, variable_key,
+    Consumed, DashboardRuntime, DashboardView, Key, Snapshot, Variables, row_key, time_key,
+    variable_key,
 };
 use thunderbox_widgets::format_window;
 
@@ -55,6 +56,8 @@ Keys:
     v         Select the next variable of the dashboard.
     ]         Take the choice that follows, on the variable that you selected.
     [         Take the choice before it, on the variable that you selected.
+    Enter     Collapse or expand the row panel that you selected.
+    Space     Do what Enter does.
 ";
 
 /// The key hint that the status row keeps while the window stands still.
@@ -79,6 +82,15 @@ const RANGE_KEY: &str = "0 range";
 /// all of these together, and record each scene again that draws this row.
 /// `CLAUDE.md` section 6 names those scenes.
 const KEYS: &str = "q quit  tab next panel  m marker  r refresh  arrows move  -+ width  0 range";
+
+/// The key hint that the status row adds for a dashboard that holds a row
+/// panel.
+///
+/// The key `Enter` collapses or expands the row panel that a person selected.
+/// [`KEYS`] fills most of a terminal of 80 columns, so the row adds this hint
+/// only while it fits. A dashboard that holds no row panel never shows it, so
+/// the status row of such a dashboard stays as it was.
+const ROW_KEY: &str = "enter fold";
 
 /// The keys that the row of the variables lists.
 ///
@@ -274,6 +286,27 @@ fn status_text(
     parts.join(GAP)
 }
 
+/// Adds the hint of the key of a row panel to the end of the status row.
+///
+/// The function adds [`ROW_KEY`] when three conditions hold:
+///
+/// - the dashboard holds a row panel;
+/// - the row still ends with the list of the keys;
+/// - the longer row fits the width.
+///
+/// The hint then reads as one more part of that list.
+fn with_row_key(text: String, rows: bool, width: u16) -> String {
+    if !rows || !text.ends_with(KEYS) {
+        return text;
+    }
+    let longer = format!("{text}  {ROW_KEY}");
+    if longer.chars().count() <= usize::from(width) {
+        longer
+    } else {
+        text
+    }
+}
+
 /// Returns the text of the row that names each variable.
 ///
 /// The row writes the label of each variable and the value that it holds.
@@ -312,6 +345,7 @@ fn translate(code: KeyCode) -> Key {
         KeyCode::BackTab => Key::BackTab,
         KeyCode::Left => Key::Left,
         KeyCode::Right => Key::Right,
+        KeyCode::Enter => Key::Enter,
         KeyCode::Char(c) => Key::Char(c),
         _ => Key::Other,
     }
@@ -344,6 +378,10 @@ async fn draw_loop(
         // names that window while it ends before the present moment, and it
         // stays quiet at every other time.
         let held = snapshot.window().filter(|window| window.to < window.now);
+        let rows = dashboard
+            .panels
+            .iter()
+            .any(|panel| panel.kind == PanelKind::Row);
 
         terminal.draw(|frame| {
             let [top, body, status] = Layout::vertical([
@@ -362,13 +400,14 @@ async fn draw_loop(
 
             let text = status_text(
                 snapshot.error_count(),
-                view.dropped_panels(&dashboard, body),
+                view.dropped_panels(&dashboard, &snapshot, body),
                 variable_error.as_deref(),
                 age,
                 waits,
                 held,
                 status.width,
             );
+            let text = with_row_key(text, rows, status.width);
             frame.render_widget(Paragraph::new(text), status);
         })?;
 
@@ -419,7 +458,14 @@ async fn draw_loop(
                 dash.set_variables(selection);
                 continue;
             }
-            let _: Consumed = view.handle_key(translated, dash.dashboard());
+            // The program owns the keys of a row panel as well, and
+            // `thunderbox_dashboard::row_key` holds the rule alone. That function
+            // answers only while a person has selected a row panel.
+            if let Some(row) = row_key(translated, view.selected(), dash.dashboard()) {
+                dash.toggle_row(row);
+                continue;
+            }
+            let _: Consumed = view.handle_key(translated, dash.dashboard(), &snapshot);
         }
     }
 }
@@ -455,7 +501,13 @@ mod tests {
     }
 
     /// The default dashboard is the demonstration of thunderbox. A person who
-    /// runs the program with no file must see every type of panel.
+    /// runs the program with no file must see every type of panel that shows
+    /// data.
+    ///
+    /// A row panel shows no data, and the list below leaves it out. Each row
+    /// panel takes one line of a terminal, and the default dashboard must fit a
+    /// small terminal. `dashboards/rows.toml` demonstrates the row panels
+    /// instead.
     #[test]
     fn the_dashboard_inside_the_program_shows_every_type_of_panel() {
         let dash = load_dashboard(None).expect("The default dashboard must be correct.");
@@ -472,6 +524,34 @@ mod tests {
                 "The default dashboard must hold a panel of the type {kind:?}."
             );
         }
+    }
+
+    /// A dashboard that holds a row panel adds the key that collapses it. The
+    /// hint follows the list of the keys, and the row drops it when it does not
+    /// fit.
+    #[test]
+    fn the_status_row_adds_the_key_of_a_row_panel_while_it_fits() {
+        let keys = status_text(0, 0, None, None, false, None, 120);
+        assert_eq!(
+            with_row_key(keys.clone(), true, 120),
+            format!("{KEYS}  {ROW_KEY}")
+        );
+        assert_eq!(
+            with_row_key(keys.clone(), false, 120),
+            KEYS,
+            "A dashboard with no row panel keeps the row that it had."
+        );
+        assert_eq!(
+            with_row_key(keys, true, 80),
+            KEYS,
+            "The list of 75 columns and the hint do not fit 80 columns."
+        );
+        let error = status_text(1, 0, None, None, false, None, 40);
+        assert_eq!(
+            with_row_key(error.clone(), true, 200),
+            error,
+            "A row that dropped the list of the keys takes no hint either."
+        );
     }
 
     /// The status row must stay quiet while no panel holds an error and the

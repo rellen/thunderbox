@@ -5,13 +5,13 @@ use std::collections::BTreeMap;
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;
 use ratatui_core::widgets::Widget;
-use thunderbox_core::{Align, Dashboard, GRID_COLUMNS, GridPos, Panel, PanelKind};
+use thunderbox_core::{Align, Dashboard, GridPos, Panel, PanelKind};
 use thunderbox_widgets::{
-    BarGaugePanel, GaugePanel, Marker, PanelData, PanelOptions, StatPanel, TablePanel, Theme,
-    TimeSeriesPanel, TopPanel, draws_a_panel,
+    BarGaugePanel, GaugePanel, Marker, PanelData, PanelOptions, RowPanel, StatPanel, TablePanel,
+    Theme, TimeSeriesPanel, TopPanel, draws_a_panel,
 };
 
-use crate::grid::{panel_size, rows_of_grid, scale};
+use crate::grid::{hidden, owners, places};
 use crate::snapshot::{PanelState, Snapshot};
 
 /// The answer that [`DashboardView::handle_key`] returns.
@@ -108,6 +108,10 @@ impl DashboardView {
     /// - `Tab` and `BackTab` move the selection between the panels;
     /// - `m` changes the glyph that a chart draws a point with.
     ///
+    /// The selection skips each panel that a collapsed row panel hides.
+    /// The snapshot states which row panels are collapsed, so this method
+    /// reads the snapshot that the program draws.
+    ///
     /// thunderbox uses no key while the dashboard does not have the attention of
     /// the person. The program therefore keeps every key for itself at that
     /// time.
@@ -119,18 +123,37 @@ impl DashboardView {
     /// The keys of a variable are not in the list above either. The program
     /// binds them, and it passes them to [`crate::variable_key`]. This method
     /// reports that it used none of them.
-    pub fn handle_key(&mut self, key: Key, dashboard: &Dashboard) -> Consumed {
+    ///
+    /// The keys `Enter` and `Space` are not in the list above either. The
+    /// program binds them, and it passes them to [`crate::row_key`]. This
+    /// method reports that it used neither of them.
+    pub fn handle_key(&mut self, key: Key, dashboard: &Dashboard, snapshot: &Snapshot) -> Consumed {
         if !self.focused {
             return Consumed::No;
         }
         let count = dashboard.panels.len().max(1);
+        let hidden = hidden(dashboard, &snapshot.collapsed);
+        // The selection skips each hidden panel. A row panel is never hidden,
+        // so the loop ends before it reads any panel a second time.
+        let mut step = |forward: bool| {
+            for _ in 0..count {
+                self.selected = if forward {
+                    (self.selected + 1) % count
+                } else {
+                    (self.selected + count - 1) % count
+                };
+                if !hidden.get(self.selected).copied().unwrap_or(false) {
+                    break;
+                }
+            }
+        };
         match key {
             Key::Tab => {
-                self.selected = (self.selected + 1) % count;
+                step(true);
                 Consumed::Yes
             }
             Key::BackTab => {
-                self.selected = (self.selected + count - 1) % count;
+                step(false);
                 Consumed::Yes
             }
             Key::Char('m') => {
@@ -150,10 +173,30 @@ impl DashboardView {
     ///
     /// The method reads the snapshot and nothing else. It never waits, and it
     /// never runs a query.
+    ///
+    /// The method draws no panel that a collapsed row panel hides. The field
+    /// [`Snapshot::collapsed`] states which row panels are collapsed, and
+    /// [`crate::DashboardRuntime`] asks no data source about such a panel.
     pub fn render(&self, dashboard: &Dashboard, snapshot: &Snapshot, area: Rect, buf: &mut Buffer) {
-        let widths = self.label_widths(dashboard, snapshot, area);
+        let placed = places(dashboard, &snapshot.collapsed, area);
+        let owners = owners(dashboard);
+        let widths = self.label_widths(dashboard, snapshot, &placed);
         for (index, panel) in dashboard.panels.iter().enumerate() {
-            let place = place_panel(panel.grid, area, dashboard);
+            let Some(place) = placed[index] else {
+                continue;
+            };
+            if panel.kind == PanelKind::Row {
+                if !draws_a_row(place) {
+                    continue;
+                }
+                let held = owners.iter().filter(|owner| **owner == Some(index)).count();
+                RowPanel::new(panel.title.as_str(), &self.theme)
+                    .collapsed(snapshot.collapsed.contains(index))
+                    .hidden(held)
+                    .focused(self.focused && index == self.selected)
+                    .render(place, buf);
+                continue;
+            }
             if !draws_a_panel(place.as_size()) {
                 continue;
             }
@@ -173,11 +216,19 @@ impl DashboardView {
     /// terminal that is too small holds panels that nobody can see, and
     /// [`crate::DashboardRuntime`] asks a data source for none of them. A
     /// person who reads an empty screen learns nothing without that report.
-    pub fn dropped_panels(&self, dashboard: &Dashboard, area: Rect) -> usize {
-        dashboard
-            .panels
-            .iter()
-            .filter(|panel| !draws_a_panel(place_panel(panel.grid, area, dashboard).as_size()))
+    ///
+    /// The count holds no panel that a collapsed row panel hides, because a
+    /// person chose to hide it. It holds a row panel that takes no line of the
+    /// terminal.
+    pub fn dropped_panels(&self, dashboard: &Dashboard, snapshot: &Snapshot, area: Rect) -> usize {
+        places(dashboard, &snapshot.collapsed, area)
+            .into_iter()
+            .zip(&dashboard.panels)
+            .filter(|(place, panel)| match place {
+                None => false,
+                Some(place) if panel.kind == PanelKind::Row => !draws_a_row(*place),
+                Some(place) => !draws_a_panel(place.as_size()),
+            })
             .count()
     }
 
@@ -198,7 +249,7 @@ impl DashboardView {
         &self,
         dashboard: &Dashboard,
         snapshot: &Snapshot,
-        area: Rect,
+        placed: &[Option<Rect>],
     ) -> BTreeMap<(u16, u16), u16> {
         let mut widths = BTreeMap::new();
         if dashboard.align != Align::Column {
@@ -208,7 +259,9 @@ impl DashboardView {
             if panel.kind != PanelKind::TimeSeries {
                 continue;
             }
-            let place = place_panel(panel.grid, area, dashboard);
+            let Some(place) = placed[index] else {
+                continue;
+            };
             if !draws_a_panel(place.as_size()) {
                 continue;
             }
@@ -308,6 +361,9 @@ impl DashboardView {
                 }
                 top.render(area, buf);
             }
+            // `render` draws each row panel itself, because a row panel needs
+            // the count of the panels that it holds and no data.
+            PanelKind::Row => {}
         }
     }
 }
@@ -332,6 +388,11 @@ pub enum Key {
     /// [`DashboardView::handle_key`] never uses this key. The program keeps
     /// it, and it can pass the key to [`crate::time_key`].
     Right,
+    /// The key `Enter`.
+    ///
+    /// [`DashboardView::handle_key`] never uses this key. The program keeps
+    /// it, and it can pass the key to [`crate::row_key`].
+    Enter,
     /// A key that holds one character.
     Char(char),
     /// A key that thunderbox does not name.
@@ -347,34 +408,24 @@ fn column_of(grid: GridPos) -> (u16, u16) {
     (grid.x, grid.w)
 }
 
-/// Returns the place of one panel inside an area.
+/// Returns `true` when the place of a row panel holds its line.
 ///
-/// [`panel_size`] returns the size of that place, and this function adds the
-/// corner of the area. The grid is [`GRID_COLUMNS`] wide, and [`rows_of_grid`]
-/// returns the rows that the dashboard holds. The corner of a panel therefore
-/// scales as the size of that panel does. Two panels that touch on the grid
-/// also touch on the screen.
-///
-/// The size of this place is the size that [`crate::DashboardRuntime`] reads.
-/// The runtime asks the data source of a panel for the points of that width. It
-/// asks for nothing at all when [`draws_a_panel`] rejects that size. Both parts
-/// read [`panel_size`], so a panel asks for the points of the size that it
-/// draws.
-fn place_panel(grid: GridPos, area: Rect, dashboard: &Dashboard) -> Rect {
-    let rows = rows_of_grid(dashboard);
-    let size = panel_size(grid, rows, area.as_size());
-    Rect {
-        x: area.x + scale(grid.x, GRID_COLUMNS, area.width),
-        y: area.y + scale(grid.y, rows, area.height),
-        width: size.width,
-        height: size.height,
-    }
+/// A row panel draws one line, so it needs one line and one cell. A panel that
+/// shows data needs more, and [`draws_a_panel`] states how much.
+fn draws_a_row(place: Rect) -> bool {
+    place.width > 0 && place.height > 0
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::grid::panel_width;
+    use crate::grid::{CollapsedRows, panel_width};
+
+    /// Returns the place of one panel, while every row panel is expanded.
+    fn place_of(dashboard: &Dashboard, index: usize, area: Rect) -> Rect {
+        places(dashboard, &CollapsedRows::default(), area)[index]
+            .expect("No row panel hides a panel while every row panel is expanded.")
+    }
 
     /// A dashboard that holds a panel of each width that the default dashboard
     /// holds. The three panels of the second row start at three grid columns.
@@ -419,9 +470,9 @@ grid = { x = 0, y = 13, w = 24, h = 6 }
                 width,
                 height: 40,
             };
-            for panel in &dashboard.panels {
+            for (index, panel) in dashboard.panels.iter().enumerate() {
                 assert_eq!(
-                    place_panel(panel.grid, area, &dashboard).width,
+                    place_of(&dashboard, index, area).width,
                     panel_width(panel.grid, width),
                     "The panel {:?} on an area of {width} cells.",
                     panel.title
@@ -442,9 +493,8 @@ grid = { x = 0, y = 13, w = 24, h = 6 }
                 width,
                 height: 40,
             };
-            let row: Vec<Rect> = dashboard.panels[2..5]
-                .iter()
-                .map(|panel| place_panel(panel.grid, area, &dashboard))
+            let row: Vec<Rect> = (2..5)
+                .map(|index| place_of(&dashboard, index, area))
                 .collect();
             assert_eq!(row[0].x, 0, "The first panel must start at the left edge.");
             assert_eq!(
@@ -501,16 +551,14 @@ grid = { x = 0, y = 13, w = 24, h = 6 }
                 let empty = Buffer::empty(area);
                 let mut drawn = Buffer::empty(area);
                 view.render(&dashboard, &snapshot, area, &mut drawn);
-                let left_empty = dashboard
-                    .panels
-                    .iter()
-                    .filter(|panel| {
-                        let place = place_panel(panel.grid, area, &dashboard);
+                let left_empty = (0..dashboard.panels.len())
+                    .filter(|index| {
+                        let place = place_of(&dashboard, *index, area);
                         !holds_a_cell(&drawn, &empty, place)
                     })
                     .count();
                 assert_eq!(
-                    view.dropped_panels(&dashboard, area),
+                    view.dropped_panels(&dashboard, &snapshot, area),
                     left_empty,
                     "A terminal of {width} cells by {height} cells."
                 );
@@ -533,16 +581,14 @@ grid = { x = 0, y = 13, w = 24, h = 6 }
                     width,
                     height,
                 };
-                let small = dashboard
-                    .panels
-                    .iter()
-                    .filter(|panel| {
-                        let place = place_panel(panel.grid, area, &dashboard);
+                let small = (0..dashboard.panels.len())
+                    .filter(|index| {
+                        let place = place_of(&dashboard, *index, area);
                         place.width < 3 || place.height < 3
                     })
                     .count();
                 assert_eq!(
-                    view.dropped_panels(&dashboard, area),
+                    view.dropped_panels(&dashboard, &Snapshot::default(), area),
                     small,
                     "A terminal of {width} cells by {height} cells."
                 );

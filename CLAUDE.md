@@ -114,7 +114,7 @@ therefore left them as they are.
 | `loading…` | `thunderbox-widgets`, the panel that has no answer yet | Rule 3 and rule 4 ask for "The data source has not answered yet." A panel can be eight cells wide. The long form does not fit. |
 | `no data` | `thunderbox-widgets`, the panel that has an empty result | Rule 4 asks for a complete sentence. The same width problem applies. |
 | `—` | `thunderbox-widgets`, the text of a value that is not finite | Rule 8 forbids an em dash as punctuation. This em dash is not punctuation. It is the symbol that a chart shows in place of a missing number. |
-| `+3` | `thunderbox-widgets`, the note that counts the series, the columns, or the rows that a panel dropped | Rule 4 asks for a complete sentence. The panel writes one, and it takes this form only where the sentence does not fit. No file holds this text. Each `dropped_text` function builds the form with `format!("+{dropped}")`, and the tests compare against `+2`, `+4`, and `+12`. |
+| `+3` | `thunderbox-widgets`, the note that counts the series, the columns, or the rows that a panel dropped, and the note that counts the panels that a collapsed row panel hides | Rule 4 asks for a complete sentence. The panel writes one, and it takes this form only where the sentence does not fit. No file holds this text. Each `dropped_text` function and the function `hidden_text` build the form with `format!("+{dropped}")` or `format!("+{hidden}")`. The tests compare against `+2`, `+3`, `+4`, and `+12`. |
 
 ### The rule for a short label inside a panel
 
@@ -140,6 +140,10 @@ in different units. The function of `panel.rs` compares
 always one cell, and `cells_of` of `panel.rs` states that rule. Change both
 functions when you change this rule. Each function holds tests of its own, so a
 change to one function alone leaves every test green.
+
+`thunderbox-widgets/src/row.rs` holds a third function of this rule, and its
+name is `hidden_text`. It counts the panels that a collapsed row panel hides,
+and it measures the width with `cells_of`. Change it with the other two.
 
 The first three strings stay as they are. They have no long form that fits, and
 a test compares against each of them.
@@ -357,12 +361,12 @@ The measurement: one link to an item that does not exist gives
 `cargo doc --no-deps` one warning and the code 0. The same link gives
 `RUSTDOCFLAGS="-D warnings" cargo doc --no-deps` the code 101.
 
-The count of the doctests must not fall. That count is 23 today:
+The count of the doctests must not fall. That count is 24 today:
 
 | crate | doctests |
 |---|---|
 | `thunderbox-core` | 10 |
-| `thunderbox-widgets` | 11 |
+| `thunderbox-widgets` | 12 |
 | `thunderbox-dashboard` | 1 |
 | `thunderbox-source-prometheus` | 1 |
 | each other crate | 0 |
@@ -595,7 +599,7 @@ text of the second kind:
 
 | the text | where it lives | the scenes that draw it |
 |---|---|---|
-| the status row, which ends with the list of the keys | `status_text` and `KEYS` in `crates/thunderbox/src/main.rs` | `app`, `stack_none`, `stack_column`, `variables`, `too_small` |
+| the status row, which ends with the list of the keys | `status_text`, `KEYS` and `ROW_KEY` in `crates/thunderbox/src/main.rs` | `app`, `stack_none`, `stack_column`, `variables`, `too_small`, `rows`. The hint `ROW_KEY` appears in `rows` alone, because no other scene draws a dashboard that holds a row panel. |
 | the row of the variables | `Variables::row_text` in `crates/thunderbox-dashboard/src/variable.rs`, and `VARIABLE_KEYS` in `crates/thunderbox/src/main.rs` | `variables` alone. The dashboard of every other scene declares no variable, and the program then draws no such row. |
 | the row of the keys of an example | the text inside that example | the scene of that example alone |
 
