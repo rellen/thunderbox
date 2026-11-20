@@ -10,22 +10,27 @@ explains when a program uses each way.
 
 ## The crates of the workspace
 
+<!-- crates:begin -->
+
 | crate | what it holds | the crates of thunderbox that it depends on |
 |---|---|---|
-| `thunderbox-widgets` | The panels. Each panel draws into a buffer of ratatui. | `thunderbox-core` |
-| `thunderbox-dashboard` | The dashboard runtime that runs the queries of a dashboard, and the view that draws it. | `thunderbox-core`, `thunderbox-source`, `thunderbox-widgets` |
-| `thunderbox-core` | The types that every other crate uses: the dashboard, the frame, the query, and the time range. | none |
-| `thunderbox-source` | The trait of a data source, and the registry of the data sources. | `thunderbox-core` |
-| `thunderbox-source-sysinfo` | The data source `sysinfo`. | `thunderbox-core`, `thunderbox-source` |
-| `thunderbox-source-testdata` | The data source `testdata`. | `thunderbox-core`, `thunderbox-source` |
-| `thunderbox-source-prometheus` | The data source `prometheus`. | `thunderbox-core`, `thunderbox-source` |
+| [`thunderbox-core`](https://rellen.github.io/thunderbox/api/thunderbox_core/index.html) | The core types of thunderbox. This crate holds data frames, queries, and dashboards. | none |
+| [`thunderbox-dashboard`](https://rellen.github.io/thunderbox/api/thunderbox_dashboard/index.html) | The dashboard runtime of thunderbox. It runs the queries and holds the state. | `thunderbox-core`, `thunderbox-source`, `thunderbox-widgets` |
+| [`thunderbox-source`](https://rellen.github.io/thunderbox/api/thunderbox_source/index.html) | The data source trait and the data source registry of thunderbox. | `thunderbox-core` |
+| [`thunderbox-source-prometheus`](https://rellen.github.io/thunderbox/api/thunderbox_source_prometheus/index.html) | The Prometheus data source of thunderbox. It reads a Prometheus server with a range query. | `thunderbox-core`, `thunderbox-source` |
+| [`thunderbox-source-sysinfo`](https://rellen.github.io/thunderbox/api/thunderbox_source_sysinfo/index.html) | A data source that reads the processor, the memory, the network, and the processes of this machine. | `thunderbox-core`, `thunderbox-source` |
+| [`thunderbox-source-testdata`](https://rellen.github.io/thunderbox/api/thunderbox_source_testdata/index.html) | A data source that makes test data for thunderbox. The data does not change between two runs. | `thunderbox-core`, `thunderbox-source` |
+| [`thunderbox-widgets`](https://rellen.github.io/thunderbox/api/thunderbox_widgets/index.html) | The panel renderers of thunderbox. These widgets need no terminal backend and no async runtime. | `thunderbox-core` |
+
+<!-- crates:end -->
 
 - Each crate holds the version `0.0.0`.
 - Each crate needs release 1.88 of Rust or a later release.
 - Each crate is free software. A person can use it under the licence of the
   file `LICENSE-MIT`, or under the licence of the file `LICENSE-APACHE`.
-- The workspace holds one more crate, `thunderbox`. That crate is the program,
-  and it exports no library.
+- The workspace holds two more crates, and neither one exports a library. The
+  crate `thunderbox` is the program. The crate `xtask` holds the tasks of this
+  repository, and it builds the documentation site.
 
 ## The full interface
 
