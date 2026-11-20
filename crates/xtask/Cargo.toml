@@ -1,0 +1,21 @@
+[package]
+name = "xtask"
+description = "The tasks of the repository of thunderbox. It builds the documentation site."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+# Rustdoc then writes no page for this program, so the API site does not list it.
+[[bin]]
+name = "xtask"
+path = "src/main.rs"
+doc = false
+
+[dependencies]
+serde_json = "1"
+
+[lints]
+workspace = true

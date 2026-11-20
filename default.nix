@@ -46,6 +46,13 @@ rustPlatform.buildRustPackage {
   # holds no hash, and a change to Cargo.lock needs no change here.
   cargoLock.lockFile = ./Cargo.lock;
 
+  # The workspace holds a second program, `xtask`. The package builds and
+  # installs the program `thunderbox` alone.
+  cargoBuildFlags = [
+    "--package"
+    "thunderbox"
+  ];
+
   # The feature `prometheus` needs the crate `aws-lc-sys`, and that crate holds
   # the C source of the library `aws-lc`. nixpkgs tells the crate to link the
   # `aws-lc` of nixpkgs instead, and the crate returns an error when it finds
