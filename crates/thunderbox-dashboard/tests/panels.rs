@@ -1,18 +1,19 @@
 //! Tests that each type of panel draws its own picture.
 //!
 //! Every type of panel drew as a time series before this test existed. The
-//! first test here holds the five types apart, so that the fault cannot
+//! first test here holds the six types apart, so that the fault cannot
 //! return.
 
 use std::sync::Arc;
 
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;
+use ratatui_core::style::Modifier;
 use thunderbox_core::{Dashboard, Field, FieldConfig, Frame, RelativeTime, Threshold, TimeRange};
 use thunderbox_dashboard::{DashboardView, PanelState, Snapshot};
 
 /// The name that a dashboard writes for each type of panel.
-const KINDS: [&str; 5] = ["timeseries", "stat", "gauge", "bargauge", "table"];
+const KINDS: [&str; 6] = ["timeseries", "stat", "gauge", "bargauge", "table", "top"];
 
 /// Returns a frame that holds a time column and two columns of numbers.
 fn frames() -> Vec<Frame> {
@@ -169,9 +170,9 @@ fn each_type_of_panel_draws_a_column_of_holes_as_a_result_that_holds_no_value() 
         ],
     )];
     for kind in KINDS {
-        // A table shows the holes themselves, so it holds data that the other
-        // panels do not.
-        if kind == "table" {
+        // A table and a top panel show the holes themselves, so they hold
+        // data that the other panels do not.
+        if kind == "table" || kind == "top" {
             continue;
         }
         let drawn = picture(kind, PanelState::Ready(Arc::new(holes.clone())), 60, 16);
@@ -214,9 +215,9 @@ fn no_type_of_panel_panics_in_an_area_of_any_size() {
 
 /// A panel must never write the text that Rust gives a value which is not
 /// finite. `CLAUDE.md` section 1.5 names `—` as the symbol that a panel draws
-/// in place of such a value. A table shows each value, so a table draws that
-/// symbol three times here. The other types of panel reduce the column to one
-/// number, and the last value of this column is 7.
+/// in place of such a value. A table and a top panel show each value, so each
+/// of them draws that symbol three times here. The other types of panel reduce
+/// the column to one number, and the last value of this column is 7.
 #[test]
 fn each_type_of_panel_draws_a_value_that_is_not_finite() {
     let odd = vec![Frame::named(
@@ -243,12 +244,15 @@ fn each_type_of_panel_draws_a_value_that_is_not_finite() {
             );
         }
     }
-    let table = picture("table", PanelState::Ready(Arc::new(odd)), 60, 16);
-    assert_eq!(
-        table.matches('—').count(),
-        3,
-        "A table must draw the symbol for each value that is not finite. It drew this. {table}"
-    );
+    for kind in ["table", "top"] {
+        let drawn = picture(kind, PanelState::Ready(Arc::new(odd.clone())), 60, 16);
+        assert_eq!(
+            drawn.matches('—').count(),
+            3,
+            "A {kind} panel must draw the symbol for each value that is not finite. It drew \
+             this. {drawn}"
+        );
+    }
 }
 
 /// Returns a frame that holds forty columns of numbers.
@@ -358,5 +362,54 @@ fn a_panel_that_draws_a_window_which_ends_now_labels_the_right_edge_as_now() {
     assert!(
         drawn.contains("now"),
         "The right edge of this axis is the present moment. It drew this. {drawn}"
+    );
+}
+
+/// Returns the text of every header cell that carries a line under it.
+///
+/// A top panel draws that line under the header of the column that puts its
+/// rows in order.
+fn marked_header(sort: Option<&str>) -> String {
+    let field = sort.map_or(String::new(), |name| format!("sort = {name:?}"));
+    let text = format!(
+        r#"
+title = "one panel"
+
+[[panel]]
+title = "load"
+kind = "top"
+{field}
+grid = {{ x = 0, y = 0, w = 24, h = 10 }}
+"#
+    );
+    let dashboard = Dashboard::from_toml(&text).expect("The test dashboard must be correct.");
+    let mut snapshot = Snapshot::loading(1, TimeRange::default());
+    snapshot.panels[0] = PanelState::Ready(Arc::new(frames()));
+    let area = Rect::new(0, 0, 60, 16);
+    let mut buf = Buffer::empty(area);
+    DashboardView::new().render(&dashboard, &snapshot, area, &mut buf);
+    buf.content
+        .iter()
+        .filter(|c| c.modifier.contains(Modifier::UNDERLINED))
+        .map(|c| c.symbol().to_string())
+        .collect::<String>()
+        .trim()
+        .to_string()
+}
+
+/// The field `sort` of a dashboard must reach the top panel. A view that
+/// dropped the field would order every top panel by its first column of
+/// numbers, and each test of `thunderbox-widgets` would still pass.
+#[test]
+fn a_top_panel_of_a_dashboard_reads_the_column_that_the_dashboard_names() {
+    assert_eq!(
+        marked_header(Some("second")),
+        "second",
+        "The dashboard names the column second."
+    );
+    assert_eq!(
+        marked_header(None),
+        "first",
+        "A panel that names no column takes its first column of numbers."
     );
 }

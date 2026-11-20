@@ -77,6 +77,8 @@ impl Dashboard {
     /// - a panel has a width or a height of 0;
     /// - a panel reaches past the right edge of the grid;
     /// - a panel sets a `min` that is not smaller than its `max`;
+    /// - a panel that is not a top panel states a `sort` column;
+    /// - a top panel states a `sort` column that has an empty name;
     /// - a panel names a data source that the dashboard does not declare, and
     ///   the dashboard declares at least one data source;
     /// - a variable has a name that no query can refer to;
@@ -127,6 +129,24 @@ impl Dashboard {
                     "panel {:?} has min {min} and max {max}; min must be smaller than max",
                     panel.title
                 )));
+            }
+            if let Some(sort) = &panel.sort {
+                // A panel of another kind ignores the field. A person who
+                // writes it on such a panel expects an order that the panel
+                // never draws.
+                if panel.kind != PanelKind::Top {
+                    return Err(Error::Dashboard(format!(
+                        "panel {:?} states the sort column {sort:?}. Only a panel of the \
+                         kind top reads that field",
+                        panel.title
+                    )));
+                }
+                if sort.trim().is_empty() {
+                    return Err(Error::Dashboard(format!(
+                        "panel {:?} states a sort column with an empty name",
+                        panel.title
+                    )));
+                }
             }
             for target in &panel.targets {
                 if !self.sources.is_empty() && !self.sources.contains_key(&target.source) {
@@ -289,6 +309,17 @@ pub struct Panel {
     /// panel, a gauge panel, or a bar gauge panel shows.
     #[serde(default, skip_serializing_if = "Reduce::is_default")]
     pub reduce: Reduce,
+    /// The name of the column that puts the rows of a top panel in order.
+    ///
+    /// The panel puts the row that holds the largest number of that column
+    /// first. The name is the text that the header of the column shows. A top
+    /// panel that states no column puts its rows in order by its first column
+    /// of numbers.
+    ///
+    /// Only a panel of the kind [`PanelKind::Top`] reads this field.
+    /// [`Dashboard::validate`] rejects the field on every other kind of panel.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sort: Option<String>,
     /// The place of the panel on the grid.
     pub grid: GridPos,
     /// The thresholds that change the colour of a value.
@@ -400,6 +431,12 @@ pub enum PanelKind {
     BarGauge,
     /// Rows and columns of values.
     Table,
+    /// A list of rows in order by one column, with the largest value first.
+    ///
+    /// The program `top` shows the processes of a machine in this form. The
+    /// panel reads the field [`Panel::sort`] for the column that puts the rows
+    /// in order.
+    Top,
 }
 
 /// The place of a panel on the grid.
@@ -603,6 +640,66 @@ grid = { x = 0, y = 0, w = 4, h = 4 }
             err.contains("smaller than max"),
             "The message is wrong. {err}"
         );
+    }
+
+    /// Returns the text of a dashboard that holds one panel of this kind. The
+    /// `sort` argument holds the line of the field, or an empty text.
+    fn one_panel(kind: &str, sort: &str) -> String {
+        format!(
+            r#"
+title = "x"
+[[panel]]
+title = "processes"
+kind = "{kind}"
+{sort}
+grid = {{ x = 0, y = 0, w = 12, h = 8 }}
+"#
+        )
+    }
+
+    #[test]
+    fn a_top_panel_reads_the_column_that_puts_its_rows_in_order() {
+        let dash = Dashboard::from_toml(&one_panel("top", r#"sort = "memory""#))
+            .expect("The reader must accept a top panel that names a column.");
+        assert_eq!(dash.panels[0].kind, PanelKind::Top);
+        assert_eq!(dash.panels[0].sort.as_deref(), Some("memory"));
+        let round = Dashboard::from_toml(&dash.to_toml().unwrap()).unwrap();
+        assert_eq!(round, dash, "The column must survive a round trip.");
+    }
+
+    #[test]
+    fn a_top_panel_can_state_no_column() {
+        let dash = Dashboard::from_toml(&one_panel("top", ""))
+            .expect("The panel then takes its first column of numbers.");
+        assert_eq!(dash.panels[0].sort, None);
+        let written = dash.to_toml().unwrap();
+        assert!(
+            !written.contains("sort"),
+            "The writer leaves out a field that the panel does not state. {written}"
+        );
+    }
+
+    /// Every other kind of panel ignores the field. A person who writes it on
+    /// such a panel expects an order that the panel never draws.
+    #[test]
+    fn validate_returns_an_error_for_a_sort_column_on_a_panel_that_is_not_a_top_panel() {
+        for kind in ["timeseries", "stat", "gauge", "bargauge", "table"] {
+            let err = Dashboard::from_toml(&one_panel(kind, r#"sort = "cpu""#))
+                .unwrap_err()
+                .to_string();
+            assert!(
+                err.contains("kind top"),
+                "The message must name the kind that reads the field. {kind} {err}"
+            );
+        }
+    }
+
+    #[test]
+    fn validate_returns_an_error_for_a_sort_column_with_an_empty_name() {
+        let err = Dashboard::from_toml(&one_panel("top", r#"sort = " ""#))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("empty name"), "The message is wrong. {err}");
     }
 
     #[test]

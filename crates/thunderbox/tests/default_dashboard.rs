@@ -7,7 +7,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use thunderbox_core::{Dashboard, Field};
+use thunderbox_core::{Dashboard, Field, Values};
 use thunderbox_dashboard::{DashboardRuntime, PanelState, Snapshot};
 use thunderbox_source::Registry;
 use thunderbox_source_sysinfo::SysinfoSource;
@@ -98,4 +98,34 @@ async fn the_default_dashboard_draws_the_names_that_it_drew_before() {
             "The pattern of this panel names each series after its core. Panel {panel}."
         );
     }
+}
+
+/// The panel `processes` reads the list of the processes of this machine. The
+/// process that runs this test is one of them.
+#[tokio::test]
+async fn the_panel_of_the_processes_lists_the_process_that_runs_this_test() {
+    let snapshot = answer().await;
+    let dashboard =
+        Dashboard::from_toml(DEFAULT_DASHBOARD).expect("The dashboard must be correct.");
+    let index = dashboard
+        .panels
+        .iter()
+        .position(|p| p.title == "processes")
+        .expect("The default dashboard must hold the panel of the processes.");
+    let PanelState::Ready(frames) = snapshot.panel(index) else {
+        panic!("The panel must hold an answer. {:?}", snapshot.panel(index));
+    };
+    let pid = frames[0]
+        .fields
+        .iter()
+        .find(|f| f.name == "pid")
+        .expect("The list must hold the column pid.");
+    let Values::Str(pids) = &pid.values else {
+        panic!("The number of a process is text. {pid:?}");
+    };
+    let me = std::process::id().to_string();
+    assert!(
+        pids.iter().any(|p| p.as_deref() == Some(me.as_str())),
+        "The list must hold the process that runs this test."
+    );
 }

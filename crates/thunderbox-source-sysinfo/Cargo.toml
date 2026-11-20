@@ -1,6 +1,6 @@
 [package]
 name = "thunderbox-source-sysinfo"
-description = "A data source that reads the processor, the memory, and the network of this machine."
+description = "A data source that reads the processor, the memory, the network, and the processes of this machine."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

@@ -4,6 +4,7 @@ use sysinfo::{MemoryRefreshKind, Networks, RefreshKind, System};
 use thunderbox_core::{Error, Result, Timestamp};
 
 use crate::history::History;
+use crate::process::PROCESSES;
 
 /// The name of the label that separates one core from another.
 ///
@@ -70,7 +71,7 @@ impl Signal {
             other => Err(Error::Query(format!(
                 "The sysinfo data source does not hold a signal named {other:?}. \
                  It holds {}.",
-                Self::names().join(", ")
+                query_names().join(", ")
             ))),
         }
     }
@@ -152,6 +153,17 @@ impl Signal {
             _ => None,
         }
     }
+}
+
+/// Returns the text of every query that this data source answers.
+///
+/// The list holds each signal of the store, and then the query that returns
+/// the processes. That query returns one row for each process, and the store
+/// holds no series of it, so [`Signal`] does not name it.
+pub fn query_names() -> Vec<&'static str> {
+    let mut names = Signal::names().to_vec();
+    names.push(PROCESSES);
+    names
 }
 
 /// Returns the position of one core, from the name of its series.

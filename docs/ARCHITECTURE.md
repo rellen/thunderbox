@@ -120,7 +120,7 @@ thunderbox-core        Frame, Field, Values, TimeRange, Query, Dashboard, Panel.
                      serde. No ratatui, no tokio.
 thunderbox-widgets     ratatui-core and ratatui-widgets ONLY. The panel
                      renderers: TimeSeries, Stat, Gauge, BarGauge, Table,
-                     Heatmap, Logs.  <-- the smaller way in
+                     Top, Heatmap, Logs.  <-- the smaller way in
 thunderbox-transform   A pipeline from frame to frame: reduce, filter, rename,
                      join, group.
 thunderbox-source      The DataSource trait and the registry.
@@ -208,7 +208,7 @@ from the bottom of the chart to the top. Two methods give that result:
 
 This work comes later.
 
-### The five panel types
+### The six panel types
 
 `thunderbox-widgets` holds one renderer for each type of panel. Every renderer
 takes the same three arguments, which are a title, the data, and a theme. Every
@@ -227,8 +227,9 @@ renderer also takes a `PanelOptions` value. That value carries these settings:
 | `GaugePanel` | a meter, with the range written out | how full is it |
 | `BarGaugePanel` | one named bar for each series | which of these is the largest |
 | `TablePanel` | the columns of the frames | what are the numbers |
+| `TopPanel` | the rows of the frames, in order by one column | which of these uses the most |
 
-Three of the five show one number for each series. A `Reduce` step turns a
+Three of the six show one number for each series. A `Reduce` step turns a
 column of numbers into that one number. The step lives in `thunderbox-core`,
 because a dashboard names it. `thunderbox-transform` will hold the rest of the
 pipeline that section 3 describes.
@@ -236,12 +237,29 @@ pipeline that section 3 describes.
 **Two sources state how to show a number, and the panel wins.** A data source
 fills the `FieldConfig` of each column, and a person writes the panel. A
 Prometheus data source therefore states a unit that a dashboard can override.
-The `PanelOptions` type holds that rule, so five renderers apply it in one way.
+The `PanelOptions` type holds that rule, so six renderers apply it in one way.
+The top panel applies the settings of the panel to one column alone, and the
+next item states why.
+
+**A top panel applies its settings to the column that gives the order.** A list
+of processes holds a share of the processor beside a count of bytes. A unit of
+the panel that reached every column would write the count of bytes as a share.
+A threshold of 85 would also colour every count of bytes, because each count
+passes 85. The settings of a top panel therefore describe the column that the
+field `sort` names. Every other column keeps the settings that its data source
+states. The table panel applies its settings to every column, because a table
+of one signal holds one unit.
 
 **The shared parts sit in one module.** `thunderbox-widgets/src/panel.rs` holds
 the border, the three states that a panel reports, the reduce step, and the
 step that cuts a name to a width. A renderer that repeated any of those would
 drift away from the others.
+
+The table panel and the top panel share a second module.
+`thunderbox-widgets/src/table.rs` holds the layout of a sheet of rows and
+columns, and its function `draw_sheet` draws a sheet for both panels. The two
+panels differ in the rows that they select. The top panel also draws a line
+under one header, and a note on its bottom border.
 
 ---
 
@@ -332,7 +350,7 @@ comes before the look.
 - a grid of panels;
 - variables that a person selects. The project has built this one;
 - these panels: TimeSeries, Stat, Gauge, BarGauge, Table. The project has
-  built all five;
+  built all five, and it has added a sixth, Top, which section 15 describes;
 - these data sources: testdata, sysinfo, prometheus. The project has built all
   three;
 - more than one data source on one dashboard. The project has built this one,
@@ -923,6 +941,14 @@ The dashboard asks for half of the points that it asked for before. It holds six
 panels in three rows, and the sum of the widths of one row is the width of the
 area.
 
+The table above records the default dashboard of the time of this rule. A later
+change gave the right half of the last row to the panel `processes`. The panel
+of the table now holds 12 grid columns. Those columns hold 55 cells, and the
+panel asks for 110 points. The panel of the processes holds the other 55 cells.
+The sum of the dashboard stays 660 points. The test
+`each_panel_asks_for_the_points_of_its_own_width` keeps the grid of the table
+above, because it records the measurement of this rule.
+
 Every kind of panel follows this one rule:
 
 - a chart draws a point at each position that the marker can address inside its
@@ -934,6 +960,9 @@ Every kind of panel follows this one rule:
   source always takes the newest sample, and a Prometheus server returns the
   last step before the end of the range. A coarser step moves that point by less
   than the width of one step;
+- a top panel shows the first rows that fit in its height. Its rows describe
+  things and not moments. The sysinfo data source and the testdata data source
+  therefore read no point limit for the query `processes`;
 - a table shows the last rows that fit in its height. The point limit of a
   narrow table can fall under that number of rows, and such a table then shows
   fewer rows. The renderer draws no panel under 3 cells wide, and a table of 3
@@ -1175,9 +1204,11 @@ numbers.
 | 18 | 1 | 7 of 8 |
 | 17 and below | 0 | 8 of 8 |
 
-The default dashboard of six panels saves nothing on a terminal of 10 rows or
-more. It saves 2 queries of 6 on a terminal of exactly 9 rows, 5 queries on a
-terminal of 8 rows, and 6 queries on a terminal of 7 rows or fewer. The test
+The default dashboard of seven panels saves nothing on a terminal of 10 rows or
+more. It saves 2 queries of 7 on a terminal of exactly 9 rows, 5 queries on a
+terminal of 8 rows, and 7 queries on a terminal of 7 rows or fewer. The two
+panels of the last row hold the same rows of the grid, so the renderer drops
+both of them together. The test
 `the_default_dashboard_drops_a_panel_only_under_a_terminal_of_ten_rows` holds
 those numbers.
 
@@ -1588,6 +1619,55 @@ connection.
 data source of every variable at the same time, and it returns the answers in
 the order of the variables.
 
+**A list in the form of `top` is a kind of panel of its own, and not an option
+of the table panel.** The project examined a field `sort` on the table panel.
+That design differs from the top panel in three rules, and each rule would then
+depend on one field:
+
+- The table panel shows the last rows that fit. A row of a time series is a
+  moment, and a person reads the newest moment. A list of processes in the
+  order of a column must show the first rows instead.
+- The table panel puts the columns of two frames side by side, because two
+  series of one moment share a row. Two lists of processes share no row. The
+  top panel therefore puts the rows of every frame into one list. A column
+  joins the column of another frame that shows the same header.
+- The table panel applies its settings to every column. The top panel applies
+  them to the column that gives the order, and section 5 states why.
+
+A person who reads `kind = "top"` knows all three rules from one word. The two
+panels still share one layout, because `draw_sheet` in
+`thunderbox-widgets/src/table.rs` draws both.
+
+**The list of processes of the sysinfo data source keeps no past.** The store of
+that data source holds a series over time, and a row of a process is not a
+series. The data source therefore keeps the list of the last sample alone. A
+window that does not hold the moment of that sample returns the four columns
+and no row, and the panel then reports `no data`. A list of the present moment
+inside a window of the past would be false. The test
+`a_window_that_does_not_hold_the_sample_returns_the_columns_and_no_row` holds
+that rule.
+
+**The list of processes reads the machine through a `System` of its own.** The
+`sysinfo` crate measures the share of a process against the time of the
+processor between two refreshes. A refresh of the processes therefore reads the
+time of the processor again. Version 0.38.4 does so in `update_procs_cpu` of
+`src/unix/linux/system.rs`, which calls `refresh_if_needed` on the processors
+when 200 milliseconds have passed. The signal `cpu` would then measure a
+shorter period, if it shared that `System`. That period would start at the last
+list of processes, and not at the last sample of the signal. A dashboard that
+shows no list of processes pays nothing, because the reader reads no process
+until a query asks for the list.
+
+No test holds this rule. Each sample of the signal `cpu` reads a machine whose
+load changes. No test can therefore tell a short period of measurement from a
+long one. The comment on `ProcessSampler` states the rule, and this item states
+it a second time.
+
+**The number of a process is text.** A column of numbers would write `1.2K` for
+the process 1234, because a panel shortens a large number. A top panel that
+names no column takes its first column of numbers, and the number of a process
+would then give the order. That order means nothing to a reader.
+
 ---
 
 ## 13. The decisions that remain open
@@ -1758,6 +1838,21 @@ the order of the variables.
 
    The next design answers one question. Does this project take the reduction,
    or does the field leave the interface until it does?
+8. **A narrow top panel drops the column that gives the order.** A top panel
+   draws its sheet with `draw_sheet`, and that function drops the columns at
+   the right that have no room. The list of processes holds the column `cpu` as
+   its third column. A top panel of 12 cells therefore draws the column `pid`
+   alone, and the note `+3` beside it. The rows still come in the order of the
+   column `cpu`, and no reader can see that column.
+
+   The default dashboard gives the panel 55 cells on a terminal of 110 cells,
+   and 40 cells on a terminal of 80 cells. The panel keeps all four columns at
+   both widths, and it cuts a long name. A person therefore meets this fault
+   only in a dashboard that holds a narrow top panel.
+
+   The column that gives the order can stand at the right of another column.
+   The next design answers one question. Which of those two columns does a
+   narrow top panel drop first?
 
 ---
 
@@ -1835,8 +1930,8 @@ carries the moment when the machine produced it.
 The program now acts on the refresh interval of a dashboard. The caller drives
 that work with `DashboardRuntime::tick`, because thunderbox owns no event loop.
 
-Every type of panel now draws its own picture. Section 5 lists the five
-renderers. The default dashboard inside the program shows all five, so one
+Every type of panel now draws its own picture. Section 5 lists the six
+renderers. The default dashboard inside the program shows all six, so one
 command demonstrates each of them.
 
 ### The queries that run at the same time
@@ -1850,6 +1945,23 @@ follow the same rule.
 Section 12 records the decisions that this work took. The answers keep the order
 of the panels. The stop of the task of a set reaches the task of each panel. A
 data source that panics changes the panel of that data source alone.
+
+### The top panel
+
+A top panel draws a list of rows in order by one column, with the largest value
+first. The program `top` shows the processes of a machine in this form. The
+default dashboard shows the processes of this machine in the right half of its
+last row.
+
+The sysinfo data source answers the query `processes` with one row for each
+process. The testdata data source answers the same query with a list of
+invented processes in the same shape. The `app` scene therefore draws the panel,
+and it shows nothing of the machine that records it.
+
+Section 12 records the four decisions that this work took. The list is a kind of
+panel of its own. The list of processes keeps no past. That list reads the
+machine through a `System` of its own. The number of a process is text. Section
+13 records the one fault that this work left open, which is item 8.
 
 ### The pattern that names a series
 
