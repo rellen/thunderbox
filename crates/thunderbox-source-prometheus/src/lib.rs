@@ -298,26 +298,35 @@ impl Prometheus {
     pub fn settings(&self) -> &Settings {
         &self.settings
     }
+}
 
-    /// Returns the timeout that the server applies to a query, in seconds.
-    ///
-    /// The client stops a request that takes too long. This value asks the
-    /// server to stop the same request, so that the server does no work that
-    /// nobody reads. The value is 1 second or more.
-    fn server_timeout_seconds(&self) -> i64 {
-        i64::try_from(self.settings.timeout.as_secs().max(1)).unwrap_or(i64::MAX)
-    }
+/// Returns the timeout that the server applies to a query, in milliseconds.
+///
+/// The client stops a request that takes too long. This value asks the server
+/// to stop the same request, so that the server does no work that nobody reads.
+/// The method `timeout` of the Prometheus crate takes a count of milliseconds.
+/// The data source therefore sends the parameter `timeout=30000ms` for a
+/// timeout of 30 seconds.
+///
+/// The value is 1 millisecond or more. A timeout that holds more milliseconds
+/// than an `i64` holds gives `i64::MAX`.
+fn server_timeout_ms(timeout: Duration) -> i64 {
+    i64::try_from(timeout.as_millis())
+        .unwrap_or(i64::MAX)
+        .max(1)
 }
 
 #[async_trait]
 impl DataSource for Prometheus {
     fn descriptor(&self) -> SourceDescriptor {
         // The server reduces the number of points to the step of the query, so
-        // the caller does not reduce them again.
+        // the caller does not reduce them again. A sum of the timeout and the
+        // margin that does not fit in a `Duration` gives `Duration::MAX`, and
+        // it does not panic.
         SourceDescriptor::new(KIND, self.settings.name.clone())
             .downsampling()
             .with_label_values()
-            .with_answer_limit(self.settings.timeout + ANSWER_MARGIN)
+            .with_answer_limit(self.settings.timeout.saturating_add(ANSWER_MARGIN))
     }
 
     async fn query(&self, request: QueryRequest) -> Result<Vec<Frame>> {
@@ -334,7 +343,7 @@ impl DataSource for Prometheus {
                 grid.end_seconds(),
                 grid.step_seconds(),
             )
-            .timeout(self.server_timeout_seconds())
+            .timeout(server_timeout_ms(self.settings.timeout))
             .get()
             .await
             .map_err(|e| Error::Query(e.to_string()))?;
@@ -469,14 +478,52 @@ mod tests {
         );
     }
 
+    /// A program that embeds thunderbox can set any timeout in its code. The
+    /// sum of the timeout `Duration::MAX` and the margin does not fit in a
+    /// `Duration`, so the limit is `Duration::MAX`.
     #[test]
-    fn the_server_timeout_is_one_second_or_more() {
+    fn the_descriptor_states_a_limit_for_the_largest_timeout() {
         let settings = Settings {
-            timeout: Duration::from_millis(1),
+            timeout: Duration::MAX,
             ..Settings::default()
         };
         let source = Prometheus::new(DEFAULT_URL, settings).unwrap();
-        assert_eq!(source.server_timeout_seconds(), 1);
+        assert_eq!(source.descriptor().answer_limit, Some(Duration::MAX));
+    }
+
+    /// Each row holds a timeout of the settings and the value that the server
+    /// receives. The rows check three rules:
+    ///
+    /// - the value is a count of milliseconds;
+    /// - the value is 1 millisecond or more;
+    /// - a timeout that holds more milliseconds than an `i64` holds gives
+    ///   `i64::MAX`.
+    #[test]
+    fn the_server_timeout_is_a_count_of_milliseconds() {
+        let largest = Duration::from_millis(i64::MAX.unsigned_abs());
+        for (timeout, expected) in [
+            (Duration::ZERO, 1),
+            (Duration::from_micros(500), 1),
+            (Duration::from_millis(1), 1),
+            (Duration::from_secs(30), 30_000),
+            (Duration::from_secs(365 * 86_400), 31_536_000_000),
+            (largest, i64::MAX),
+            (largest + Duration::from_millis(1), i64::MAX),
+            (Duration::MAX, i64::MAX),
+        ] {
+            assert_eq!(
+                server_timeout_ms(timeout),
+                expected,
+                "The timeout {timeout:?} gives the wrong value."
+            );
+        }
+
+        let settings = Settings::from_options(&options("timeout = \"0s\"")).unwrap();
+        assert_eq!(
+            server_timeout_ms(settings.timeout),
+            1,
+            "The data source must send 1 millisecond for the timeout 0s of a dashboard."
+        );
     }
 
     /// A person can write a password into the address of a server. The `Debug`

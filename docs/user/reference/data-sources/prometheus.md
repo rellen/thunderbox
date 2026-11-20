@@ -33,7 +33,8 @@ connects a dashboard to a server.
 - The data source raises a `min_step` under 1 second to 1 second.
 - The data source raises a `timeout` of `"0s"` to 1 millisecond.
 - The data source also asks the server to stop a query after the `timeout`. It
-  sends that time in whole seconds, and it sends 1 second or more.
+  sends that time in milliseconds, in the form `30000ms`, and it sends 1
+  millisecond or more.
 
 The page [Time ranges](../time-ranges.md#the-form-of-a-duration) states the form
 of a duration.

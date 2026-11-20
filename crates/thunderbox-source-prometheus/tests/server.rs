@@ -11,6 +11,7 @@
 
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use thunderbox_core::{Query, QueryRequest, RelativeTime, TimeRange};
 use thunderbox_source::DataSource;
@@ -374,4 +375,56 @@ async fn label_values_returns_an_error_for_a_query_that_holds_no_label() {
     let server = FakeServer::start("200 OK", TWO_SERIES).await;
     assert!(source(&server).label_values("  ").await.is_err());
     assert_eq!(server.count(), 0, "The data source must send no request.");
+}
+
+/// The parameter `timeout` of a query holds a count of milliseconds. The
+/// default timeout of the settings is 30 seconds.
+#[tokio::test]
+async fn the_server_receives_the_default_timeout_in_milliseconds() {
+    let server = FakeServer::start("200 OK", TWO_SERIES).await;
+    source(&server)
+        .query(request("up", 300_000, 160))
+        .await
+        .expect("The server answers, so the query must not return an error.");
+
+    assert_eq!(
+        server.first_parameters()["timeout"],
+        "30000ms",
+        "The server must stop the query after 30 seconds, and not after 30 milliseconds."
+    );
+}
+
+/// A large timeout reaches the server as a count of milliseconds.
+///
+/// A timeout that holds more milliseconds than an `i64` holds reaches the
+/// server as the largest value of an `i64`.
+///
+/// The unit tests of `lib.rs` check a timeout of 0 seconds and a timeout of 1
+/// millisecond. A test in this file cannot check them. The client stops a
+/// request that has a timeout of 0 seconds before the server reads it. The
+/// measurement for 1 millisecond: 2 of 200 such requests never reached the
+/// server of this file.
+#[tokio::test]
+async fn a_large_timeout_reaches_the_server_in_milliseconds() {
+    for (timeout, expected) in [
+        (Duration::from_secs(365 * 86_400), "31536000000ms"),
+        (Duration::MAX, "9223372036854775807ms"),
+    ] {
+        let server = FakeServer::start("200 OK", TWO_SERIES).await;
+        let settings = Settings {
+            timeout,
+            ..Settings::default()
+        };
+        Prometheus::new(&format!("http://{}", server.address), settings)
+            .expect("The address of the test server must be correct.")
+            .query(request("up", 300_000, 160))
+            .await
+            .expect("The server answers, so the query must not return an error.");
+
+        assert_eq!(
+            server.first_parameters()["timeout"],
+            expected,
+            "The timeout {timeout:?} reached the server with the wrong value."
+        );
+    }
 }
