@@ -290,6 +290,52 @@ No file of the tree ends inside a span today, so this fault waits.
 `taking` is an `-ing` form. Line 64 of `CLAUDE.md` covers the name of a test,
 and a run over the whole project reports zero faults.
 
+## 7.1 Many error texts are not sentences
+
+**defect**
+
+The review of the user documentation found this item and the next one. The
+sweep above did not find them, so their numbers start a new part.
+
+Section 1 of `CLAUDE.md` covers the text of each error. Many texts of the code
+break rule 4 or rule 8. Such a text starts with a small letter, or it holds no
+article, or it holds a semicolon or a slash. These are examples:
+
+- `crates/thunderbox-core/src/dashboard.rs:107` writes
+  `title must not be empty`.
+- `dashboard.rs:118`, `:127`, `:135`, `:160`, `:167`, and `:291` write texts of
+  the same form. `panel "cpu" refers to undeclared source "machine"` is one.
+- `crates/thunderbox-core/src/time.rs:392` writes
+  `expected "now", "now-<duration>", or epoch milliseconds`.
+- `crates/thunderbox-core/src/frame.rs:78` and `:85` write `no time field` and
+  `no numeric fields`.
+- `crates/thunderbox-widgets/src/marker.rs:77` writes a text that holds a
+  semicolon.
+
+A second fault joins two texts. The type `Error` of `thunderbox-core` writes
+`The dashboard is not correct.` before the text of an option, and
+`The data source returned an error.` before the text of a query. The result
+holds one sentence, and then a text that starts with a small letter.
+`crates/thunderbox/src/sources.rs:58`,
+`crates/thunderbox-source-sysinfo/src/lib.rs:139`, and
+`crates/thunderbox-source-prometheus/src/lib.rs:326` and `:353` give such
+texts.
+
+The pages of `docs/user/reference` quote several of these texts exactly. A
+change to a text therefore changes a page as well. The three texts of
+`parse_duration_ms`, and the text of a query that the data source testdata
+does not know, are already sentences.
+
+## 7.2 The program writes no sentence when it finds no terminal
+
+**defect**
+
+`crates/thunderbox/src/main.rs:189` calls `ratatui::init()`. That function
+panics when it finds no terminal, and the program then stops with the code 101.
+The text `failed to initialize terminal` comes from the library, and the
+program writes no sentence of its own. The review of
+`docs/user/reference/command-line.md` measured the code 101.
+
 ---
 
 # The documents that state something the code contradicts
