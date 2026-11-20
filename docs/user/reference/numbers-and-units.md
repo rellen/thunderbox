@@ -36,6 +36,12 @@ The panel knows these four names alone: `percent`, `bytes`, `bytes/s`, and
 
 - The panel divides the number by 1000 while the number is 1000 or more, up to
   the letter `P`.
+- The panel then rounds the number to its decimal places. A number that rounds
+  to 1000 or more takes the next letter. The unit `bytes` therefore writes `1KB`
+  for 999.9 bytes, and not `1000B`.
+- The whole part of a number therefore holds three digits at most. The letter
+  `P` is the one exception, because no larger letter exists. A number of 1000
+  `P` or more keeps the letter `P`, as `1500P` does.
 - The letters count in steps of 1000, and not of 1024. The unit `bytes`
   therefore writes `1.5KB` for 1500 bytes.
 - A negative number keeps its minus sign, as `-1.5K` does.
@@ -149,6 +155,7 @@ symbol is not a mark of punctuation.
 | kind | the condition |
 |---|---|
 | `stat` | The number that the step returns is not finite. The sum of two very large numbers is an example. |
+| `stat` | The number does not fit its tile. The panel never cuts a number. |
 | `table`, `top` | The cell holds a hole, or a value that is not finite. |
 | `table`, `top` | The number does not fit its column. The panel never cuts a number. |
 | `table` | A frame holds fewer rows than another frame. The symbol fills the cells above the rows of the shorter frame. |

@@ -107,3 +107,4 @@ git show 4d8c223a0e7ea3bd62b85e7819be8c4ee10cb451:docs/ARCHITECTURE.md
 | [0062](0062-downsamples-promises-a-step-that-no-code-takes.md) | `SourceDescriptor::downsamples` promises a step that no code takes | Proposed | `docs/ARCHITECTURE.md` section 13 item 7 |
 | [0063](0063-a-narrow-top-panel-drops-the-sort-column.md) | A narrow top panel drops the column that gives the order | Proposed | `docs/ARCHITECTURE.md` section 13 item 8 |
 | [0064](0064-plain-http-needs-no-ca-file.md) | An address of plain HTTP needs no CA file | Proposed | `docs/ARCHITECTURE.md` section 13 item 9 |
+| [0065](0065-no-panel-cuts-a-number.md) | No panel cuts a number | Accepted | new |

@@ -139,49 +139,6 @@ The doc comment of `MAX_SPAN_MS` states that "the arithmetic stays correct".
 That sentence holds for the path of the keys alone. The message that a person
 reads names a data source, and it never names the dashboard.
 
-## 5.1 The stat panel cuts a number, and three other panels forbid that
-
-**defect**
-
-A value that does not fit its tile reaches plain text at `stat.rs:511-514`.
-`draw_centred`, at `stat.rs:421-425`, then calls the shared `clip`, which writes
-a full stop at the end of the text (`panel.rs:331-352`). A reader takes that
-full stop for a decimal point.
-
-Two measurements. The value 999999, with `unit = "bytes"` and `decimals = 2`, in
-an ordinary panel of 38 cells by 8 rows that holds eight series: the tile draws
-`1000.00.` where the value is `1000.00KB`. At 8 cells, the value 1234.5678 with
-four decimals: the tile draws `1.234.` where the value is `1.2346K`, which is
-wrong by a factor of 1000.
-
-Such a tile is not rare. `MIN_TILE_WIDTH` is 8, so a stat panel of several
-series lays out tiles of 7 usable cells at every size of the panel.
-
-Three other panels state the opposite rule, and each one holds a test.
-`gauge.rs:244-246` reads "A number that lost its last digits would mislead a
-reader, so the panel draws no number at all". Its test sits at `:830`.
-`bargauge.rs:126-127` and `table.rs:397-401` hold the same rule, and the test of
-the table sits at `:957`. No test of `stat.rs` names a number that the panel
-cut, and no document states the exception.
-
-## 5.2 The formatter picks the letter of the scale before it rounds
-
-**defect**
-
-`si` divides while `n >= 1000.0`, and it then applies the count of the decimals
-(`crates/thunderbox-widgets/src/value.rs:218-231`). `places` rounds after that
-step. A value that rounds up across a step of the scale therefore keeps the
-smaller letter, and it gains a digit.
-
-The measurements: 999.9 with `bytes` draws `1000B`; 999999 with `bytes` and
-`decimals = 2` draws `1000.00KB`; 999999 with no count of decimals draws
-`1000KB`; 999.6 with no unit and `decimals = 0` draws `1000`.
-
-Every panel plans a width from that text. The widest text is therefore four
-digits and the unit, and not three digits and the unit. The test at
-`value.rs:266-271` holds the values 999.0, 1500.0, 2000000.0 and 3000000000.0,
-and no value of that test crosses a step.
-
 ## 2.6 One panel alone panics on an area outside the buffer
 
 **defect**
