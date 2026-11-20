@@ -340,12 +340,12 @@ pub fn parse_duration_ms(s: &str) -> Result<i64> {
         .find(|c: char| !c.is_ascii_digit())
         .ok_or_else(|| Error::Time {
             input: s.to_string(),
-            reason: "expected a unit suffix, one of s/m/h/d/w".into(),
+            reason: "The text holds no unit. The known units are ms, s, m, h, d, and w.".into(),
         })?;
     let (digits, unit) = s.split_at(split);
     let n: i64 = digits.parse().map_err(|_| Error::Time {
         input: s.to_string(),
-        reason: "leading value is not a number".into(),
+        reason: "The text does not start with a whole number.".into(),
     })?;
     let mult = match unit {
         "ms" => 1,
@@ -357,7 +357,9 @@ pub fn parse_duration_ms(s: &str) -> Result<i64> {
         other => {
             return Err(Error::Time {
                 input: s.to_string(),
-                reason: format!("unknown unit {other:?}, expected one of ms/s/m/h/d/w"),
+                reason: format!(
+                    "The unit {other:?} is not known. The known units are ms, s, m, h, d, and w."
+                ),
             });
         }
     };

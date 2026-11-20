@@ -60,8 +60,8 @@ impl Shape {
             "ramp" => Ok(Self::Ramp),
             "gappy" => Ok(Self::Gappy),
             other => Err(Error::Query(format!(
-                "unknown testdata expression {other:?}; expected one of \
-                 random_walk, sine, ramp, gappy, {PROCESSES}"
+                "The data source testdata knows no query {other:?}. The known queries are \
+                 random_walk, sine, ramp, gappy, and {PROCESSES}."
             ))),
         }
     }

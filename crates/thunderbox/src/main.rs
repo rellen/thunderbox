@@ -45,6 +45,7 @@ Options:
 
 Keys:
     q, Esc    Stop the program.
+    Ctrl+C    Stop the program.
     Tab       Select the next panel.
     Shift+Tab Select the panel before.
     m         Change the glyph that a chart draws a point with.
