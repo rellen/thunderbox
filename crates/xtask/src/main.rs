@@ -2,11 +2,14 @@
 //!
 //! Run `cargo xtask site generate` to write the generated parts of the
 //! documentation site. Run `cargo xtask site check` to test that they are
-//! current.
+//! current. Run `cargo xtask site build` to build the whole site.
 
 mod crates;
 mod markers;
+mod site;
+mod summary;
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
@@ -17,6 +20,7 @@ usage: cargo xtask site <command>
 commands:
   generate   write the generated parts of the documentation site
   check      return an error when a generated part is not current
+  build      build the site in target/book, and check each link
 ";
 
 /// Returns the root of the repository.
@@ -54,19 +58,31 @@ fn markdown_files(dir: &Path, out: &mut Vec<PathBuf>) -> Result<(), String> {
 /// Each item holds the path and the new text.
 fn changes(root: &Path) -> Result<Vec<(PathBuf, String)>, String> {
     let table = crates::table(&crates::rows(&crates::metadata(root)?)?);
+    let docs = root.join("docs");
     let mut files = Vec::new();
-    markdown_files(&root.join("docs"), &mut files)?;
-    let mut found = false;
-    let mut changed = Vec::new();
+    markdown_files(&docs, &mut files)?;
+    let mut texts = summary::Files::new();
+    let mut paths = BTreeMap::new();
     for path in files {
         let text = std::fs::read_to_string(&path)
             .map_err(|e| format!("The file {} is not readable: {e}.", path.display()))?;
-        let new = markers::replace(&text, markers::CRATES_BEGIN, markers::CRATES_END, &table)
-            .map_err(|e| format!("{}: {e}", path.display()))?;
+        let key = path
+            .strip_prefix(&docs)
+            .map_err(|e| format!("The file {} is not in docs: {e}.", path.display()))?
+            .to_string_lossy()
+            .replace('\\', "/");
+        texts.insert(key.clone(), text);
+        paths.insert(key, path);
+    }
+    let mut found = false;
+    let mut changed = Vec::new();
+    for (key, text) in &texts {
+        let new = markers::replace(text, markers::CRATES_BEGIN, markers::CRATES_END, &table)
+            .map_err(|e| format!("{}: {e}", paths[key].display()))?;
         if let Some(new) = new {
             found = true;
-            if new != text {
-                changed.push((path, new));
+            if new != *text {
+                changed.push((paths[key].clone(), new));
             }
         }
     }
@@ -75,6 +91,10 @@ fn changes(root: &Path) -> Result<Vec<(PathBuf, String)>, String> {
             "No file under docs holds the line `{}`.",
             markers::CRATES_BEGIN
         ));
+    }
+    let sidebar = summary::build(&texts)?;
+    if texts.get("SUMMARY.md") != Some(&sidebar) {
+        changed.push((docs.join("SUMMARY.md"), sidebar));
     }
     Ok(changed)
 }
@@ -114,6 +134,7 @@ fn main() -> ExitCode {
     let task: fn(&Path) -> Result<(), String> = match args.as_slice() {
         ["site", "generate"] => generate,
         ["site", "check"] => check,
+        ["site", "build"] => site::build,
         _ => {
             eprint!("{USAGE}");
             return ExitCode::from(2);

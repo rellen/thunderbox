@@ -11,6 +11,7 @@ person who uses thunderbox reads [the user documentation](../user/README.md).
 | [Make the pictures again](pictures.md) | The scenes, and the commands that record a picture of each one. |
 | [The research](research.md) | The evidence for the choice of each library. |
 | [The open findings](open-findings.md) | The faults that a sweep of the repository found, and that no record holds yet. |
+| [The rules of the project](rules.md) | The full rules of CLAUDE.md. These rules bind every contributor. |
 
 [CLAUDE.md](../../CLAUDE.md) at the root holds the full rules of the project.
 Claude reads it before each change, and its rules bind every contributor.
