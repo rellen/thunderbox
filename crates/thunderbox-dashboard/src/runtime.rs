@@ -295,9 +295,10 @@ impl DashboardRuntime {
     ///
     /// The runtime asks a data source for nothing for a panel that the renderer
     /// drops. The renderer draws no panel under 3 cells wide or under 3 cells
-    /// high, and it drops such a panel. That panel holds
-    /// [`crate::PanelState::Loading`] until an area that draws it reaches a
-    /// data source.
+    /// high, and it drops such a panel. That panel keeps the answer that it
+    /// held, until an area that draws it reaches a data source. The panel
+    /// holds [`crate::PanelState::Loading`] in place of an error, and in place
+    /// of an answer of another window.
     ///
     /// The first area that a caller reports reaches the data source at once,
     /// unless it changes no point limit. The runtime ran its first set of
