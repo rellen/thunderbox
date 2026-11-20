@@ -138,7 +138,7 @@ The panels apply the colour of a threshold in these places:
 The panels `timeseries` and `row` read no threshold.
 
 The guide
-[Colour a value that passes a bound](../how-to/colour-a-value-that-passes-a-bound.md)
+[Colour a value that reaches a bound](../how-to/colour-a-value-that-reaches-a-bound.md)
 adds thresholds to a panel.
 
 ## The symbol for a value that a panel cannot show

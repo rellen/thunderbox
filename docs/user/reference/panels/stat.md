@@ -122,7 +122,7 @@ its series.
 
 ## The pages that give the reason
 
-- [Colour a value that passes a bound](../../how-to/colour-a-value-that-passes-a-bound.md)
+- [Colour a value that reaches a bound](../../how-to/colour-a-value-that-reaches-a-bound.md)
   adds thresholds to a panel.
 - [Numbers and units](../numbers-and-units.md) lists the units and the steps of
   `reduce`.
