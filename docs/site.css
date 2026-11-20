@@ -1,0 +1,33 @@
+/* This file styles the home page of the site. Each rule starts with
+   .home, so no other page changes. The colours come from the variables of
+   the mdBook theme, so each theme draws the page correctly. */
+.home-parts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.home-part {
+  border: 1px solid var(--theme-popup-border);
+  border-radius: 6px;
+  background: var(--quote-bg);
+  color: var(--fg);
+  padding: 0.5rem 1rem;
+}
+
+.home-part h2 {
+  margin-top: 0.5rem;
+}
+
+.home img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+@media (max-width: 700px) {
+  .home-parts {
+    grid-template-columns: 1fr;
+  }
+}

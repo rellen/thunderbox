@@ -1,0 +1,26 @@
+# The configuration of the documentation site. mdBook reads this file.
+[book]
+title = "thunderbox"
+description = "A dashboard platform for the terminal."
+language = "en"
+# The source of the site is this directory. Each document and each picture of
+# docs therefore reaches the site, and no file moves.
+src = "."
+
+[build]
+# The command `cargo xtask site build` copies the API documentation into
+# target/book/api.
+build-dir = "../target/book"
+# A page that SUMMARY.md names and that does not exist is then an error. Without
+# this setting, mdBook creates an empty file for such a page.
+create-missing = false
+
+[output.html]
+site-url = "/thunderbox/"
+git-repository-url = "https://github.com/rellen/thunderbox"
+additional-css = ["site.css"]
+
+[output.html.playground]
+# The code of a page needs the crates of this workspace, and the playground of
+# the Rust project does not hold them.
+runnable = false
