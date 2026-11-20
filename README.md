@@ -41,6 +41,7 @@ These keys work:
 | `v` | Select the next variable of the dashboard. |
 | `]` | Take the choice that follows, on the variable that you selected. |
 | `[` | Take the choice before it, on the variable that you selected. |
+| `Enter` or `Space` | Collapse or expand the row panel that you selected. |
 
 Every panel shares one time range. A window is the pair of moments that a time
 range names, and the moment that named them. A move fixes a moment at each end,
@@ -48,12 +49,12 @@ so the window stands still and the status row names it. A move forward that
 reaches the present moment returns a range that follows the clock again, and it
 keeps the width that a person chose.
 
-thunderbox consumes no key of the time range, and it consumes no key of a
-variable. The functions `thunderbox_dashboard::time_key` and
-`thunderbox_dashboard::variable_key` offer a default map from such a key, and each
-one holds its rule alone. A program that holds a thunderbox dashboard decides
-which key reaches each map, and a program that wants another map ignores those
-functions.
+thunderbox consumes no key of the time range, no key of a variable, and no key
+of a row panel. The functions `thunderbox_dashboard::time_key`,
+`thunderbox_dashboard::variable_key` and `thunderbox_dashboard::row_key` offer a
+default map from such a key, and each one holds its rule alone. A program that
+holds a thunderbox dashboard decides which key reaches each map, and a program
+that wants another map ignores those functions.
 
 ## A dashboard
 
@@ -118,6 +119,7 @@ and no type names a data source.
 | `bargauge` | One bar for each series, against a range. |
 | `table` | The columns of the frames, as rows and columns. |
 | `top` | A list of rows in order by one column, with the largest value first. The program `top` shows its processes in this form. |
+| `row` | A line across the whole grid that holds the panels below it. A person collapses it to hide them. |
 
 The stat panel, the gauge panel, and the bar gauge panel each show one number
 for each series. Each one reduces the column of numbers to that one number
@@ -142,6 +144,7 @@ These fields of a panel control how it shows a number:
 | `min` and `max` | The range of a meter. A gauge and a bar gauge read this range. |
 | `reduce` | The step that turns a column of numbers into one number. |
 | `sort` | The column that puts the rows of a top panel in order. Only a top panel reads this field. |
+| `collapsed` | The state that a row panel starts in. Only a row panel reads this field. |
 | `[[panel.threshold]]` | A bound, and the colour above that bound. The colours are `warning` and `critical`. |
 
 A data source can attach the same settings to a column of its answer. The panel
@@ -190,6 +193,59 @@ The panel follows these rules:
 The panel draws an error in place of the rows when no column of numbers shows
 the header that the `sort` field names. thunderbox rejects a `sort` field on a
 panel of any other kind.
+
+### The row panels
+
+A row panel is a line across the whole grid. It holds each panel below it, up
+to the next row panel. The file lists those panels beside the row panel, and it
+never puts a panel inside one:
+
+```toml
+[[panel]]
+title = "network"
+kind = "row"
+collapsed = true
+grid = { x = 0, y = 9, w = 24, h = 1 }
+
+# The row panel above holds this panel, because the panel starts below it.
+[[panel]]
+title = "network in"
+kind = "timeseries"
+grid = { x = 0, y = 10, w = 24, h = 7 }
+```
+
+Press `Tab` to select a row panel. Press `Enter` or `Space` to collapse it, or
+to expand it. A collapsed row panel hides the panels that it holds, and the
+panels below it move up. Every panel that remains grows to fill the terminal.
+The line of a collapsed row panel counts the panels that it hides.
+
+The panel follows these rules:
+
+- A row panel takes one line of the terminal, whatever the height of the
+  terminal.
+- A row panel spans the whole width with one row of the grid. Its `grid` field
+  therefore states `x = 0`, `w = 24`, and `h = 1`.
+- A row panel shows no data, so it holds no target.
+- No panel may cross the line of a row panel, because such a panel would belong
+  to two places.
+- thunderbox asks a data source for nothing about a hidden panel. A panel that
+  appears when a row panel expands asks its data source at once.
+- The key `Tab` skips each hidden panel.
+- The field `collapsed` states the first state alone. thunderbox never writes
+  the file.
+
+`dashboards/rows.toml` holds a whole dashboard of this form. It reads the test
+data of this project, so it needs no server. Run it with this command:
+
+```
+cargo run -p thunderbox -- dashboards/rows.toml
+```
+
+That dashboard draws this picture. In the picture, the key `Enter` first
+collapses the row panel `network`, and the panels above it grow. The same key
+then expands the row panel `processes`, and the list of the processes appears:
+
+![Three row panels hold the panels of a dashboard. The key Enter collapses the row panel network, and it expands the row panel processes.](docs/media/rows.gif)
 
 ## Give one width to a stack of charts
 
@@ -734,6 +790,7 @@ own list of keys. The scenes are these:
 | `stack_column` | The same two charts, under the rule `align = "column"`. |
 | `variables` | The row of the variables, and the panels that a choice changes. |
 | `too_small` | A terminal that is too small for one panel of its dashboard. |
+| `rows` | The row panels, which collapse and expand. |
 
 The two scenes of the stack hold a dashboard of their own. The script writes
 that dashboard to a file, and it gives the path of that file to the program.

@@ -22,6 +22,7 @@ own list of keys. The scenes are these:
     stack_none      Two charts in one column, under no rule.
     stack_column    The same two charts, under the rule `align = "column"`.
     too_small       A terminal that is too small for one panel of its dashboard.
+    rows            The row panels, which collapse and expand.
 
 A scene can also hold a dashboard of its own. The script writes that dashboard
 to a file, and it gives the path of that file to the program.
@@ -136,6 +137,12 @@ APP_DASHBOARD = (
 # the scene draws the same screen that a person reads.
 VARIABLES_DASHBOARD = (
     pathlib.Path(__file__).resolve().parent.parent / "dashboards" / "variables.toml"
+).read_text(encoding="utf-8")
+
+# The dashboard of the rows scene. The repository ships this dashboard, so the
+# scene draws the same screen that a person reads.
+ROWS_DASHBOARD = (
+    pathlib.Path(__file__).resolve().parent.parent / "dashboards" / "rows.toml"
 ).read_text(encoding="utf-8")
 
 # The steps that both scenes of the stack follow. The scenes send no key, so a
@@ -299,6 +306,32 @@ SCENES = {
         "cols": 90,
         "rows": 24,
         "steps": STACK_STEPS,
+    },
+    # This scene reads the dashboard that `dashboards/rows.toml` holds. The
+    # selection starts on the first row panel, and the key Tab moves it. The key
+    # Enter collapses the row panel that the selection holds, or expands it.
+    "rows": {
+        "program": "target/debug/thunderbox",
+        "dashboard": ROWS_DASHBOARD,
+        "cols": 100,
+        "rows": 30,
+        "steps": [
+            # The row panel `processes` starts collapsed, so its panel is hidden.
+            (3.0, ""),
+            (0.5, "\t"),  # Select the chart of the processor.
+            (0.5, "\t"),  # Select the stat panel.
+            (0.5, "\t"),  # Select the row panel `network`.
+            # Collapse it. Its chart disappears, and the line below moves up.
+            (1.2, "\r"),
+            # Select the row panel `processes`. The key skips the hidden chart.
+            (2.5, "\t"),
+            (1.2, "\r"),  # Expand it. The list of processes appears.
+            (3.5, ""),  # Let the list answer and move.
+            (0.5, "\x1b[Z"),  # Select the row panel `network` again.
+            (1.2, "\r"),  # Expand it. Its chart returns.
+            (2.5, ""),
+            (0.4, "q"),  # Stop the program.
+        ],
     },
     # This scene records a terminal that is too small for one panel of its
     # dashboard. The status row names the count of the panels that thunderbox
