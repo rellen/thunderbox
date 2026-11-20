@@ -29,7 +29,9 @@ The shell holds these tools:
   `clippy`;
 - `rust-analyzer`, which is the program that reads the code for an editor;
 - `python3`, which runs the two files of `scripts`;
-- `agg`, together with the font Unifont.
+- `agg`, together with the font Unifont;
+- `mdbook`, which builds the documentation site. Section 9 of
+  [CLAUDE.md](../../CLAUDE.md) states the commands and the rules of the site.
 
 direnv is a program that loads a shell when a person enters a directory. The
 file `.envrc` tells direnv to load the shell of the flake. Run `direnv allow`
@@ -98,8 +100,9 @@ Every page follows the style of section 1 of [CLAUDE.md](../../CLAUDE.md).
 
 ## Check a change
 
-Run the seven commands of section 4 of [CLAUDE.md](../../CLAUDE.md) before each
-commit. The workflow `checks` runs the same commands in the same order.
+Run the nine commands of section 4 of [CLAUDE.md](../../CLAUDE.md) before each
+commit. The workflow `checks` runs the same commands in the same order. It runs
+the last two commands on Linux alone.
 
 A test that passes states nothing by itself. Take each rule that the change
 adds out of the code, run `cargo test --no-fail-fast`, and read which tests

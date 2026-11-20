@@ -108,3 +108,6 @@ git show 4d8c223a0e7ea3bd62b85e7819be8c4ee10cb451:docs/ARCHITECTURE.md
 | [0063](0063-a-narrow-top-panel-drops-the-sort-column.md) | A narrow top panel drops the column that gives the order | Proposed | `docs/ARCHITECTURE.md` section 13 item 8 |
 | [0064](0064-plain-http-needs-no-ca-file.md) | An address of plain HTTP needs no CA file | Proposed | `docs/ARCHITECTURE.md` section 13 item 9 |
 | [0065](0065-no-panel-cuts-a-number.md) | No panel cuts a number | Accepted | new |
+| [0066](0066-the-documentation-is-one-mdbook-site.md) | The documentation is one mdBook site, and the workflow `checks` publishes it | Accepted | new |
+| [0067](0067-five-other-designs-for-the-site-failed.md) | Five other designs for the documentation site failed | Rejected | new |
+| [0068](0068-the-site-shows-one-version.md) | The site shows one version | Proposed | new |
