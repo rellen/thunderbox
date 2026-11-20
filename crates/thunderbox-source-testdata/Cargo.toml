@@ -1,0 +1,17 @@
+[package]
+name = "thunderbox-source-testdata"
+description = "A data source that makes test data for thunderbox. The data does not change between two runs."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+thunderbox-core = { workspace = true }
+thunderbox-source = { workspace = true }
+async-trait = { workspace = true }
+toml = { workspace = true }
+
+[lints]
+workspace = true

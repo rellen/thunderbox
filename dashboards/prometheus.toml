@@ -1,0 +1,72 @@
+# A dashboard that reads a Prometheus server on this machine.
+#
+# The queries below read the metrics of the node exporter, which is the program
+# that Prometheus offers for a Linux machine. Change the address and the
+# queries to match your own server.
+#
+#     cargo run -p thunderbox -- dashboards/prometheus.toml
+
+title = "node"
+refresh = "10s"
+
+[time]
+from = "now-1h"
+to = "now"
+
+[source.prom]
+kind = "prometheus"
+url = "http://127.0.0.1:9090"
+# Set this value to the interval at which the server collects the metrics. A
+# panel never asks for a step below it.
+min_step = "15s"
+timeout = "30s"
+
+# The choices of this variable come from the server. The text of the query is
+# the name of a label, and the server returns every value of that label. Press
+# v to select the variable, and press ] for the choice that follows.
+#
+# A target refers to this variable as $instance. That reference reaches the
+# `expr` field of a target, and it reaches no other field.
+[[variable]]
+name = "instance"
+label = "the machine"
+query = { source = "prom", expr = "instance" }
+
+[[panel]]
+title = "cpu"
+kind = "timeseries"
+unit = "percent"
+grid = { x = 0, y = 0, w = 24, h = 10 }
+[[panel.target]]
+source = "prom"
+expr = '100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)'
+legend = "{{instance}}"
+
+[[panel]]
+title = "memory in use"
+kind = "timeseries"
+unit = "percent"
+grid = { x = 0, y = 10, w = 12, h = 8 }
+[[panel.target]]
+source = "prom"
+expr = '100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)'
+legend = "{{instance}}"
+
+[[panel]]
+title = "network in"
+kind = "timeseries"
+unit = "bytes/s"
+grid = { x = 12, y = 10, w = 12, h = 8 }
+[[panel.target]]
+source = "prom"
+expr = 'sum by (instance) (rate(node_network_receive_bytes_total[5m]))'
+legend = "{{instance}}"
+
+[[panel]]
+title = "the load of the machine that you selected"
+kind = "timeseries"
+grid = { x = 0, y = 18, w = 24, h = 8 }
+[[panel.target]]
+source = "prom"
+expr = 'node_load1{instance="$instance"}'
+legend = "{{instance}}"

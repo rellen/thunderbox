@@ -1,0 +1,29 @@
+[package]
+name = "thunderbox-dashboard"
+description = "The dashboard runtime of thunderbox. It runs the queries and holds the state."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# The larger of the two ways to put thunderbox inside another program. This crate
+# runs queries, so it needs an async runtime. It still owns no terminal and no
+# event loop. See docs/ARCHITECTURE.md section 12.
+[dependencies]
+thunderbox-core = { workspace = true }
+thunderbox-source = { workspace = true }
+thunderbox-widgets = { workspace = true }
+ratatui-core = { workspace = true }
+ratatui-widgets = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+async-trait = { workspace = true }
+thunderbox-source-sysinfo = { workspace = true }
+thunderbox-source-testdata = { workspace = true }
+ratatui = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time", "sync"] }
+
+[lints]
+workspace = true

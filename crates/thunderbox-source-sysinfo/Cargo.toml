@@ -1,0 +1,19 @@
+[package]
+name = "thunderbox-source-sysinfo"
+description = "A data source that reads the processor, the memory, and the network of this machine."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+thunderbox-core = { workspace = true }
+thunderbox-source = { workspace = true }
+async-trait = { workspace = true }
+# Version 0.39 asks for rustc 1.95, and the workspace asks for 1.88. Move to
+# 0.39 when the workspace raises its own limit.
+sysinfo = "0.38.4"
+
+[lints]
+workspace = true

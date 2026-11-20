@@ -1,0 +1,89 @@
+title = "thunderbox"
+refresh = "1s"
+
+[time]
+from = "now-2m"
+to = "now"
+
+[source.machine]
+kind = "sysinfo"
+
+[[panel]]
+title = "cpu"
+kind = "timeseries"
+unit = "percent"
+grid = { x = 0, y = 0, w = 16, h = 7 }
+[[panel.target]]
+source = "machine"
+expr = "cpu"
+
+[[panel]]
+title = "cpu now"
+kind = "stat"
+unit = "percent"
+decimals = 0
+grid = { x = 16, y = 0, w = 8, h = 7 }
+[[panel.threshold]]
+value = 60.0
+color = "warning"
+[[panel.threshold]]
+value = 85.0
+color = "critical"
+[[panel.target]]
+source = "machine"
+expr = "cpu"
+
+[[panel]]
+title = "memory"
+kind = "gauge"
+unit = "percent"
+min = 0.0
+max = 100.0
+grid = { x = 0, y = 7, w = 8, h = 6 }
+[[panel.threshold]]
+value = 70.0
+color = "warning"
+[[panel.threshold]]
+value = 90.0
+color = "critical"
+[[panel.target]]
+source = "machine"
+expr = "memory"
+
+[[panel]]
+title = "cores"
+kind = "bargauge"
+unit = "percent"
+min = 0.0
+max = 100.0
+grid = { x = 8, y = 7, w = 8, h = 6 }
+[[panel.threshold]]
+value = 80.0
+color = "critical"
+[[panel.target]]
+source = "machine"
+expr = "cpu.cores"
+legend = "core {{core}}"
+
+[[panel]]
+title = "network"
+kind = "timeseries"
+unit = "bytes/s"
+grid = { x = 16, y = 7, w = 8, h = 6 }
+[[panel.target]]
+source = "machine"
+expr = "network.rx"
+[[panel.target]]
+source = "machine"
+expr = "network.tx"
+
+[[panel]]
+title = "the most recent rows for each core"
+kind = "table"
+unit = "percent"
+decimals = 1
+grid = { x = 0, y = 13, w = 24, h = 6 }
+[[panel.target]]
+source = "machine"
+expr = "cpu.cores"
+legend = "core {{core}}"

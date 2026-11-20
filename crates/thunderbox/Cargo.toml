@@ -1,0 +1,29 @@
+[package]
+name = "thunderbox"
+description = "A dashboard platform for the terminal."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = ["prometheus"]
+# The Prometheus data source. A build without this feature reads this machine
+# and the test data alone, and it needs no client that speaks HTTP.
+prometheus = ["dep:thunderbox-source-prometheus"]
+
+[dependencies]
+anyhow = { workspace = true }
+thunderbox-core = { workspace = true }
+thunderbox-dashboard = { workspace = true }
+thunderbox-source = { workspace = true }
+thunderbox-source-prometheus = { workspace = true, optional = true }
+thunderbox-source-sysinfo = { workspace = true }
+thunderbox-source-testdata = { workspace = true }
+thunderbox-widgets = { workspace = true }
+ratatui = { workspace = true }
+tokio = { workspace = true }
+
+[lints]
+workspace = true
