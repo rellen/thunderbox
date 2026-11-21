@@ -56,7 +56,7 @@ label for such a query.
 The data source `testdata` gives every column the text of the query as its name.
 Write `{{series}}` for that data source.
 
-## The pages for the facts and the reasons
+## Pages for the facts and the reasons
 
 - [Legend patterns](../reference/legend-patterns.md) states the whole form of a
   pattern.

@@ -1,4 +1,4 @@
-# The stat panel
+# Stat panel
 
 The kind `stat` draws one large number for each series. Each number stands in a
 tile of its own.
@@ -24,7 +24,7 @@ source = "machine"
 expr = "cpu"
 ```
 
-## The data that the panel needs
+## Data that the panel needs
 
 A data source answers a query with frames. A frame is a table of columns, and
 each column holds one value for each row.
@@ -51,7 +51,7 @@ The colour of the number and of the small chart is the colour of the threshold
 that the number reaches. A number that reaches no threshold takes the colour of
 its series.
 
-### The large number
+### Large number
 
 - Each large character takes 3 cells across and 3 rows. One empty column stands
   between two large characters.
@@ -61,7 +61,7 @@ its series.
 - The panel writes plain text for a number that starts with another character.
   The symbol `—` is an example.
 
-### The small chart
+### Small chart
 
 - The chart draws one bar for each point of the series. The most recent point
   stands at the right edge.
@@ -74,7 +74,7 @@ its series.
 - When the column states no range either, the chart takes the smallest and the
   largest value of the series. It adds zero to that range.
 
-## The arrangement of the tiles
+## Arrangement of the tiles
 
 - The panel puts as many tiles across as fit at 8 cells each, and as many tiles
   down as fit at 2 rows each. A panel of one tile gives that tile the whole
@@ -89,7 +89,7 @@ its series.
   note that counts the series that the panel drops. The note needs a panel of 2
   rows or more inside the border.
 
-## The fields that the panel reads
+## Fields that the panel reads
 
 | field | what the panel does with it |
 |---|---|
@@ -101,7 +101,7 @@ its series.
 | `[[panel.threshold]]` | The panel colours each number and its small chart with the colour of the threshold that the number reaches. |
 | `[[panel.target]]` | The panel shows one tile for each series of the answer of each target. |
 
-## The texts that the panel can draw
+## Texts that the panel can draw
 
 | text | condition |
 |---|---|
@@ -124,7 +124,7 @@ its series.
 - A tile of one row shows the number and no name. The number is the last part
   that a tile keeps.
 
-## The pages that give the reason
+## Pages that give the reason
 
 - [Colour a value that reaches a bound](../../how-to/colour-a-value-that-reaches-a-bound.md)
   adds thresholds to a panel.

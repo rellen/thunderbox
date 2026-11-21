@@ -134,7 +134,7 @@ The time range returns to the 30 minutes that the file states.
 - You asked the server for two metrics with PromQL.
 - You made the time range wider, and the server answered with older values.
 
-## The next step
+## Next step
 
 - Run the dashboard `dashboards/prometheus.toml` of the copy. It reads the
   metrics of the node exporter, which is a program that reports the state of a

@@ -1,4 +1,4 @@
-# The time range and the window
+# Time range and the window
 
 Every panel of a dashboard shares one time range. This page answers these
 questions:

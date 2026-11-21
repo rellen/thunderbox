@@ -356,7 +356,7 @@ which key reaches that function.
 - You kept one key for your program, and you gave the other keys to thunderbox.
 - You moved the time range with the rule of thunderbox.
 
-## The next step
+## Next step
 
 - Read the example `crates/thunderbox-dashboard/examples/full_embed.rs` of your
   copy. It also binds the keys of a variable and the keys of a row panel.

@@ -51,8 +51,8 @@ The documentation for a person who uses thunderbox sits in
 | kind | start here |
 |---|---|
 | tutorials | [Watch this machine](docs/user/tutorials/watch-this-machine.md), then [Write your first dashboard](docs/user/tutorials/write-your-first-dashboard.md) |
-| how-to guides | [The list of tasks](docs/user/README.md#the-how-to-guides) |
-| reference | [The dashboard file](docs/user/reference/dashboard-file.md), [The panels](docs/user/reference/panels/README.md), [The data sources](docs/user/reference/data-sources/README.md) |
+| how-to guides | [The list of tasks](docs/user/README.md#how-to-guides) |
+| reference | [The dashboard file](docs/user/reference/dashboard-file.md), [Panels](docs/user/reference/panels/README.md), [Data sources](docs/user/reference/data-sources/README.md) |
 | explanations | [How thunderbox works](docs/user/explanation/how-thunderbox-works.md) |
 
 The documentation for a person who changes thunderbox sits in

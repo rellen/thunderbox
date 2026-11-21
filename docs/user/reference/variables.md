@@ -30,7 +30,7 @@ source = "test"
 expr = "$signal"
 ```
 
-## The fields of a variable
+## Fields of a variable
 
 A dashboard declares each variable in a `[[variable]]` table.
 
@@ -51,7 +51,7 @@ The inline table `query` holds two fields:
 
 The program ignores any other field of the table `query`.
 
-## The rules of the fields
+## Rules of the fields
 
 - A name starts with a letter or an underscore. It then holds letters, digits,
   and underscores. The letters are the letters of the English alphabet.
@@ -65,10 +65,10 @@ The program ignores any other field of the table `query`.
   declares. The program makes this check only when the dashboard declares one
   data source or more.
 
-The page [The dashboard file](dashboard-file.md#the-second-step-dashboardvalidate)
+The page [The dashboard file](dashboard-file.md#second-step-dashboardvalidate)
 lists the text of each error.
 
-## The value of a variable
+## Value of a variable
 
 - A variable that states `options` takes its `current` value when the program
   starts. It takes the first option when it states no `current` value.
@@ -85,7 +85,7 @@ lists the text of each error.
 - A variable whose data source returns an error keeps its value. The status row
   then names the variable and the reason.
 
-## The choices that a data source holds
+## Choices that a data source holds
 
 | kind | the choices | the text of `expr` |
 |---|---|---|
@@ -100,7 +100,7 @@ an error:
 The variable "NAME" has no choice. REASON
 ```
 
-## The form of a reference
+## Form of a reference
 
 | text | what reaches the data source |
 |---|---|
@@ -122,7 +122,7 @@ These rules apply to a reference:
 
 A person writes `$$` for a query language that reads `$` in its own way.
 
-## The places that a reference reaches
+## Places that a reference reaches
 
 - A reference reaches the `expr` field of a target, and no other field.
 - The `legend` field holds no reference. The page
@@ -133,7 +133,7 @@ A person writes `$$` for a query language that reads `$` in its own way.
 - A target that refers to a variable which holds no value runs no query. The
   panel then shows the error `The variable "NAME" holds no value.`
 
-## The keys and the row of the variables
+## Keys and the row of the variables
 
 | key | what the key does |
 |---|---|
@@ -145,10 +145,10 @@ A person writes `$$` for a query language that reads `$` in its own way.
   that declares a variable. The row names each variable and its value.
 - A change of a value returns every panel to `loading…`, and it starts a new
   set of queries.
-- The page [The command line](command-line.md#the-row-of-the-variables) states
+- The page [The command line](command-line.md#row-of-the-variables) states
   the form of the row.
 
-## The pages that give the reason
+## Pages that give the reason
 
 - [Architecture decision record 0040](../../contributor/adr/0040-a-reference-to-a-variable-reaches-the-query-alone.md)
   states why a reference reaches the query alone.

@@ -26,7 +26,7 @@ before dropped. It therefore cannot know whether the answer that such a panel
 holds has the right shape. Every other panel holds the width that it held, and
 therefore the answer that it needs.
 
-### The height of a step
+### Height of a step
 
 A better design would save the queries of every other panel. That saving
 follows the number of panels that stand one above the other. A dashboard of P
@@ -51,7 +51,7 @@ holds the panels. A body of 21 rows needs a terminal of 22 rows. A dashboard
 that holds one short strip above two tall charts therefore uncovers a panel at
 a height that a person uses every day.
 
-### The cost of a drag
+### Cost of a drag
 
 A person who drags the edge of a terminal window changes the height one row at
 a time. A drag costs much more than one step. `AREA_QUIET_TIME` is 250
@@ -89,7 +89,7 @@ drags an edge deliberately rests that long on a row. The wait of
 
 ## Designs that the project rejected
 
-### The first design: ask about the panel that appeared
+### First design: ask about the panel that appeared
 
 The first design sends a set of queries that asks about the panel which
 appeared. That set keeps the answer of every other panel.
@@ -100,7 +100,7 @@ kept its frames would draw a line that stops before the right edge of that
 window. A person reads that shape as a data source that died. A stat, a gauge
 and a table give a person no sign at all.
 
-### The second design: hold the moment of the snapshot still
+### Second design: hold the moment of the snapshot still
 
 The second design holds `Snapshot::updated_at` still for such a set, so that
 every panel of the snapshot describes one window.
@@ -110,7 +110,7 @@ refresh interval, because each later area holds it still once more. The design
 also gives a data source a moment in the past as the present moment, and
 `QueryRequest::now` names the present moment.
 
-### The third design: give each answer its own moment
+### Third design: give each answer its own moment
 
 The third design gives each answer its own moment. In that design,
 `PanelState::Ready` carries the moment that its set of queries asked about. A
@@ -126,7 +126,7 @@ around it 3 cells or 4. The design depends on the axis of time alone, and that
 axis is absent at each of those heights. A stat, a gauge, a bar gauge and a
 table draw no axis at any height.
 
-### The fourth design: one window and two sets of queries
+### Fourth design: one window and two sets of queries
 
 The fourth design keeps one window and sends two sets of queries. A set that an
 area starts asks about the window that the snapshot already names, as two
@@ -140,7 +140,7 @@ This design holds two faults:
   saves nothing at any step of a drag, and the drag holds the cost.
 - The chart writes `now` at the right edge of a window of any age.
 
-### The fifth design: remember the point limit of each panel
+### Fifth design: remember the point limit of each panel
 
 The fifth design remembers the point limit of the last query of each panel. A
 panel that appears at the width that it held then needs nothing.

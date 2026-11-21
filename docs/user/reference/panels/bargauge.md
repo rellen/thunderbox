@@ -1,4 +1,4 @@
-# The bar gauge panel
+# Bar gauge panel
 
 The kind `bargauge` draws one row for each series. Each row holds the name of
 the series, a bar, and the number. A reader compares the rows and sees the
@@ -28,7 +28,7 @@ expr = "cpu.cores"
 legend = "core {{core}}"
 ```
 
-## The data that the panel needs
+## Data that the panel needs
 
 A data source answers a query with frames. A frame is a table of columns, and
 each column holds one value for each row.
@@ -61,7 +61,7 @@ A row holds these parts, from the left to the right:
   full bar.
 - The panel shows the name for one series as well.
 
-## The range of a bar
+## Range of a bar
 
 The panel finds each end of the range with the first rule that applies:
 
@@ -72,7 +72,7 @@ The panel finds each end of the range with the first rule that applies:
 3. The panel takes the smallest and the largest number across every series in
    every other condition. It adds zero to that range.
 
-## The width of the parts
+## Width of the parts
 
 - The bar keeps 3 cells or more.
 - To keep those cells, the panel drops the name first. It drops the text of the
@@ -83,14 +83,14 @@ The panel finds each end of the range with the first rule that applies:
 - The panel measures each name in cells, and not in characters. A character of a
   Chinese script or of a Japanese script takes two cells.
 
-## The rows that do not fit
+## Rows that do not fit
 
 - A panel can hold more series than rows. It then draws one bar on each row
   except the last row. The last row holds a note that counts the series that
   the panel drops.
 - A panel of one row inside the border draws one bar, and it draws no note.
 
-## The fields that the panel reads
+## Fields that the panel reads
 
 | field | what the panel does with it |
 |---|---|
@@ -102,7 +102,7 @@ The panel finds each end of the range with the first rule that applies:
 | `[[panel.threshold]]` | The panel colours each bar with the colour of the threshold that the number reaches. |
 | `[[panel.target]]` | The panel shows one row for each series of the answer of each target. |
 
-## The texts that the panel can draw
+## Texts that the panel can draw
 
 | text | condition |
 |---|---|
@@ -118,7 +118,7 @@ The panel finds each end of the range with the first rule that applies:
   which is the part of thunderbox that draws the panels, drops it.
 - A narrow panel drops the names first, and then the numbers. The bars stay.
 
-## The pages that give the reason
+## Pages that give the reason
 
 - [Colour a value that reaches a bound](../../how-to/colour-a-value-that-reaches-a-bound.md)
   adds thresholds to a panel.

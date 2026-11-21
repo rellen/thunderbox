@@ -1,4 +1,4 @@
-# The data source sysinfo
+# Sysinfo data source
 
 The data source `sysinfo` reads the machine that the program runs on. It reads
 the processor, the memory, the swap area, the network, and the processes. The
@@ -13,7 +13,7 @@ The file also needs a `title`.
 kind = "sysinfo"
 ```
 
-## The options
+## Options
 
 The data source takes no option. It ignores the field `url`. Any other field
 gives this error. The program writes it under the line
@@ -23,7 +23,7 @@ gives this error. The program writes it under the line
 The dashboard is not correct. a sysinfo source has no option "NAME"; it reads the machine that the program runs on
 ```
 
-## The queries
+## Queries
 
 The `expr` field of a target holds the name of one query. The data source
 ignores the spaces around the name.
@@ -45,7 +45,7 @@ A query of another name gives this error in the panel:
 The data source returned an error. The sysinfo data source does not hold a signal named "NAME". It holds cpu, cpu.cores, memory, memory.bytes, swap, network.rx, network.tx, processes.
 ```
 
-## The answer of a signal
+## Answer of a signal
 
 A frame is a table of columns, and each column holds one value for each row.
 Each query except `processes` is a signal. The answer of a signal holds one
@@ -64,7 +64,7 @@ The machine decides what the list of the cores holds. It reports one entry for
 each stream of instructions that it can run. A machine that runs two streams on
 one piece of hardware therefore reports two entries for that piece.
 
-## The store of samples
+## Store of samples
 
 The machine reports its state at one moment. A panel draws values against time,
 so this data source keeps a store of samples.
@@ -93,7 +93,7 @@ Some signals need two samples:
 - A machine that holds no swap area adds no point to `swap`. A panel of that
   signal then shows `no data`.
 
-## The list of the processes
+## List of the processes
 
 The query `processes` reads no store. Its answer holds one frame, named
 `processes`, with one row for each process and these four columns:
@@ -140,7 +140,7 @@ query = { source = "machine", expr = "any text" }
 
 The data source states no longest wait. thunderbox therefore waits 60 seconds.
 
-## The pages that give the reason
+## Pages that give the reason
 
 - [Watch this machine](../../tutorials/watch-this-machine.md) reads this data
   source for the first time.

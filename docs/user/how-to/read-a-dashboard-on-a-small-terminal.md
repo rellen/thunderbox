@@ -64,7 +64,7 @@ counts that part:
 The status row also drops the list of the keys first when a sentence needs the
 room.
 
-## The pages for the facts and the reasons
+## Pages for the facts and the reasons
 
 - [Panels that the terminal cannot hold](../explanation/panels-that-the-terminal-cannot-hold.md)
   states why thunderbox drops a panel and asks for nothing.

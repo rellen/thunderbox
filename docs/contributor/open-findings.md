@@ -1,4 +1,4 @@
-# The findings that no other file records
+# Findings that no other file records
 
 A sweep of this repository read the code and every document, and it looked for
 facts that no file states. Fourteen readers proposed 103 candidates, and 84 of
@@ -57,7 +57,7 @@ of [the user documentation](../user/README.md), and to the pages of this folder.
 Search those pages for the named text.
 
 
-## The items that reached a file already
+## Items that reached a file already
 
 Do not record these again. `CLAUDE.md`, [the contributor guide](guide.md),
 and [Make the pictures again](pictures.md) now hold nine of them:
@@ -87,7 +87,7 @@ state.
 
 ---
 
-# The defects that a person can reach
+# Defects that a person can reach
 
 ## 4.3 `validate` reads no field of the time range
 
@@ -260,7 +260,7 @@ review measured `-1101.96d` three times, with `from = "1700000000000"`.
 
 ---
 
-# The documents that state something the code contradicts
+# Documents that state something the code contradicts
 
 ## 1.4 The Prometheus crate states that the build needs no C library
 
@@ -394,7 +394,7 @@ dashboard of `refresh = "50ms"` loads. Item 3.5 above holds the measurement.
 
 ---
 
-# The rules of a panel and of a program that embeds thunderbox
+# Rules of a panel and of a program that embeds thunderbox
 
 ## 2.4 `ratatui::try_init()` installs a hook for a panic, and that hook reaches the whole program
 
@@ -539,7 +539,7 @@ Two more facts reach no file.
 
 ---
 
-# The behaviour of a dashboard file that surprises a reader
+# Behaviour of a dashboard file that surprises a reader
 
 ## 4.4 A `refresh` of `"0s"` means that the dashboard never refreshes
 
@@ -626,7 +626,7 @@ grammar of the `$` sign.
 
 ---
 
-# The tests, and the seam between this machine and the workflow
+# Tests, and the seam between this machine and the workflow
 
 ## 6.1 The clock of tokio cannot drive the path of the area
 
@@ -693,7 +693,7 @@ Two results belong to a maintainer.
 
 ---
 
-# The facts of the repository and of its process
+# Facts of the repository and of its process
 
 **doc silent**, for each item of this part.
 
@@ -743,7 +743,7 @@ Two results belong to a maintainer.
 
 ---
 
-# The detail of an item that a file records in its headline alone
+# Detail of an item that a file records in its headline alone
 
 A commit of the sweep above carried the headline of each item below into a
 file. The detail did not follow it. Each item names the file that holds the

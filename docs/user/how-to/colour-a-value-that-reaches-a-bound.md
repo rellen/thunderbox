@@ -51,7 +51,7 @@ These kinds of panel colour a value:
 
 A panel of the kind `timeseries` draws no colour of a threshold.
 
-## The pages for the facts and the reasons
+## Pages for the facts and the reasons
 
 - [Numbers and units](../reference/numbers-and-units.md) states the rule of the
   thresholds, and the colours that the theme knows.

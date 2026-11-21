@@ -18,7 +18,7 @@ expr = "cpu.cores"
 legend = "core {{core}}"
 ```
 
-## The form of a pattern
+## Form of a pattern
 
 | part of the pattern | what it gives |
 |---|---|
@@ -45,7 +45,7 @@ These rules apply to a pattern:
 - A pattern holds no reference to a variable. The text `$job` in a pattern
   stays as it is.
 
-## The cases that stay as text
+## Cases that stay as text
 
 A name between two pairs of brace brackets is the name of a label, and the name
 of a label holds no brace bracket. Two kinds of pattern are therefore not
@@ -66,7 +66,7 @@ the end.
 
 The last row reads a column that holds the label `job` with the value `node`.
 
-## The name with no pattern
+## Name with no pattern
 
 For a target that states no pattern, a panel shows the first of these names
 that applies:
@@ -78,7 +78,7 @@ that applies:
 
 The labels of the second form stand in the alphabetical order of their names.
 
-## The names and the labels of each data source
+## Names and the labels of each data source
 
 | kind | the name of a column | the labels |
 |---|---|---|
@@ -112,7 +112,7 @@ the metric, as `sum by (instance) (up)` does.
 A top panel reads the header after the pattern. The field `sort` names that
 header.
 
-## The pages that give the reason
+## Pages that give the reason
 
 - [Architecture decision record 0017](../../contributor/adr/0017-the-dashboard-applies-the-pattern-of-a-legend.md)
   states why the dashboard applies the pattern.

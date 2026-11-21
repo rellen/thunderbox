@@ -1,4 +1,4 @@
-# The architecture decision records
+# Architecture decision records
 
 An architecture decision record (ADR) states one decision of this project. It
 states the context, the decision, and the consequences of that decision. A
@@ -8,7 +8,7 @@ takes a new decision writes a new record.
 ADR 0001 states why this project keeps these records. It also states the rules
 of this folder.
 
-## The status of a record
+## Status of a record
 
 | status | meaning |
 |---|---|
@@ -17,7 +17,7 @@ of this folder.
 | Superseded | A later record replaced this decision. The record names the later record. |
 | Rejected | The project examined the design and did not take it. The record states the fault that a reader measured in it. |
 
-## The form of a record
+## Form of a record
 
 Copy [the template](0000-template.md) for a new record. Give it the next free
 number, and give it a name of lowercase words, joined by hyphens. Add a row to
@@ -27,7 +27,7 @@ A record never changes its decision. A new decision takes a new record, and the
 new record supersedes the old one. A record can gain a correction of a fact, a
 new measurement, or a link to a later record.
 
-## The records
+## Records
 
 The column `source` names the place that held the decision before this folder
 existed. Each such record holds the text of that place, in the form of a record.

@@ -50,7 +50,7 @@ take a fixed moment. A fixed moment is a count of milliseconds after the Unix
 epoch, as text. The Unix epoch is the start of 1 January 1970, in Coordinated
 Universal Time. The text `"1700000000000"` is an example of a fixed moment.
 
-## The pages for the facts and the reasons
+## Pages for the facts and the reasons
 
 - [Time ranges](../reference/time-ranges.md) states the form of a moment, the
   form of a duration, and the limits of the width.

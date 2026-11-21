@@ -40,7 +40,7 @@ the same column on both axes of time.
 - The value `none` lets each chart measure its own labels. A dashboard file
   that states no field `align` uses that value.
 
-## The pages for the facts and the reasons
+## Pages for the facts and the reasons
 
 - [The dashboard file](../reference/dashboard-file.md) states the field `align`.
 - [The time series panel](../reference/panels/timeseries.md) states the column of

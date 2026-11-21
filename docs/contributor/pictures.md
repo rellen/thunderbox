@@ -4,7 +4,7 @@ thunderbox draws on a terminal, so each change that alters the screen holds a
 picture. Section 6 of [CLAUDE.md](../../CLAUDE.md) states when a change needs a
 picture, and how a pull request shows it. This page states how to make one.
 
-## The tools
+## Tools
 
 `scripts/record-demo.py` starts a program inside a pseudo-terminal, sends a
 list of keys, and writes a cast file in the asciinema format. The `agg` program
@@ -34,7 +34,7 @@ The first argument names the scene. Each scene names its own program and its
 own list of keys. Put the name of another scene in place of `app`, and put the
 picture of that scene in place of `docs/media/demo.gif`.
 
-## The scenes
+## Scenes
 
 | scene | what it records | the page that shows the picture |
 |---|---|---|
@@ -57,7 +57,7 @@ script then sends the standard output of the program to a temporary file, and
 the program keeps the pseudo-terminal for its error output. The script prints
 the size of that file, and it returns 1 when the size is not 0.
 
-## The rules of a picture
+## Rules of a picture
 
 - **No picture shows data of the machine that records it.** Each scene reads
   the data source testdata, or data that its program makes itself. The script

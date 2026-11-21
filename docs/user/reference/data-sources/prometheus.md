@@ -1,4 +1,4 @@
-# The data source prometheus
+# Prometheus data source
 
 The data source `prometheus` reads a Prometheus server. It answers each query
 with a range query of the Prometheus HTTP API. The program holds this data
@@ -19,7 +19,7 @@ timeout = "30s"
 The tutorial [Read a Prometheus server](../../tutorials/read-a-prometheus-server.md)
 connects a dashboard to a server.
 
-## The fields and the options
+## Fields and the options
 
 | field | type | default | what it states |
 |---|---|---|---|
@@ -36,10 +36,10 @@ connects a dashboard to a server.
   sends that time in milliseconds, in the form `30000ms`, and it sends 1
   millisecond or more.
 
-The page [Time ranges](../time-ranges.md#the-form-of-a-duration) states the form
+The page [Time ranges](../time-ranges.md#form-of-a-duration) states the form
 of a duration.
 
-### The errors of the options
+### Errors of the options
 
 | fault | the text of the error |
 |---|---|
@@ -54,14 +54,14 @@ table, except before the text of a duration. The message of each of these
 errors starts with the line
 `Error: The program cannot make the data sources of the dashboard.`
 
-## The address
+## Address
 
 - The address can hold a user name and a password, before the sign `@`. The
   data source then sends them to the server in a header of the kind `Basic`.
 - No text of the data source writes the password. Each error and each message
   writes the user name, and no password.
 
-### The file of certificates on Linux
+### File of certificates on Linux
 
 On Linux, the data source reads the certificate of each certificate authority
 from the machine. A certificate authority is an organization that signs the
@@ -82,7 +82,7 @@ repairs this error.
 [Architecture decision record 0064](../../../contributor/adr/0064-plain-http-needs-no-ca-file.md)
 records the question for an address of plain HTTP.
 
-## The query
+## Query
 
 The `expr` field of a target holds a query in PromQL. The data source removes
 the spaces at the start and at the end of that text. It sends the rest to the
@@ -95,7 +95,7 @@ server without a change.
 - A server that does not answer, or that rejects the query, also gives the panel
   an error. That error starts with `The data source returned an error.`
 
-### The step of the query
+### Step of the query
 
 The step is the distance between two points. The data source selects the step
 from the point limit of the panel, in these four steps:
@@ -113,7 +113,7 @@ A step longer than 30 days is a whole number of 30 days. The data source moves
 each end of the window to the point of the step at that end or before it. The
 times of the points therefore stay the same while the window moves.
 
-## The answer
+## Answer
 
 A frame is a table of columns, and each column holds one value for each row.
 The answer of a query holds one frame:
@@ -167,7 +167,7 @@ The data source states a longest wait of 5 seconds more than the `timeout`. The
 client stops a request at the `timeout`, and the data source then reports an
 error that names the fault. The 5 seconds give that error time to arrive.
 
-## The pages that give the reason
+## Pages that give the reason
 
 - [Architecture decision record 0009](../../../contributor/adr/0009-the-data-source-reduces-the-points.md)
   states why the data source reduces the points.

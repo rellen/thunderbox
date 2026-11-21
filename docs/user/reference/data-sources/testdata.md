@@ -1,4 +1,4 @@
-# The data source testdata
+# Testdata data source
 
 The data source `testdata` makes values of its own. It needs no server, and it
 reads nothing of the machine. Most pictures of this project show the values of
@@ -22,7 +22,7 @@ The data source has two properties:
   The query `ramp` reads the window as well, and the query `processes` reads
   the end of the window.
 
-## The options
+## Options
 
 | option | type | default | what it states |
 |---|---|---|---|
@@ -37,7 +37,7 @@ The data source has two properties:
 - The program writes each of these errors under the line
   `The program cannot make the data sources of the dashboard.`
 
-## The queries
+## Queries
 
 The `expr` field of a target holds the name of one query. The data source
 ignores the spaces around the name.
@@ -56,7 +56,7 @@ A query of another name gives this error in the panel:
 The data source returned an error. The data source testdata knows no query "NAME". The known queries are random_walk, sine, ramp, gappy, and processes.
 ```
 
-## The answer of a signal
+## Answer of a signal
 
 A frame is a table of columns, and each column holds one value for each row.
 Each query except `processes` is a signal. The answer of a signal holds one
@@ -77,7 +77,7 @@ frame:
 Write `{{series}}` in the `legend` field to give each series a different name.
 The page [Legend patterns](../legend-patterns.md) states the rule.
 
-## The list of the processes
+## List of the processes
 
 The query `processes` returns one frame, named `processes`. The frame has the
 shape of the list of the data source `sysinfo`, so a top panel can draw it.
@@ -129,7 +129,7 @@ Give such a variable fixed `options` instead. The dashboard
 
 The data source states no longest wait. thunderbox therefore waits 60 seconds.
 
-## The pages that give the reason
+## Pages that give the reason
 
 - [Write your first dashboard](../../tutorials/write-your-first-dashboard.md)
   reads this data source.

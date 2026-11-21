@@ -1,4 +1,4 @@
-# The crates
+# Crates
 
 This page lists the library crates of thunderbox. A program uses them to hold a
 thunderbox panel or a whole thunderbox dashboard. The page names what each crate
@@ -8,7 +8,7 @@ The page
 [Two ways into another program](../explanation/two-ways-into-another-program.md)
 explains when a program uses each way.
 
-## The crates of the workspace
+## Crates of the workspace
 
 <!-- crates:begin -->
 
@@ -32,7 +32,7 @@ explains when a program uses each way.
   crate `thunderbox` is the program. The crate `xtask` holds the tasks of this
   repository, and it builds the documentation site.
 
-## The full interface
+## Full interface
 
 Run this command from the root of the workspace. It builds the documentation of
 every crate, and it opens that documentation in a browser:
@@ -43,7 +43,7 @@ cargo doc --no-deps --open
 
 The documentation names every item, every field, and every error.
 
-## The first way: `thunderbox-widgets`
+## First way: `thunderbox-widgets`
 
 A program that holds its own data uses this crate alone. The crate needs no
 terminal backend and no async runtime. An async runtime is a library that runs
@@ -83,7 +83,7 @@ This command runs a short example of this way:
 cargo run -p thunderbox-widgets --example panel_embed
 ```
 
-## The second way: `thunderbox-dashboard`
+## Second way: `thunderbox-dashboard`
 
 A program that wants thunderbox to run the queries uses this crate. The program
 keeps its terminal and its event loop, and it binds its own keys.
@@ -129,7 +129,7 @@ This command runs a short example of this way:
 cargo run -p thunderbox-dashboard --example full_embed
 ```
 
-## The crate `thunderbox-core`
+## Crate `thunderbox-core`
 
 | item | what it is |
 |---|---|
@@ -147,7 +147,7 @@ cargo run -p thunderbox-dashboard --example full_embed
 | `variable` | The module that puts the value of a variable into a query. |
 | `Error`, `Result` | The error of this crate. |
 
-## The crate `thunderbox-source`
+## Crate `thunderbox-source`
 
 | item | what it is |
 |---|---|
@@ -158,7 +158,7 @@ cargo run -p thunderbox-dashboard --example full_embed
 A program that holds a dashboard can supply a data source of its own. It
 implements `DataSource`, and it adds the data source to a `Registry`.
 
-## The crates of the data sources
+## Crates of the data sources
 
 | crate | items |
 |---|---|
@@ -170,7 +170,7 @@ Each data source offers the function `from_declaration`. That function makes the
 data source from a `[source.NAME]` table of a dashboard. The page
 [The data sources](data-sources/README.md) lists the options of each kind.
 
-## The pages that give the reason
+## Pages that give the reason
 
 - [Put a panel inside your program](../tutorials/put-a-panel-inside-your-program.md)
   uses the first way.

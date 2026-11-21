@@ -8,7 +8,7 @@ program for the first time. The guide
 [Show an earlier window](../how-to/show-an-earlier-window.md) uses the keys of
 the time range.
 
-## The usage
+## Usage
 
 ```
 thunderbox [FILE]
@@ -30,7 +30,7 @@ The program reads its arguments with these rules:
   path of a file. The argument `--foo` therefore gives the error
   `The program cannot read --foo.`
 
-## The options
+## Options
 
 | option | what the program does |
 |---|---|
@@ -39,7 +39,7 @@ The program reads its arguments with these rules:
 
 The help text lists the usage, the argument `FILE`, the options, and the keys.
 
-## The exit code
+## Exit code
 
 | code | condition |
 |---|---|
@@ -47,7 +47,7 @@ The help text lists the usage, the argument `FILE`, the options, and the keys.
 | `1` | The program stopped with an error. The program also returns 1 when its standard output is not a terminal. The next section lists the errors that a person meets most often. |
 | `101` | The program panicked. A panic is a fault that the program cannot report as an error, and the program stops at once. |
 
-## The errors before the terminal opens
+## Errors before the terminal opens
 
 The program reads the dashboard and makes each data source before it takes the
 terminal. It then checks that its standard output is a terminal. A fault in one
@@ -59,7 +59,7 @@ the cursor of a terminal or changes a colour.
 | the first line of the message | condition |
 |---|---|
 | `Error: The program cannot read FILE.` | The program cannot open or read the file. |
-| `Error: The dashboard in FILE is not correct.` | The file is not valid TOML, or the content holds a fault. [The dashboard file](dashboard-file.md#the-faults-that-the-program-rejects) lists each fault. |
+| `Error: The dashboard in FILE is not correct.` | The file is not valid TOML, or the content holds a fault. [The dashboard file](dashboard-file.md#faults-that-the-program-rejects) lists each fault. |
 | `Error: The program cannot make the data sources of the dashboard.` | A `[source.NAME]` table names a kind that this build does not hold. A table that holds an option which its data source rejects gives this error as well. |
 | `Error: The program draws a dashboard only on a terminal. The standard output of the program is not a terminal.` | The standard output is a file or a pipe, for example after `thunderbox > out.txt`. The program returns 1 and writes nothing to the standard output. |
 | `Error: The program cannot start the terminal.` | The program found a terminal, and the terminal refused the start. The program returns the terminal to its first state, and it then returns 1. |
@@ -116,7 +116,7 @@ The border of the selected panel is cyan. The guide
 [Change the glyph of a chart](../how-to/change-the-glyph-of-a-chart.md)
 describes each glyph.
 
-### The rules of the keys of the time range
+### Rules of the keys of the time range
 
 - A move fixes a moment at each end of the time range. The window then stands
   still, and the panels show that window.
@@ -125,13 +125,13 @@ describes each glyph.
 - The keys `-` and `+` hold the later end of the time range still. They move
   the earlier end.
 - The keys `-` and `+` keep the width between 1 second and 3650 days. The page
-  [Time ranges](time-ranges.md#the-limits-of-the-width) states these limits.
+  [Time ranges](time-ranges.md#limits-of-the-width) states these limits.
 - A key that asks for the time range that the dashboard already shows does
   nothing. The key `Right` on a time range that follows the clock is an example.
 - A key that changes the time range returns every panel to `loading…`. It also
   starts a new set of queries.
 
-### The rules of the keys of a variable
+### Rules of the keys of a variable
 
 - The key `v` does nothing on a dashboard that declares one variable or no
   variable.
@@ -143,7 +143,7 @@ describes each glyph.
 
 The page [Variables](variables.md) states the fields of a variable.
 
-### The rules of the keys of a row panel
+### Rules of the keys of a row panel
 
 - The keys `Enter` and `Space` act only while the selected panel is a row
   panel.
@@ -152,7 +152,7 @@ The page [Variables](variables.md) states the fields of a variable.
 
 The page [The row panel](panels/row.md) states the rules of a row panel.
 
-## The parts of the screen
+## Parts of the screen
 
 The program divides the terminal into three parts, from the top to the bottom:
 
@@ -162,7 +162,7 @@ The program divides the terminal into three parts, from the top to the bottom:
    this part.
 3. The status row takes the last line.
 
-## The row of the variables
+## Row of the variables
 
 The row writes the label of each variable, and then the value that the variable
 holds. It puts two spaces between two variables. It puts the selected variable
@@ -179,7 +179,7 @@ example shows two variables and the hint:
 [job: web]  region: eu    v next variable  [] value
 ```
 
-## The status row
+## Status row
 
 The status row writes one text for each fact, in the order of the table below.
 It puts four spaces between two texts. The list of the keys comes last.
@@ -203,7 +203,7 @@ Text 5 writes each length of time in one unit. The unit is seconds, minutes,
 hours, or days. The row selects the unit from the length, and it rounds the
 count to a whole number.
 
-### The rules of the width of the status row
+### Rules of the width of the status row
 
 - The row drops the last text while the row is wider than the terminal. It
   never drops the first text.
@@ -217,7 +217,7 @@ count to a whole number.
   the keys. The longer row must also fit. The list and the hint need 87
   columns.
 
-## The pages that give the reason
+## Pages that give the reason
 
 - [Panels that the terminal cannot hold](../explanation/panels-that-the-terminal-cannot-hold.md)
   explains the panel that the renderer drops.

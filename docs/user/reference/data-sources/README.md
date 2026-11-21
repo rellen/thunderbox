@@ -1,4 +1,4 @@
-# The data sources
+# Data sources
 
 A data source answers the queries of the panels. A dashboard declares each data
 source that it needs in a `[source.NAME]` table. The `kind` field of that table
@@ -6,11 +6,11 @@ selects the data source.
 
 | kind | page | what the data source reads |
 |---|---|---|
-| `sysinfo` | [The data source sysinfo](sysinfo.md) | This machine: the processor, the memory, the network, and the processes. |
-| `prometheus` | [The data source prometheus](prometheus.md) | A Prometheus server, with a range query. |
-| `testdata` | [The data source testdata](testdata.md) | Values that this project makes, for a test and for a picture. |
+| `sysinfo` | [Sysinfo data source](sysinfo.md) | This machine: the processor, the memory, the network, and the processes. |
+| `prometheus` | [Prometheus data source](prometheus.md) | A Prometheus server, with a range query. |
+| `testdata` | [Testdata data source](testdata.md) | Values that this project makes, for a test and for a picture. |
 
-## The table `[source.NAME]`
+## Table `[source.NAME]`
 
 The example below is a part of a dashboard file, and it does not load alone.
 The file also needs a `title`.
@@ -36,7 +36,7 @@ min_step = "15s"
   [Show two data sources on one dashboard](../../how-to/show-two-data-sources-on-one-dashboard.md)
   uses this rule.
 
-## The kinds that a build holds
+## Kinds that a build holds
 
 The program holds `sysinfo` and `testdata` in every build. It holds `prometheus`
 only when the build holds the feature `prometheus`. That feature is on by
@@ -84,7 +84,7 @@ The data source "NAME" did not answer in 60 seconds.
 thunderbox runs the panels of one set of queries at the same time. One data
 source that does not answer therefore stops no other panel.
 
-### The choices of a variable
+### Choices of a variable
 
 A variable that states a `query` takes its choices from a data source. Only a
 data source that offers choices can answer that query. Every other data source
@@ -94,10 +94,10 @@ gives the variable this reason:
 The data source "NAME" returns no choice for a variable.
 ```
 
-The page [Variables](../variables.md#the-choices-that-a-data-source-holds)
+The page [Variables](../variables.md#choices-that-a-data-source-holds)
 states the rule.
 
-## The pages that give the reason
+## Pages that give the reason
 
 - [How thunderbox works](../../explanation/how-thunderbox-works.md) explains a
   data source, a frame, and a panel.

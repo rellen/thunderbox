@@ -6,7 +6,7 @@
 
 - [The user documentation of thunderbox](user/README.md)
 
-# The tutorials
+# Tutorials
 
 - [Watch this machine](user/tutorials/watch-this-machine.md)
 - [Write your first dashboard](user/tutorials/write-your-first-dashboard.md)
@@ -14,7 +14,7 @@
 - [Put a panel inside your program](user/tutorials/put-a-panel-inside-your-program.md)
 - [Put a dashboard inside your program](user/tutorials/put-a-dashboard-inside-your-program.md)
 
-# The how-to guides
+# How-to guides
 
 - [Install thunderbox](user/how-to/install-thunderbox.md)
 - [Show the busiest processes](user/how-to/show-the-busiest-processes.md)
@@ -29,34 +29,34 @@
 - [Change the glyph of a chart](user/how-to/change-the-glyph-of-a-chart.md)
 - [Read a dashboard on a small terminal](user/how-to/read-a-dashboard-on-a-small-terminal.md)
 
-# The reference
+# Reference
 
 - [The command line](user/reference/command-line.md)
 - [The dashboard file](user/reference/dashboard-file.md)
-- [The panels](user/reference/panels/README.md)
-  - [The time series panel](user/reference/panels/timeseries.md)
-  - [The stat panel](user/reference/panels/stat.md)
-  - [The gauge panel](user/reference/panels/gauge.md)
-  - [The bar gauge panel](user/reference/panels/bargauge.md)
-  - [The table panel](user/reference/panels/table.md)
-  - [The top panel](user/reference/panels/top.md)
-  - [The row panel](user/reference/panels/row.md)
-- [The data sources](user/reference/data-sources/README.md)
-  - [The data source sysinfo](user/reference/data-sources/sysinfo.md)
-  - [The data source prometheus](user/reference/data-sources/prometheus.md)
-  - [The data source testdata](user/reference/data-sources/testdata.md)
+- [Panels](user/reference/panels/README.md)
+  - [Time series panel](user/reference/panels/timeseries.md)
+  - [Stat panel](user/reference/panels/stat.md)
+  - [Gauge panel](user/reference/panels/gauge.md)
+  - [Bar gauge panel](user/reference/panels/bargauge.md)
+  - [Table panel](user/reference/panels/table.md)
+  - [Top panel](user/reference/panels/top.md)
+  - [Row panel](user/reference/panels/row.md)
+- [Data sources](user/reference/data-sources/README.md)
+  - [Sysinfo data source](user/reference/data-sources/sysinfo.md)
+  - [Prometheus data source](user/reference/data-sources/prometheus.md)
+  - [Testdata data source](user/reference/data-sources/testdata.md)
 - [Numbers and units](user/reference/numbers-and-units.md)
 - [Time ranges](user/reference/time-ranges.md)
 - [Variables](user/reference/variables.md)
 - [Legend patterns](user/reference/legend-patterns.md)
-- [The crates](user/reference/crates.md)
+- [Crates](user/reference/crates.md)
 - [The Nix flake](user/reference/nix-flake.md)
 
-# The explanations
+# Explanations
 
 - [How thunderbox works](user/explanation/how-thunderbox-works.md)
 - [Why each panel asks for its own points](user/explanation/why-each-panel-asks-for-its-own-points.md)
-- [The time range and the window](user/explanation/the-time-range-and-the-window.md)
+- [Time range and the window](user/explanation/the-time-range-and-the-window.md)
 - [Panels that the terminal cannot hold](user/explanation/panels-that-the-terminal-cannot-hold.md)
 - [Row panels and the place of a panel](user/explanation/row-panels-and-the-place-of-a-panel.md)
 - [Two ways into another program](user/explanation/two-ways-into-another-program.md)
@@ -64,9 +64,9 @@
 # Work on thunderbox
 
 - [The contributor documentation of thunderbox](contributor/README.md)
-- [The contributor guide](contributor/guide.md)
+- [Contributor guide](contributor/guide.md)
 - [The architecture of thunderbox](contributor/architecture.md)
-- [The architecture decision records](contributor/adr/README.md)
+- [Architecture decision records](contributor/adr/README.md)
   - [ADR 0001: Record each architecture decision](contributor/adr/0001-record-architecture-decisions.md)
   - [ADR 0002: Write every document in Simplified Technical English](contributor/adr/0002-write-every-document-in-simplified-technical-english.md)
   - [ADR 0003: Agree on the form of the answer, and not on the form of the question](contributor/adr/0003-agree-on-the-answer-and-not-on-the-question.md)
@@ -140,6 +140,6 @@
   - [ADR 0071: The program draws only on a terminal](contributor/adr/0071-the-program-draws-only-on-a-terminal.md)
   - [ADR NNNN: The decision, as one sentence](contributor/adr/0000-template.md)
 - [Make the pictures again](contributor/pictures.md)
-- [The libraries that this project examined](contributor/research.md)
-- [The findings that no other file records](contributor/open-findings.md)
-- [The rules of the project](contributor/rules.md)
+- [Libraries that this project examined](contributor/research.md)
+- [Findings that no other file records](contributor/open-findings.md)
+- [Rules of the project](contributor/rules.md)
