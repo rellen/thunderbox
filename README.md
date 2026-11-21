@@ -30,6 +30,10 @@ repository, which reads the test data:
 cargo run -p thunderbox -- dashboards/rows.toml
 ```
 
+A command line that the program cannot read stops it. The message names the
+option or the file. A file name that starts with a dash needs `./` in front of
+it, or `--` before it.
+
 Nix runs the program with no copy of this repository:
 
 ```

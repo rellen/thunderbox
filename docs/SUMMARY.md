@@ -138,6 +138,7 @@
   - [ADR 0069: A chart cuts its line at each hole](contributor/adr/0069-a-chart-cuts-its-line-at-each-hole.md)
   - [ADR 0070: Each panel draws inside the intersection of its area and the buffer](contributor/adr/0070-each-panel-draws-inside-the-intersection-of-its-area-and-the-buffer.md)
   - [ADR 0071: The program draws only on a terminal](contributor/adr/0071-the-program-draws-only-on-a-terminal.md)
+  - [ADR 0072: The program reads its command line from left to right](contributor/adr/0072-the-program-reads-its-command-line-from-left-to-right.md)
   - [ADR NNNN: The decision, as one sentence](contributor/adr/0000-template.md)
 - [Make the pictures again](contributor/pictures.md)
 - [Libraries that this project examined](contributor/research.md)

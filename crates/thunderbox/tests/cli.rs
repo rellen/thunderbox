@@ -281,3 +281,172 @@ fn the_program_returns_1_when_the_output_is_a_file_and_the_input_is_a_terminal()
         "The message must state the reason. {message:?}"
     );
 }
+
+/// Runs the program with the arguments, pipes both output streams, and returns
+/// what the program wrote.
+fn run_with_arguments<I, S>(arguments: I) -> Output
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<std::ffi::OsStr>,
+{
+    let mut command = program();
+    command
+        .args(arguments)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    run_with_limit(command)
+}
+
+/// Checks that an option that the program does not know returns the code 1.
+///
+/// The message must name the option, and it must name `thunderbox --help`.
+#[test]
+fn an_unknown_option_returns_1_and_names_the_option() {
+    let out = run_with_arguments(["--colour"]);
+    assert_eq!(
+        out.status.code(),
+        Some(1),
+        "The program must return the code 1."
+    );
+    assert!(
+        out.stdout.is_empty(),
+        "The program must write nothing to the output. It wrote {:?}.",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    let message = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        message.contains("--colour"),
+        "The message must name the option. {message}"
+    );
+    assert!(
+        message.contains("thunderbox --help"),
+        "The message must name the option --help. {message}"
+    );
+}
+
+/// Checks that the two dashes end the options.
+///
+/// The program then reads the next argument as a file name. It loads the
+/// dashboard, and it stops at the check of the terminal.
+#[test]
+fn a_file_name_after_two_dashes_reaches_the_program() {
+    let out = run_with_arguments(["--", dashboard()]);
+    assert_eq!(
+        out.status.code(),
+        Some(1),
+        "The program must return the code 1."
+    );
+    let message = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        message.contains("only on a terminal"),
+        "The program must load the dashboard and then check the terminal. {message}"
+    );
+    assert!(
+        !message.contains("cannot read --"),
+        "The program must not read the two dashes as a file name. {message}"
+    );
+}
+
+/// Checks that a second file name returns the code 1.
+///
+/// The message must name the second file.
+#[test]
+fn a_second_file_returns_1_and_names_that_file() {
+    let out = run_with_arguments(["/no/a.toml", "/no/b.toml"]);
+    assert_eq!(
+        out.status.code(),
+        Some(1),
+        "The program must return the code 1."
+    );
+    let message = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        message.contains("/no/b.toml"),
+        "The message must name the second file. {message}"
+    );
+}
+
+/// Checks that a file name that is not text reaches the file system.
+///
+/// The program must not panic. It tries to read the file, and it returns an
+/// error because the file is not there.
+#[cfg(unix)]
+#[test]
+fn a_name_that_is_not_text_reaches_the_file_system() {
+    use std::os::unix::ffi::OsStringExt;
+
+    let name = std::ffi::OsString::from_vec(b"/no/bad\xFF.toml".to_vec());
+    let out = run_with_arguments([name]);
+    assert_eq!(
+        out.status.code(),
+        Some(1),
+        "The program must return the code 1, and not the code of a panic."
+    );
+    let message = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        message.contains("cannot read"),
+        "The program must try to read the file. {message}"
+    );
+    assert!(
+        !message.contains("panicked"),
+        "The program must not panic. {message}"
+    );
+}
+
+/// Checks that a write fault of the version text returns the code 1.
+///
+/// The device `/dev/full` fails each write with the error that the disk is
+/// full.
+#[cfg(target_os = "linux")]
+#[test]
+fn the_version_to_a_full_device_returns_1() {
+    let full = std::fs::OpenOptions::new()
+        .write(true)
+        .open("/dev/full")
+        .expect("The test must be able to open the full device.");
+    let mut command = program();
+    command
+        .arg("--version")
+        .stdout(Stdio::from(full))
+        .stderr(Stdio::piped());
+    let out = run_with_limit(command);
+    assert_eq!(
+        out.status.code(),
+        Some(1),
+        "The program must return the code 1."
+    );
+    let message = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        message.contains("cannot write"),
+        "The message must state the fault. {message}"
+    );
+    assert!(
+        !message.contains("panicked"),
+        "The program must not panic. {message}"
+    );
+}
+
+/// Checks that a closed pipe is not a fault.
+///
+/// The test closes the read end of the pipe before the program starts. A
+/// program that treats the closed pipe as a fault returns the code 1.
+#[test]
+fn the_help_into_a_closed_pipe_returns_0() {
+    let (reader, writer) = std::io::pipe().expect("The test must be able to make a pipe.");
+    drop(reader);
+    let mut command = program();
+    command
+        .arg("--help")
+        .stdout(Stdio::from(writer))
+        .stderr(Stdio::piped());
+    let out = run_with_limit(command);
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "The program must return the code 0."
+    );
+    assert!(
+        out.stderr.is_empty(),
+        "The program must write no error. It wrote {:?}.",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}

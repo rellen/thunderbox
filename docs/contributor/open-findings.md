@@ -578,26 +578,6 @@ The tests of this project rest on that behaviour.
 no crate implements. The same file names `kind = "testdata"` at `:30-31`, while
 it registers `Counter`.
 
-## 4.6 An option that the program does not know becomes the name of a file
-
-**doc silent**
-
-`crates/thunderbox/src/main.rs:113-124` reads every argument for `-h`, `--help`,
-`-V` and `--version`. It then takes the first argument as the path, whatever
-that argument holds. The measurements, against the program:
-
-- `thunderbox --colour` writes `Error: The program cannot read --colour.`, and it
-  returns 1;
-- `thunderbox -- my-dashboard.toml` writes `Error: The program cannot read --.`
-  `README.md:20-22` teaches `cargo run -p thunderbox -- my-dashboard.toml`. A
-  person who installs the program, and who keeps the `--`, therefore meets that
-  message;
-- `thunderbox a.toml b.toml` reads `a.toml`, and it drops `b.toml` with no word;
-- `thunderbox board.toml --help` writes the help, and it draws no dashboard.
-
-The block `Options:` at `main.rs:40-42` names two options. A reader takes that
-block for a promise that the program rejects every other option.
-
 ## 3.6 The value of a variable reaches the text of a query with no quotation mark
 
 **doc silent**
@@ -1343,7 +1323,7 @@ no scene reaches the change" asks two changes of `README.md` for a new scene
 (`CLAUDE.md:624-626`). It asks no change of that cell. The cell can therefore
 omit the next scene that runs `target/debug/thunderbox`.
 
-## 1.10 No test reads 16 of the 25 lines of text of the constant `HELP`
+## 1.10 No test reads 21 of the 31 lines of text of the constant `HELP`
 
 **doc silent**
 
@@ -1352,21 +1332,25 @@ under the standard. `CLAUDE.md:216-219` states that `scripts/ste-lint.py` reads
 no Rust expression. Neither passage counts the lines. Item 1.10 above holds a
 different fault, so this item takes the letter `b`.
 
-`const HELP: &str = "\` stands at `main.rs:27`, and the `";` that closes it
-stands at `:58`. The 30 lines between them hold the text. Five of those lines
-are empty, so 25 lines hold words. The block `Options:` at `:40-42` names two
-options, and the block `Keys:` at `:44-57` holds thirteen rows. Item 4.6 of this
-file reads the block `Options:`, and it states how `main.rs:113-124` reads each
+`const HELP: &str = "\` stands at `main.rs:32`, and the `";` that closes it
+stands at `:70`. The 37 lines between them hold the text. Six of those lines
+are empty, so 31 lines hold words. The block `Options:` at `:49-51` names two
+options, and the block `Keys:` at `:53-69` holds sixteen rows. ADR 0072 in
+`docs/contributor/adr` states how the function `parse_arguments` reads each
 argument.
 
-Four tests read that text. `main.rs:786-798` and `:800-817` read the eight whole
-rows of `:50-57`. `main.rs:819-826` and `crates/thunderbox/tests/cli.rs:52-65`
-read the one word `Usage` of `main.rs:33`. `cli.rs:61-64` reads the whole text
-for one control character, and it holds no word of the text. Nine lines
-therefore reach a test. The other 16 lines of words reach no test. The rows of
-`q`, `Tab`, `Shift+Tab`, `m`, and `r` at `:45-49` are five of the 16.
+Four tests read that text. The functions
+`the_help_text_lists_every_key_of_a_variable` and
+`the_help_text_lists_every_key_of_the_time_range` of `main.rs` read the eight
+whole rows of the block `Keys:`. The function
+`the_usage_block_states_that_two_dashes_end_the_options` reads the first line of
+the sentence about `--`. The test `the_help_option_writes_the_text_to_the_output`
+of `crates/thunderbox/tests/cli.rs` reads the one word `Usage` of `main.rs:38`.
+It also reads the whole text for one control character, and it holds no word of
+the text. Ten lines therefore reach a test. The other 21 lines of words reach no
+test. The rows of `q`, `Tab`, `Shift+Tab`, `m`, and `r` are five of the 21.
 
-`scripts/ste-lint.py` reads none of the 30 lines. `scripts/ste-lint.py:99-103`
+`scripts/ste-lint.py` reads none of the 37 lines. `scripts/ste-lint.py:99-103`
 keeps a line of a `.rs` file only when that line starts with `//`, after any
 space, and it drops every other line. A reader took this measurement. The reader
 wrote four faults into line 29 of a copy of `main.rs`, inside `HELP`. Those
@@ -1379,6 +1363,6 @@ copy, and it returned 1. A reader is therefore the only check of that text.
 `README.md:29-41` holds a table of the same thirteen keys, and each row of that
 table repeats the sentence of a row of `main.rs:45-57`. `main.rs:72-73` and
 `:86-87` state that relation, so the code names the pair. No file states that no
-check compares the two texts, and no such check exists. Five of the sixteen
+check compares the two texts, and no such check exists. Five of the twenty-one
 lines above therefore stand twice, and a change to one copy leaves every test
 green.
