@@ -68,6 +68,8 @@ The server returns a point for every step, and it returns no point where the
 series holds no value. The data source builds the time column from the step,
 and it puts each sample in its own place. A place that holds no sample keeps a
 hole in the data, so a chart shows a gap and not a straight line.
+[ADR 0069](0069-a-chart-cuts-its-line-at-each-hole.md) states how the chart
+draws that gap.
 
 No code of thunderbox reduces the number of points that a data source returns.
 The field `SourceDescriptor::downsamples` promises that reduction for a data

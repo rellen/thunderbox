@@ -111,3 +111,4 @@ git show 4d8c223a0e7ea3bd62b85e7819be8c4ee10cb451:docs/ARCHITECTURE.md
 | [0066](0066-the-documentation-is-one-mdbook-site.md) | The documentation is one mdBook site, and the workflow `checks` publishes it | Accepted | new |
 | [0067](0067-five-other-designs-for-the-site-failed.md) | Five other designs for the documentation site failed | Rejected | new |
 | [0068](0068-the-site-shows-one-version.md) | The site shows one version | Proposed | new |
+| [0069](0069-a-chart-cuts-its-line-at-each-hole.md) | A chart cuts its line at each hole | Accepted | new |
