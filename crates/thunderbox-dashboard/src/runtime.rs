@@ -215,14 +215,9 @@ impl DashboardRuntime {
         let range = dashboard.time.clone();
         let interval = match &dashboard.refresh {
             None => None,
-            Some(text) => {
-                let millis = parse_duration_ms(text)?;
-                // A period of zero would ask the data source without a pause.
-                u64::try_from(millis)
-                    .ok()
-                    .filter(|m| *m > 0)
-                    .map(Duration::from_millis)
-            }
+            Some(text) => u64::try_from(parse_duration_ms(text)?)
+                .ok()
+                .map(Duration::from_millis),
         };
         let variables = Variables::new(&dashboard.variables);
         let choices = ask_for_choices(&dashboard, &sources, &handle);
@@ -636,6 +631,11 @@ impl DashboardRuntime {
     }
 
     /// Returns the time between two refreshes.
+    ///
+    /// The method returns `None` for a dashboard that states no field
+    /// `refresh`. Such a dashboard does not refresh on a clock.
+    /// [`Dashboard::validate`] returns an error for a refresh of 0, so a
+    /// period of zero never reaches this value.
     pub fn refresh_interval(&self) -> Option<Duration> {
         self.interval
     }

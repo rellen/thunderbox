@@ -71,7 +71,7 @@ the field.
 | field | type | default | what it states |
 |---|---|---|---|
 | `title` | text | required | The name of the dashboard. The name must hold a character that is not a space. |
-| `refresh` | duration | none | The time between two sets of queries. The duration cannot be larger than 9223372036854775807 milliseconds. |
+| `refresh` | duration | none | The time between two sets of queries. The value must be more than 0. The duration cannot be larger than 9223372036854775807 milliseconds. |
 | `align` | text | `"none"` | The rule that gives one width to the charts of a stack. |
 | `[time]` | table | the last 5 minutes | The time range that every panel shares. |
 | `[source.NAME]` | table | none | One data source. The file holds one such table for each data source. |
@@ -86,8 +86,10 @@ the field.
 - The program returns an error for a duration that is larger than
   9223372036854775807 milliseconds. It writes the error before it opens the
   terminal.
+- The value must be more than 0, in every unit. The program rejects `"0s"`,
+  `"0ms"`, and `"0m"`, and it writes an error that names the field `refresh`.
 - thunderbox starts no set of queries at a regular interval for a dashboard
-  that states no `refresh`. The value `"0s"` has the same effect.
+  that states no `refresh`. To stop the refresh on a clock, omit the field.
 - For such a dashboard, thunderbox starts a set of queries when the program
   starts. It also starts one after an event, such as the key `r` or a new time
   range.
@@ -158,7 +160,7 @@ kind.
 | `title` | text | required | every kind | The name that the border of the panel shows. A row panel shows the name in its line. |
 | `kind` | text | required | every kind | The kind of the panel. The page [The panels](panels/README.md) lists each kind. |
 | `grid` | inline table | required | every kind | The place of the panel on the grid. |
-| `unit` | text | none | `timeseries`, `stat`, `gauge`, `bargauge`, `table`, `top` | The unit of each value. The page [Numbers and units](numbers-and-units.md) lists the units. |
+| `unit` | text | none | `timeseries`, `stat`, `gauge`, `bargauge`, `table`, `top` | The unit of each value. The value must be `percent`, `bytes`, `bytes/s`, or `seconds`. The page [Numbers and units](numbers-and-units.md) states the rule of each unit. |
 | `decimals` | whole number from 0 to 255 | none | `timeseries`, `stat`, `gauge`, `bargauge`, `table`, `top` | The number of decimal places. |
 | `min` | number | none | `timeseries`, `stat`, `gauge`, `bargauge` | The smallest value of the axis, of the small chart, or of the meter. |
 | `max` | number | none | `timeseries`, `stat`, `gauge`, `bargauge` | The largest value of the axis, of the small chart, or of the meter. |
@@ -173,6 +175,8 @@ These rules apply to the fields of a panel:
 - A data source can attach a unit, decimal places, a range, and thresholds to a
   column. The field of the panel replaces the value of the column for each of
   these.
+- The program matches the field `unit` against the four names exactly. The
+  name `Percent` is a fault, and so is an empty name.
 - A top panel applies `unit`, `decimals`, and the thresholds to one column
   alone. That column is the column that puts the rows in order.
 - A panel ignores a field that its kind does not read, with three exceptions.
@@ -289,8 +293,8 @@ The time value "20000000000w" is not correct. A duration cannot be larger than 9
 ### Second step: `Dashboard::validate`
 
 The reason of a fault of this step starts with `The dashboard is not correct.`
-The fault of the field `refresh` is the one exception. Its reason starts with
-`The time value`.
+A field `refresh` that the program cannot read is the one exception. Its
+reason starts with `The time value`.
 
 In the texts below, `NAME`, `ROW`, `SOURCE`, and the other capital words stand
 for a value of the file. `FIELD` is `from` or `to`.
@@ -306,8 +310,10 @@ table `[time]`. Both texts name the same moment.
 | The sum of the present moment and an offset of the table `[time]` does not fit in a count of milliseconds. | `` The `[time]` table holds a `FIELD` field of VALUE. The sum of the present moment and that value does not fit in a count of milliseconds. `` |
 | The time range of the table `[time]` is wider than 3650 days. | `` The `[time]` table holds a `from` field of FROM and a `to` field of TO. That range is wider than 3650 days. `` |
 | The time range of the table `[time]` is narrower than 1 second. | `` The `[time]` table holds a `from` field of FROM and a `to` field of TO. That range is narrower than 1000 milliseconds. `` |
+| The field `refresh` holds a duration of 0, in any unit. | `The field refresh holds "TEXT". The value must be more than 0. A dashboard with no field refresh does not refresh on a clock.` |
 | A panel has a width or a height of 0. | `panel "NAME" has zero extent` |
 | A panel reaches past the right edge of the grid. | `panel "NAME" spans past the 24-column grid (x=X w=W)` |
+| A panel states a `unit` that is not one of the four names. | `The panel "NAME" states the unit "UNIT", and no rule knows that unit. The known units are percent, bytes, bytes/s, seconds.` |
 | A panel states a `min` that is not smaller than its `max`. | `panel "NAME" has min MIN and max MAX; min must be smaller than max` |
 | A panel that is not a top panel states a `sort` column. | `panel "NAME" states the sort column "COLUMN". Only a panel of the kind top reads that field` |
 | A top panel states a `sort` column that has an empty name. | `panel "NAME" states a sort column with an empty name` |

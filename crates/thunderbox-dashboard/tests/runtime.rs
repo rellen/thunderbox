@@ -586,6 +586,20 @@ fn dashboard() -> Dashboard {
     Dashboard::from_toml(TWO_PANELS).expect("The test dashboard must be correct.")
 }
 
+/// A program that builds a dashboard in code reaches no check of
+/// `Dashboard::from_toml`. The runtime must still refuse a refresh of 0, which
+/// it would otherwise read as no refresh at all.
+#[tokio::test]
+async fn new_returns_an_error_for_a_refresh_of_0() {
+    let mut zero = dashboard();
+    zero.refresh = Some("0s".into());
+    let result = DashboardRuntime::new(zero, Registry::new(), tokio::runtime::Handle::current());
+    assert!(
+        result.is_err(),
+        "The runtime must return an error for a refresh of 0."
+    );
+}
+
 /// The height that every test of a point limit reports.
 ///
 /// The renderer drops a panel that holds under 3 cells in either direction, and

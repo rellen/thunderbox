@@ -20,7 +20,7 @@ pub(crate) mod time;
 pub mod variable;
 
 pub use dashboard::{
-    Align, Dashboard, GRID_COLUMNS, GridPos, Panel, PanelKind, SourceDecl, Target, Variable,
+    Align, Dashboard, GRID_COLUMNS, GridPos, Panel, PanelKind, SourceDecl, Target, UNITS, Variable,
 };
 pub use error::{Error, Result};
 pub use frame::{Field, FieldConfig, Frame, Threshold, Values};

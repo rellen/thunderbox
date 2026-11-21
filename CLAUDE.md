@@ -396,11 +396,11 @@ The measurement: one link to an item that does not exist gives
 `cargo doc --no-deps` one warning and the code 0. The same link gives
 `RUSTDOCFLAGS="-D warnings" cargo doc --no-deps` the code 101.
 
-The count of the doctests must not fall. That count is 25 today:
+The count of the doctests must not fall. That count is 26 today:
 
 | crate | doctests |
 |---|---|
-| `thunderbox-core` | 11 |
+| `thunderbox-core` | 12 |
 | `thunderbox-widgets` | 12 |
 | `thunderbox-dashboard` | 1 |
 | `thunderbox-source-prometheus` | 1 |

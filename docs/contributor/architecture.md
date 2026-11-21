@@ -300,7 +300,7 @@ documents of each feature that exists.
 
 | feature | user documents | records |
 |---|---|---|
-| the dashboard file | [reference](../user/reference/dashboard-file.md), [tutorial](../user/tutorials/write-your-first-dashboard.md) | 0014, 0041, 0073, 0074 |
+| the dashboard file | [reference](../user/reference/dashboard-file.md), [tutorial](../user/tutorials/write-your-first-dashboard.md) | 0014, 0041, 0073, 0074, 0080 |
 | the program that runs alone | [tutorial](../user/tutorials/watch-this-machine.md), [reference](../user/reference/command-line.md) | 0010, 0071, 0072 |
 | the time series panel | [reference](../user/reference/panels/timeseries.md) | 0007, 0008, 0036, 0069 |
 | the stat panel, the gauge panel, the bar gauge panel | [stat](../user/reference/panels/stat.md), [gauge](../user/reference/panels/gauge.md), [bar gauge](../user/reference/panels/bargauge.md) | 0007, 0065 |
@@ -310,7 +310,7 @@ documents of each feature that exists.
 | the time range | [how-to](../user/how-to/show-an-earlier-window.md), [reference](../user/reference/time-ranges.md), [explanation](../user/explanation/the-time-range-and-the-window.md) | 0035, 0036, 0037, 0038, 0073, 0074, 0075, 0076, 0077 |
 | the variables | [how-to](../user/how-to/let-a-person-select-a-value.md), [reference](../user/reference/variables.md) | 0040, 0041, 0042, 0043, 0044 |
 | the legend pattern | [how-to](../user/how-to/name-each-series.md), [reference](../user/reference/legend-patterns.md) | 0017 |
-| the thresholds and the units | [how-to](../user/how-to/colour-a-value-that-reaches-a-bound.md), [reference](../user/reference/numbers-and-units.md) | 0007 |
+| the thresholds and the units | [how-to](../user/how-to/colour-a-value-that-reaches-a-bound.md), [reference](../user/reference/numbers-and-units.md) | 0007, 0080 |
 | one width for a stack of charts | [how-to](../user/how-to/start-each-chart-of-a-stack-at-the-same-cell.md) | 0039 |
 | the marker | [how-to](../user/how-to/change-the-glyph-of-a-chart.md) | 0009 |
 | a terminal that is too small | [how-to](../user/how-to/read-a-dashboard-on-a-small-terminal.md), [explanation](../user/explanation/panels-that-the-terminal-cannot-hold.md) | 0024, 0027, 0031, 0060 |

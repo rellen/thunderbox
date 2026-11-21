@@ -310,9 +310,28 @@ mod tests {
         assert_eq!(format_value(f64::INFINITY, Some("bytes"), None), MISSING);
     }
 
+    /// `Dashboard::validate` returns an error for a panel that states such a
+    /// unit. A data source can still state any unit in its column
+    /// configuration, and no check of a dashboard reads that unit. This test
+    /// holds the format that such a unit then takes.
     #[test]
-    fn format_value_uses_the_plain_scale_for_an_unknown_unit() {
+    fn a_unit_of_a_data_source_that_no_rule_knows_takes_the_format_of_no_unit() {
         assert_eq!(format_value(1_500.0, Some("furlongs"), None), "1.5K");
+    }
+
+    /// The list of the core and the rules of this function must name the same
+    /// units. A name that the list holds and that no rule knows would pass
+    /// `Dashboard::validate`, and it would then draw no letter of a unit.
+    #[test]
+    fn each_unit_of_the_core_takes_a_rule_of_its_own() {
+        let plain = format_value(1_500.0, None, None);
+        for name in thunderbox_core::UNITS {
+            assert_ne!(
+                format_value(1_500.0, Some(name), None),
+                plain,
+                "The unit {name} takes the format of a value with no unit."
+            );
+        }
     }
 
     #[test]

@@ -122,3 +122,4 @@ git show 4d8c223a0e7ea3bd62b85e7819be8c4ee10cb451:docs/ARCHITECTURE.md
 | [0077](0077-the-text-form-of-an-offset-keeps-a-unit-that-a-person-can-read.md) | The text form of an offset keeps a unit that a person can read | Accepted | new |
 | [0078](0078-a-duration-that-saturates-hides-the-mistake.md) | A duration that saturates hides the mistake | Rejected | [ADR 0061](0061-a-duration-that-does-not-fit-ends-the-program.md) |
 | [0079](0079-a-key-that-clamps-an-end-changes-the-width.md) | A key that clamps an end changes the width | Rejected | new |
+| [0080](0080-a-dashboard-states-a-refresh-above-0-and-a-known-unit.md) | A dashboard states a refresh above 0 and a known unit | Accepted | `docs/contributor/open-findings.md` items 4.4 and 5.3 |
