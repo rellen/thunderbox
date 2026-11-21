@@ -23,9 +23,17 @@ own list of keys. The scenes are these:
     stack_column    The same two charts, under the rule `align = "column"`.
     too_small       A terminal that is too small for one panel of its dashboard.
     rows            The row panels, which collapse and expand.
+    not_a_terminal  The program with its standard output sent to a file.
 
 A scene can also hold a dashboard of its own. The script writes that dashboard
 to a file, and it gives the path of that file to the program.
+
+A scene can hold the key `output` with the value `file`. The script then sends
+the standard output of the program to a new temporary file. The program keeps
+the pseudo-terminal for its input and for its error output. After the
+recording, the script prints the size of that file and deletes the file. The
+script returns 1 when the file is not empty, because the picture would then
+show a fault of the program.
 
 The script accepts these options:
 
@@ -213,6 +221,10 @@ legend = "series {{series}}"
 # holds a pause in seconds, and then the keys to send. An empty text means that
 # the script only waits, and lets the program draw by itself.
 #
+# A scene can hold the key `output` with the value `file`. The recorder then
+# sends the standard output of the program to a temporary file, and the program
+# keeps the pseudo-terminal for its input and for its error output.
+#
 # No scene changes the marker. The octant marker needs a font that holds the
 # characters of Unicode 16, and few fonts hold them. A recorder that has no such
 # font draws a box in place of each octant. Every scene therefore keeps the
@@ -348,6 +360,21 @@ SCENES = {
             (0.4, "q"),  # Stop the program.
         ],
     },
+    # This scene sends the standard output of thunderbox to a file. The program
+    # loads the dashboard, finds that its standard output is not a terminal, and
+    # writes one message to the error output. It draws no dashboard, and it
+    # stops by itself. The dashboard is a dashboard that the script already
+    # holds, and it reads the data source testdata.
+    "not_a_terminal": {
+        "program": "target/debug/thunderbox",
+        "dashboard": stack_dashboard(None),
+        "output": "file",
+        "cols": 120,
+        "rows": 4,
+        "steps": [
+            (2.0, ""),  # The program stops by itself.
+        ],
+    },
 }
 
 
@@ -435,7 +462,7 @@ def stop_load(running):
         process.wait()
 
 
-def record(program, cols, rows, steps, out_path, workers=0, args=()):
+def record(program, cols, rows, steps, out_path, workers=0, args=(), to_file=False):
     """Runs the program in a pseudo-terminal and writes a cast file.
 
     The `workers` argument states how many programs give this machine work
@@ -443,6 +470,10 @@ def record(program, cols, rows, steps, out_path, workers=0, args=()):
 
     The `args` argument holds the arguments of the program. A scene that draws
     a dashboard of its own passes the path of that dashboard here.
+
+    The `to_file` argument sends the standard output of the program to a new
+    temporary file. The function then returns the count of events and the size
+    of that file in bytes. Otherwise the size is `None`.
     """
     events = []
     load = start_load(workers) if workers else []
@@ -451,8 +482,14 @@ def record(program, cols, rows, steps, out_path, workers=0, args=()):
         time.sleep(1.5)
     start = time.time()
 
+    # The recorder opens the file before the fork, so that it can read the size
+    # of the file afterwards.
+    sink = tempfile.NamedTemporaryFile("wb", suffix=".out") if to_file else None
+
     pid, fd = pty.fork()
     if pid == 0:
+        if sink is not None:
+            os.dup2(sink.fileno(), 1)
         os.environ["TERM"] = "xterm-256color"
         os.environ["COLUMNS"] = str(cols)
         os.environ["LINES"] = str(rows)
@@ -491,6 +528,11 @@ def record(program, cols, rows, steps, out_path, workers=0, args=()):
     os.close(fd)
     stop_load(load)
 
+    size = None
+    if sink is not None:
+        size = os.path.getsize(sink.name)
+        sink.close()
+
     header = {
         "version": 2,
         "width": cols,
@@ -502,7 +544,7 @@ def record(program, cols, rows, steps, out_path, workers=0, args=()):
         handle.write(json.dumps(header) + "\n")
         for event in events:
             handle.write(json.dumps(event) + "\n")
-    return len(events)
+    return len(events), size
 
 
 def machine_fault(name, scene):
@@ -558,10 +600,21 @@ def main():
             handle.write(dashboard)
             handle.flush()
             args = [handle.name]
-        count = record(
-            program, cols, rows, scene["steps"], options.output, workers, args
+        count, size = record(
+            program,
+            cols,
+            rows,
+            scene["steps"],
+            options.output,
+            workers,
+            args,
+            scene.get("output") == "file",
         )
     print(f"The script wrote {count} events to {options.output}.")
+    if size is not None:
+        print(f"The program wrote {size} bytes to its standard output.")
+        if size != 0:
+            return 1
     return 0
 
 
