@@ -47,6 +47,8 @@ picture of that scene in place of `docs/media/demo.gif`.
 | `too_small` | A terminal that is too small for one panel of its dashboard. | [Read a dashboard on a small terminal](../user/how-to/read-a-dashboard-on-a-small-terminal.md) |
 | `rows` | The row panels, which collapse and expand. | [Group panels under row panels](../user/how-to/group-panels-under-row-panels.md) |
 | `not_a_terminal` | The program with its standard output sent to a file. The program writes one message, and it draws no dashboard. | [The command line](../user/reference/command-line.md) |
+| `unknown_option` | The program with an option that it does not know. The program writes one message to the error output, and it stops with the code 1. | [The command line](../user/reference/command-line.md) |
+| `help` | The program with the option `--help`. The program writes the help text, and it stops. | [The command line](../user/reference/command-line.md) |
 
 The two scenes of the stack hold a dashboard of their own. The script writes
 that dashboard to a file, and it gives the path of that file to the program.
@@ -56,6 +58,12 @@ The scene `not_a_terminal` holds the key `output` with the value `file`. The
 script then sends the standard output of the program to a temporary file, and
 the program keeps the pseudo-terminal for its error output. The script prints
 the size of that file, and it returns 1 when the size is not 0.
+
+The scenes `unknown_option` and `help` hold the key `args`, which is a list of
+arguments. The script gives these arguments to the program before the path of
+the dashboard. A scene that holds no `args` key gives the program the path of
+the dashboard alone. Both scenes still hold a dashboard, so that the script
+accepts them. The program stops before it reads that dashboard.
 
 ## Rules of a picture
 

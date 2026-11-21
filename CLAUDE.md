@@ -611,9 +611,9 @@ of the pull request, and not in a comment. A description that holds no picture
 and no reason is a fault.
 
 A picture is a file in the GIF format, and `docs/media` holds each one. Keep
-each picture under 200 kilobytes. The pictures of `docs/media` hold 2 kilobytes
-to 194 kilobytes today, and `demo.gif` holds the largest of those. No command
-measures a picture against the limit, and the workflow reads no file of
+each picture under 200 kilobytes. The pictures of `docs/media` hold 1.5
+kilobytes to 194 kilobytes today, and `demo.gif` holds the largest of those. No
+command measures a picture against the limit, and the workflow reads no file of
 `docs/media`. Measure the picture yourself after you record a scene.
 
 Two settings hold the size down. `--fps-cap 10` is the first, and the section
