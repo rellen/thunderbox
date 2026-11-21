@@ -52,6 +52,9 @@ The program reads its arguments with these rules:
 | `-V`, `--version` | The program writes `thunderbox` and its version to the standard output, and it stops. This workspace holds the version `0.0.0`. |
 
 The help text lists the usage, the argument `FILE`, the options, and the keys.
+The block `Usage:` also states that the argument `--` ends the options:
+
+![The program writes its help text. The block Usage states that the argument -- ends the options.](../../media/help.gif)
 
 ## Exit code
 
@@ -72,6 +75,10 @@ returns 1.
 | `Error: The program does not know the option OPTION. Run thunderbox --help to read the list of the options.` | An argument that starts with a dash is not `-h`, `--help`, `-V`, or `--version`, and no `--` stands before it. |
 | `Error: The command line names a second file, FILE. The program shows one dashboard only.` | The command line names two files or more. The message names the second file. |
 | `Error: The program cannot write the text to the standard output.` | The program could not write the help text or the version, for example because the disk is full. A closed pipe is not such a fault, and it returns 0. |
+
+The command `thunderbox --colour` writes one line, and it draws no dashboard:
+
+![The terminal holds one line: `Error: The program does not know the option --colour. Run thunderbox --help to read the list of the options.`](../../media/unknown_option.gif)
 
 ## Errors before the terminal opens
 

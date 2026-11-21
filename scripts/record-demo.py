@@ -24,6 +24,8 @@ own list of keys. The scenes are these:
     too_small       A terminal that is too small for one panel of its dashboard.
     rows            The row panels, which collapse and expand.
     not_a_terminal  The program with its standard output sent to a file.
+    unknown_option  The program with an option that it does not know.
+    help            The program with the option `--help`.
 
 A scene can also hold a dashboard of its own. The script writes that dashboard
 to a file, and it gives the path of that file to the program.
@@ -34,6 +36,10 @@ the pseudo-terminal for its input and for its error output. After the
 recording, the script prints the size of that file and deletes the file. The
 script returns 1 when the file is not empty, because the picture would then
 show a fault of the program.
+
+A scene can hold the key `args`, a list of arguments. The script gives these
+arguments to the program before the path of the dashboard. A scene that holds no
+`args` key gives the program the path of the dashboard alone.
 
 The script accepts these options:
 
@@ -225,6 +231,9 @@ legend = "series {{series}}"
 # sends the standard output of the program to a temporary file, and the program
 # keeps the pseudo-terminal for its input and for its error output.
 #
+# A scene can hold the key `args`, a list of arguments. The script gives these
+# arguments to the program before the path of the dashboard.
+#
 # No scene changes the marker. The octant marker needs a font that holds the
 # characters of Unicode 16, and few fonts hold them. A recorder that has no such
 # font draws a box in place of each octant. Every scene therefore keeps the
@@ -371,6 +380,33 @@ SCENES = {
         "output": "file",
         "cols": 120,
         "rows": 4,
+        "steps": [
+            (2.0, ""),  # The program stops by itself.
+        ],
+    },
+    # This scene gives thunderbox an option that it does not know. The program
+    # writes one message to the error output, and it stops with the code 1. The
+    # dashboard is a dashboard that the script already holds. The program stops
+    # before it reads that dashboard.
+    "unknown_option": {
+        "program": "target/debug/thunderbox",
+        "args": ["--colour"],
+        "dashboard": stack_dashboard(None),
+        "cols": 110,
+        "rows": 4,
+        "steps": [
+            (2.0, ""),  # The program stops by itself.
+        ],
+    },
+    # This scene gives thunderbox the option `--help`. The program writes the
+    # help text and stops. The help text holds 37 lines, so the terminal holds
+    # 39 rows.
+    "help": {
+        "program": "target/debug/thunderbox",
+        "args": ["--help"],
+        "dashboard": stack_dashboard(None),
+        "cols": 82,
+        "rows": 39,
         "steps": [
             (2.0, ""),  # The program stops by itself.
         ],
@@ -592,14 +628,14 @@ def main():
     # program reads a path, and it reads no text on the standard input.
     dashboard = scene.get("dashboard")
     with contextlib.ExitStack() as stack:
-        args = []
+        args = list(scene.get("args", []))
         if dashboard is not None:
             handle = stack.enter_context(
                 tempfile.NamedTemporaryFile("w", suffix=".toml", delete=True)
             )
             handle.write(dashboard)
             handle.flush()
-            args = [handle.name]
+            args.append(handle.name)
         count, size = record(
             program,
             cols,
