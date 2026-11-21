@@ -94,6 +94,10 @@ the field.
   starts. It also starts one after an event, such as the key `r` or a new time
   range.
 
+A dashboard that states `refresh = "0s"` stops the program before it draws:
+
+![The terminal holds the error of the dashboard zero-refresh.toml. The field refresh holds 0s, and the value must be more than 0.](../../media/zero_refresh.gif)
+
 ### Field `align`
 
 The renderer is the part of thunderbox that draws the panels. The field `align`

@@ -26,6 +26,8 @@ own list of keys. The scenes are these:
     not_a_terminal  The program with its standard output sent to a file.
     unknown_option  The program with an option that it does not know.
     help            The program with the option `--help`.
+    wrong_unit      A dashboard with a panel that states the unit "byte".
+    zero_refresh    A dashboard that states `refresh = "0s"`.
 
 A scene can also hold a dashboard of its own. The script writes that dashboard
 to a file, and it gives the path of that file to the program.
@@ -40,6 +42,12 @@ show a fault of the program.
 A scene can hold the key `args`, a list of arguments. The script gives these
 arguments to the program before the path of the dashboard. A scene that holds no
 `args` key gives the program the path of the dashboard alone.
+
+A scene can hold the key `file_name`. The script then writes the dashboard into
+a new temporary directory, under that name. It starts the program inside that
+directory, and it gives the program the bare file name. A message of the program
+then names that file name, and it names no temporary path. A scene that holds no
+`file_name` key gets a temporary file with a random name.
 
 The script accepts these options:
 
@@ -234,6 +242,11 @@ legend = "series {{series}}"
 # A scene can hold the key `args`, a list of arguments. The script gives these
 # arguments to the program before the path of the dashboard.
 #
+# A scene can hold the key `file_name`. The script then writes the dashboard into
+# a new temporary directory, under that name. It starts the program inside that
+# directory, and it gives the program the bare file name. A message of the
+# program then names that file name, and it names no temporary path.
+#
 # No scene changes the marker. The octant marker needs a font that holds the
 # characters of Unicode 16, and few fonts hold them. A recorder that has no such
 # font draws a box in place of each octant. Every scene therefore keeps the
@@ -411,6 +424,36 @@ SCENES = {
             (2.0, ""),  # The program stops by itself.
         ],
     },
+    # This scene gives thunderbox a dashboard with a panel that states the unit
+    # "byte". No rule knows that unit, so the program writes one message to the
+    # error output, and it stops with the code 1. The scene names the file, so
+    # the message holds no temporary path. The longest line of the message holds
+    # 156 characters, and the message holds 4 lines.
+    "wrong_unit": {
+        "program": "target/debug/thunderbox",
+        "dashboard": stack_dashboard(None).replace('unit = "percent"', 'unit = "byte"'),
+        "file_name": "wrong-unit.toml",
+        "cols": 158,
+        "rows": 6,
+        "steps": [
+            (2.0, ""),  # The program stops by itself.
+        ],
+    },
+    # This scene gives thunderbox a dashboard with the field `refresh = "0s"`.
+    # The program writes one message to the error output, and it stops with the
+    # code 1. The scene names the file, so the message holds no temporary path.
+    # The longest line of the message holds 157 characters, and the message holds
+    # 4 lines.
+    "zero_refresh": {
+        "program": "target/debug/thunderbox",
+        "dashboard": stack_dashboard(None).replace('refresh = "1s"', 'refresh = "0s"'),
+        "file_name": "zero-refresh.toml",
+        "cols": 158,
+        "rows": 6,
+        "steps": [
+            (2.0, ""),  # The program stops by itself.
+        ],
+    },
 }
 
 
@@ -498,7 +541,7 @@ def stop_load(running):
         process.wait()
 
 
-def record(program, cols, rows, steps, out_path, workers=0, args=(), to_file=False):
+def record(program, cols, rows, steps, out_path, workers=0, args=(), to_file=False, cwd=None):
     """Runs the program in a pseudo-terminal and writes a cast file.
 
     The `workers` argument states how many programs give this machine work
@@ -510,6 +553,9 @@ def record(program, cols, rows, steps, out_path, workers=0, args=(), to_file=Fal
     The `to_file` argument sends the standard output of the program to a new
     temporary file. The function then returns the count of events and the size
     of that file in bytes. Otherwise the size is `None`.
+
+    The `cwd` argument names the directory where the program starts. The value
+    `None` keeps the directory of the recorder.
     """
     events = []
     load = start_load(workers) if workers else []
@@ -526,6 +572,8 @@ def record(program, cols, rows, steps, out_path, workers=0, args=(), to_file=Fal
     if pid == 0:
         if sink is not None:
             os.dup2(sink.fileno(), 1)
+        if cwd is not None:
+            os.chdir(cwd)
         os.environ["TERM"] = "xterm-256color"
         os.environ["COLUMNS"] = str(cols)
         os.environ["LINES"] = str(rows)
@@ -627,9 +675,18 @@ def main():
     # A scene that holds a dashboard of its own needs a file for it. The
     # program reads a path, and it reads no text on the standard input.
     dashboard = scene.get("dashboard")
+    file_name = scene.get("file_name")
+    cwd = None
     with contextlib.ExitStack() as stack:
         args = list(scene.get("args", []))
-        if dashboard is not None:
+        if dashboard is not None and file_name is not None:
+            # The program path is relative to the root of the workspace, and the
+            # program starts in another directory. The path must be absolute.
+            program = os.path.abspath(program)
+            cwd = stack.enter_context(tempfile.TemporaryDirectory())
+            (pathlib.Path(cwd) / file_name).write_text(dashboard, encoding="utf-8")
+            args.append(file_name)
+        elif dashboard is not None:
             handle = stack.enter_context(
                 tempfile.NamedTemporaryFile("w", suffix=".toml", delete=True)
             )
@@ -645,6 +702,7 @@ def main():
             workers,
             args,
             scene.get("output") == "file",
+            cwd,
         )
     print(f"The script wrote {count} events to {options.output}.")
     if size is not None:
