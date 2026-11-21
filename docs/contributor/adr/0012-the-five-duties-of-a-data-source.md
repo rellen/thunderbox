@@ -24,6 +24,9 @@ therefore read an old value from an answer in another order.
 number of rows from the time column. The chart then draws no line for that
 frame. The table draws the same frame, and it fills the short column with the
 symbol of a value that is not there.
+[ADR 0081](0081-the-runtime-returns-an-error-for-a-frame-of-two-lengths.md)
+states how the runtime now returns an error for such a frame, before a panel
+reads it.
 
 An await point is a place where an `async` function waits for another task. A
 caller stops a query at an await point. A data source that holds a thread of

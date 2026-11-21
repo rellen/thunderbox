@@ -147,6 +147,7 @@
   - [ADR 0078: A duration that saturates hides the mistake](contributor/adr/0078-a-duration-that-saturates-hides-the-mistake.md)
   - [ADR 0079: A key that clamps an end changes the width](contributor/adr/0079-a-key-that-clamps-an-end-changes-the-width.md)
   - [ADR 0080: A dashboard states a refresh above 0 and a known unit](contributor/adr/0080-a-dashboard-states-a-refresh-above-0-and-a-known-unit.md)
+  - [ADR 0081: The runtime returns an error for a frame of two lengths](contributor/adr/0081-the-runtime-returns-an-error-for-a-frame-of-two-lengths.md)
   - [ADR NNNN: The decision, as one sentence](contributor/adr/0000-template.md)
 - [Make the pictures again](contributor/pictures.md)
 - [Libraries that this project examined](contributor/research.md)

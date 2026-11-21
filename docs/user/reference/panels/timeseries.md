@@ -25,8 +25,12 @@ A data source answers a query with frames. A frame is a table of columns, and
 each column holds one value for each row.
 
 - A frame must hold one time column, and one column of numbers or more.
-- Each column of numbers must hold the same number of rows as the time column.
-- The panel ignores a frame of another shape, and it reports no error for it.
+- Each column of one frame must hold the same number of rows. A frame of two
+  lengths gives the panel an error. The page
+  [Data sources](../data-sources/README.md#columns-of-one-frame) gives the
+  text of that error.
+- The panel ignores a frame that holds no time column, or no column of numbers.
+  It reports no error for such a frame.
 - Each column of numbers is one series.
 - The panel draws no point for a hole in the data. It also draws no point for a
   value that is not finite. It draws no zero in the place of either.

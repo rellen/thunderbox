@@ -166,6 +166,9 @@ the other pieces of work. A fault stays inside the task of its panel:
   other panel keeps its answer.
 - A data source that does not answer in time gives its panel an error. That
   error names the data source and the wait.
+- A data source that answers a frame of two lengths gives its panel an error. A
+  frame of two lengths holds columns with different numbers of rows. That error
+  names the data source and the two lengths.
 - A panic is a stop of the code on a fault that the code did not expect. A data
   source that panics gives its own panel an error as well.
 

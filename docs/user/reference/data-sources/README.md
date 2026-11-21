@@ -84,6 +84,23 @@ The data source "NAME" did not answer in 60 seconds.
 thunderbox runs the panels of one set of queries at the same time. One data
 source that does not answer therefore stops no other panel.
 
+### Columns of one frame
+
+Each column of one frame must hold the same number of rows. thunderbox checks
+every column of each frame before a panel draws the answer. A frame of two
+lengths holds columns with different numbers of rows, and it gives its panel
+this error:
+
+```
+The data source "NAME" answered a frame with a column of SHORT rows and a column of LONG rows. Each column of one frame must hold the same number of rows.
+```
+
+Every type of panel draws that error, and the status row counts it. The three
+data sources of this project never answer such a frame.
+
+A program that gives frames to a panel directly, with no dashboard, meets no
+such check. A chart then draws `no data` for a frame of two lengths.
+
 ### Choices of a variable
 
 A variable that states a `query` takes its choices from a data source. Only a
@@ -107,3 +124,5 @@ states the rule.
   states why a feature holds a data source.
 - [Architecture decision record 0012](../../../contributor/adr/0012-the-five-duties-of-a-data-source.md)
   states the five duties of a data source.
+- [Architecture decision record 0081](../../../contributor/adr/0081-the-runtime-returns-an-error-for-a-frame-of-two-lengths.md)
+  states why a frame of two lengths gives its panel an error.

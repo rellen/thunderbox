@@ -32,15 +32,25 @@
 //! three data sources of this repository answer in order, so no test of this
 //! repository holds this duty.
 //!
-//! The fifth duty holds because two panels read a frame of two lengths in two
-//! ways. `Frame::time_series` returns an error for such a frame, and both
-//! callers of that method drop the error. A chart therefore draws nothing, and
-//! a table draws the same frame with an empty cell. A person then reads two
-//! panels that disagree, and no error and no message names the cause.
-//! `Frame::time_series` compares each number column against the time column. It
-//! does not compare a column of text, or a column of true and false values. The
-//! duty covers those columns too, because the table panel draws every column,
-//! and `Frame::len` takes the length of the longest column.
+//! The fifth duty holds because each panel reads a frame of two lengths in its
+//! own way. A frame of two lengths holds columns with different numbers of
+//! rows. A chart draws `no data` for such a frame. A stat panel, a gauge panel
+//! and a bar gauge panel read the column of numbers alone, and each one draws
+//! a value. A table draws the symbol of a value that is not there in each cell
+//! of the short column.
+//!
+//! The runtime of `thunderbox-dashboard` therefore checks each frame of each
+//! answer. It reads every column: the time column, each column of numbers,
+//! each column of text, and each column of true and false values. A frame of
+//! two lengths gives the panel an error, and every panel draws that error. The
+//! error names the data source, the length of the shortest column, and the
+//! length of the longest column. ADR 0081 in `docs/contributor/adr` states the
+//! reason.
+//!
+//! A program that gives frames to a panel of `thunderbox-widgets` directly
+//! meets no such check. Each panel then reads a frame of two lengths in its
+//! own way, and a chart draws `no data`. Such a program keeps the fifth duty
+//! itself.
 //!
 //! The third duty belongs to the data source, because the caller cannot always
 //! keep it. A caller stops a query at an await point. A data source that holds
