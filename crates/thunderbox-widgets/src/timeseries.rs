@@ -1,5 +1,7 @@
 //! The panel that draws values against time.
 
+use std::ops::Range;
+
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;
 use ratatui_core::style::Style;
@@ -198,16 +200,26 @@ struct Plot {
     decimals: Option<u8>,
 }
 
+/// One series of the chart.
 struct Series {
     name: String,
+    /// Each point of the series that holds a value, in the order of the column.
     points: Vec<(f64, f64)>,
+    /// The runs of the series. Each run is a range of `points`.
+    runs: Vec<Range<usize>>,
 }
 
 /// Reads the frames and returns the points to draw.
 ///
-/// The function removes a hole in the data. It does not replace a hole with a
-/// zero. A break in the line therefore shows the hole. A reader never sees a
-/// hole as a fall to the bottom of the chart.
+/// A hole is a value of `None`, or a value that is not finite. The function
+/// removes each hole, and it does not replace a hole with a zero. It cuts each
+/// series at its holes. A run is the stretch of points between two holes. The
+/// panel draws each run as a line of its own, so the line stops at each hole.
+/// A reader therefore sees no line across a hole, and no fall to the bottom of
+/// the chart.
+///
+/// A gap in time between two values is not a hole. The line joins those two
+/// values. ADR 0069 in `docs/contributor/adr` states the reason.
 ///
 /// The function returns `None` if the frames hold no value to draw.
 fn collect(frames: &[Frame]) -> Option<Plot> {
@@ -234,12 +246,18 @@ fn collect(frames: &[Frame]) -> Option<Plot> {
             }
             let values = field.values.as_f64().unwrap_or(&[]);
             let mut points = Vec::with_capacity(values.len());
+            let mut runs = Vec::new();
+            let mut start = 0;
             for (t, v) in stamps.iter().zip(values) {
-                let Some(v) = v else { continue };
-                if !v.is_finite() {
+                let Some(v) = v.filter(|v| v.is_finite()) else {
+                    // A hole ends the run that comes before it.
+                    if points.len() > start {
+                        runs.push(start..points.len());
+                    }
+                    start = points.len();
                     continue;
-                }
-                let (tf, vf) = (*t as f64, *v);
+                };
+                let (tf, vf) = (*t as f64, v);
                 x = Some(match x {
                     None => (tf, tf),
                     Some((lo, hi)) => (lo.min(tf), hi.max(tf)),
@@ -250,6 +268,9 @@ fn collect(frames: &[Frame]) -> Option<Plot> {
                 });
                 points.push((tf, vf));
             }
+            if points.len() > start {
+                runs.push(start..points.len());
+            }
             if !points.is_empty() {
                 if series.is_empty() {
                     unit = field.config.unit.clone();
@@ -258,6 +279,7 @@ fn collect(frames: &[Frame]) -> Option<Plot> {
                 series.push(Series {
                     name: field.display_name(),
                     points,
+                    runs,
                 });
             }
         }
@@ -439,23 +461,32 @@ impl Widget for &TimeSeriesPanel<'_> {
             return render_message(block, NO_DATA, self.theme.muted, area, buf);
         };
 
+        // ratatui joins each point of a dataset to the next point. Each run of a
+        // series therefore takes a dataset of its own, and no line crosses a
+        // hole. A dataset of one point still draws that point.
+        let floor = plot.y_bounds[0];
         let datasets: Vec<Dataset<'_>> = plot
             .series
             .iter()
             .enumerate()
-            .map(|(i, s)| {
+            .flat_map(|(i, s)| {
                 let color = self.theme.series_color(i);
-                let ds = Dataset::default()
-                    .name(s.name.clone())
-                    .data(&s.points)
-                    .marker(self.marker.into())
-                    .style(Style::default().fg(color));
-                if self.filled {
-                    // Fill the area down to the bottom of the axis.
-                    ds.graph_type(GraphType::Area).fill_to_y(plot.y_bounds[0])
-                } else {
-                    ds.graph_type(GraphType::Line)
-                }
+                s.runs.iter().enumerate().map(move |(r, run)| {
+                    let ds = Dataset::default()
+                        .data(&s.points[run.clone()])
+                        .marker(self.marker.into())
+                        .style(Style::default().fg(color));
+                    // The legend lists each dataset that holds a name. The
+                    // first run alone takes the name, so the legend lists each
+                    // series once.
+                    let ds = if r == 0 { ds.name(s.name.clone()) } else { ds };
+                    if self.filled {
+                        // Fill the area down to the bottom of the axis.
+                        ds.graph_type(GraphType::Area).fill_to_y(floor)
+                    } else {
+                        ds.graph_type(GraphType::Line)
+                    }
+                })
             })
             .collect();
 
@@ -614,6 +645,139 @@ mod tests {
         );
     }
 
+    /// Returns 10 points at 80, then 10 holes, then 10 points at 20.
+    fn series_with_a_hole() -> Vec<Option<f64>> {
+        let mut values = vec![Some(80.0); 10];
+        values.extend([None; 10]);
+        values.extend([Some(20.0); 10]);
+        values
+    }
+
+    /// Returns the place of the corner where the two axes meet.
+    fn corner(buf: &Buffer) -> (u16, u16) {
+        (0..buf.area.height)
+            .flat_map(|y| (0..buf.area.width).map(move |x| (x, y)))
+            .find(|&(x, y)| buf[(x, y)].symbol() == "└")
+            .expect("The panel must draw the two axes.")
+    }
+
+    /// Returns the number of columns inside the axes that hold no mark.
+    ///
+    /// The columns run from the axis of values to the right border. The rows
+    /// run from the top border to the axis of time.
+    fn empty_columns(buf: &Buffer) -> usize {
+        let (axis_x, axis_y) = corner(buf);
+        let right = buf.area.width - 1;
+        (axis_x + 1..right)
+            .filter(|&x| (1..axis_y).all(|y| buf[(x, y)].symbol() == " "))
+            .count()
+    }
+
+    /// Returns the number of cells of one row inside the axes that hold a mark.
+    fn marks_in_row(buf: &Buffer, y: u16) -> usize {
+        let (axis_x, _) = corner(buf);
+        let right = buf.area.width - 1;
+        (axis_x + 1..right)
+            .filter(|&x| buf[(x, y)].symbol() != " ")
+            .count()
+    }
+
+    #[test]
+    fn a_line_chart_leaves_the_columns_over_a_hole_empty() {
+        let f = frames(series_with_a_hole());
+        let theme = Theme::default();
+        let p = TimeSeriesPanel::new("CPU", PanelData::Frames(&f), &theme).filled(false);
+        let buf = render(&p, 62, 12);
+        let empty = empty_columns(&buf);
+        assert!(
+            empty >= 12,
+            "The line must stop at the hole. {empty} columns are empty.\n{}",
+            text(&buf)
+        );
+    }
+
+    #[test]
+    fn a_filled_chart_leaves_the_columns_over_a_hole_empty() {
+        let f = frames(series_with_a_hole());
+        let theme = Theme::default();
+        let p = TimeSeriesPanel::new("CPU", PanelData::Frames(&f), &theme).filled(true);
+        let buf = render(&p, 62, 12);
+        let empty = empty_columns(&buf);
+        assert!(
+            empty >= 12,
+            "The fill must stop at the hole. {empty} columns are empty.\n{}",
+            text(&buf)
+        );
+    }
+
+    /// The single point sits at 80, and every other point sits at 20. The
+    /// point at 80 is therefore the one mark in the top row of the chart.
+    #[test]
+    fn a_run_of_one_point_between_two_holes_draws_a_cell() {
+        let mut values = vec![Some(20.0); 5];
+        values.extend([None; 5]);
+        values.push(Some(80.0));
+        values.extend([None; 5]);
+        values.extend([Some(20.0); 5]);
+        let f = frames(values);
+        let theme = Theme::default();
+        for filled in [false, true] {
+            let p = TimeSeriesPanel::new("CPU", PanelData::Frames(&f), &theme).filled(filled);
+            let buf = render(&p, 62, 12);
+            assert!(
+                marks_in_row(&buf, 1) >= 1,
+                "A run of one point must stay on the screen.\n{}",
+                text(&buf)
+            );
+        }
+    }
+
+    #[test]
+    fn the_legend_lists_each_series_once_when_each_series_holds_a_hole() {
+        let stamps: Vec<i64> = (0..30).map(|i| i * 1000).collect();
+        let high = series_with_a_hole();
+        let low: Vec<Option<f64>> = high.iter().map(|v| v.map(|v| v / 2.0)).collect();
+        let f = vec![Frame::named(
+            "cpu",
+            vec![
+                Field::time("time", stamps),
+                Field::f64("alpha", high),
+                Field::f64("beta", low),
+            ],
+        )];
+        let theme = Theme::default();
+        let p = TimeSeriesPanel::new("CPU", PanelData::Frames(&f), &theme);
+        let out = text(&render(&p, 80, 24));
+        for name in ["alpha", "beta"] {
+            assert_eq!(
+                out.matches(name).count(),
+                1,
+                "The legend must list {name} once.\n{out}"
+            );
+        }
+    }
+
+    /// A gap in time between two values is not a hole. The line therefore
+    /// joins the values at 2 seconds and at 10 seconds.
+    #[test]
+    fn a_line_chart_joins_two_values_with_a_gap_in_time_between_them() {
+        let stamps = vec![0, 1_000, 2_000, 10_000, 11_000, 12_000];
+        let values = [30.0, 40.0, 50.0, 60.0, 70.0, 80.0].map(Some).to_vec();
+        let f = vec![Frame::named(
+            "cpu",
+            vec![Field::time("time", stamps), Field::f64("usage", values)],
+        )];
+        let theme = Theme::default();
+        let p = TimeSeriesPanel::new("CPU", PanelData::Frames(&f), &theme).filled(false);
+        let buf = render(&p, 62, 12);
+        assert_eq!(
+            empty_columns(&buf),
+            0,
+            "The line must cross the gap in time.\n{}",
+            text(&buf)
+        );
+    }
+
     #[test]
     fn collect_removes_a_hole_and_keeps_the_floor_above_zero() {
         let f = frames(vec![Some(80.0), None, Some(80.0)]);
@@ -652,6 +816,95 @@ mod tests {
         let f = frames(vec![Some(1.0), Some(f64::NAN), Some(2.0)]);
         let plot = collect(&f).expect("The frames must hold data.");
         assert_eq!(plot.series[0].points.len(), 2);
+    }
+
+    /// Returns the time of each point of each run of the first series, in
+    /// seconds. The helper `frames` puts one value at each second.
+    ///
+    /// The function returns `None` when `collect` finds no value to draw.
+    fn run_seconds(values: Vec<Option<f64>>) -> Option<Vec<Vec<i64>>> {
+        let plot = collect(&frames(values))?;
+        let series = &plot.series[0];
+        let runs = series
+            .runs
+            .iter()
+            .map(|run| {
+                series.points[run.clone()]
+                    .iter()
+                    .map(|(t, _)| (*t / 1000.0) as i64)
+                    .collect()
+            })
+            .collect();
+        Some(runs)
+    }
+
+    #[test]
+    fn collect_cuts_a_series_at_a_hole_at_the_start_in_the_middle_and_at_the_end() {
+        assert_eq!(
+            run_seconds(vec![None, Some(1.0), Some(2.0)]),
+            Some(vec![vec![1, 2]])
+        );
+        assert_eq!(
+            run_seconds(vec![Some(0.0), None, Some(2.0)]),
+            Some(vec![vec![0], vec![2]])
+        );
+        assert_eq!(
+            run_seconds(vec![Some(0.0), Some(1.0), None]),
+            Some(vec![vec![0, 1]])
+        );
+    }
+
+    #[test]
+    fn collect_makes_one_cut_for_two_holes_next_to_each_other() {
+        assert_eq!(
+            run_seconds(vec![Some(0.0), None, None, Some(3.0)]),
+            Some(vec![vec![0], vec![3]])
+        );
+    }
+
+    #[test]
+    fn collect_keeps_a_run_of_one_point_between_two_holes() {
+        assert_eq!(
+            run_seconds(vec![Some(0.0), None, Some(2.0), None, Some(4.0)]),
+            Some(vec![vec![0], vec![2], vec![4]])
+        );
+    }
+
+    #[test]
+    fn collect_finds_no_value_in_a_series_of_holes_alone() {
+        assert_eq!(run_seconds(vec![None, None, None]), None);
+        assert_eq!(run_seconds(vec![Some(f64::NAN), None]), None);
+    }
+
+    #[test]
+    fn collect_cuts_a_series_at_each_value_that_is_not_finite() {
+        let values = vec![
+            Some(0.0),
+            Some(f64::NAN),
+            Some(2.0),
+            Some(f64::INFINITY),
+            Some(4.0),
+            Some(f64::NEG_INFINITY),
+            Some(6.0),
+        ];
+        assert_eq!(
+            run_seconds(values),
+            Some(vec![vec![0], vec![2], vec![4], vec![6]])
+        );
+    }
+
+    /// A gap in time between two values is not a hole, so the series holds one
+    /// run.
+    #[test]
+    fn collect_keeps_a_gap_in_time_inside_one_run() {
+        let stamps = vec![0, 1_000, 10_000];
+        let values = vec![Some(1.0), Some(2.0), Some(3.0)];
+        let f = vec![Frame::named(
+            "cpu",
+            vec![Field::time("time", stamps), Field::f64("usage", values)],
+        )];
+        let plot = collect(&f).expect("The frames must hold data.");
+        assert_eq!(plot.series[0].runs, vec![0..3]);
     }
 
     #[test]

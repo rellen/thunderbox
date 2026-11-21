@@ -160,7 +160,7 @@ such part a sub-cell.
 | `Block` | 1 across, 1 down | For a plain terminal. |
 
 A gradient of colour along a chart is work for later. A `Dataset` of ratatui
-holds one style for a whole series, so a point cannot take a colour of its own.
+holds one style for all of its points, so a point cannot take a colour of its own.
 Two methods give that result: a `Canvas` with one batch of points for each band
 of colour, or a change of the colour of each cell after the chart draws.
 
@@ -303,7 +303,7 @@ documents of each feature that exists.
 |---|---|---|
 | the dashboard file | [reference](../user/reference/dashboard-file.md), [tutorial](../user/tutorials/write-your-first-dashboard.md) | 0014, 0041 |
 | the program that runs alone | [tutorial](../user/tutorials/watch-this-machine.md), [reference](../user/reference/command-line.md) | 0010 |
-| the time series panel | [reference](../user/reference/panels/timeseries.md) | 0007, 0008, 0036 |
+| the time series panel | [reference](../user/reference/panels/timeseries.md) | 0007, 0008, 0036, 0069 |
 | the stat panel, the gauge panel, the bar gauge panel | [stat](../user/reference/panels/stat.md), [gauge](../user/reference/panels/gauge.md), [bar gauge](../user/reference/panels/bargauge.md) | 0007, 0065 |
 | the table panel | [reference](../user/reference/panels/table.md) | 0007, 0065 |
 | the top panel | [how-to](../user/how-to/show-the-busiest-processes.md), [reference](../user/reference/panels/top.md) | 0046, 0047, 0048, 0049, 0063, 0065 |

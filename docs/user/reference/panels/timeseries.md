@@ -30,6 +30,11 @@ each column holds one value for each row.
 - Each column of numbers is one series.
 - The panel draws no point for a hole in the data. It also draws no point for a
   value that is not finite. It draws no zero in the place of either.
+- The line stops at each hole, and it starts again after the hole. The columns
+  over a hole stay empty. A filled chart fills no column over a hole.
+- A single value between two holes draws one point.
+- A gap in time between two values is not a hole. The line joins those two
+  values. A data source that holds no value for a moment sends a hole for it.
 
 ## What the panel draws
 
@@ -126,3 +131,5 @@ The legend names each series. The page
   states why each label names its distance from the present moment.
 - [Architecture decision record 0039](../../../contributor/adr/0039-a-stack-of-charts-can-share-one-width.md)
   states why a stack of charts can share one width.
+- [Architecture decision record 0069](../../../contributor/adr/0069-a-chart-cuts-its-line-at-each-hole.md)
+  states why the line stops at each hole.
