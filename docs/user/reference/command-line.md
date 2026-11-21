@@ -66,6 +66,12 @@ the cursor of a terminal or changes a colour.
 
 The lines after the words `Caused by:` state the reason.
 
+A person who sends the standard output to a file sees this message on the
+terminal. The error output still reaches the terminal, and the program draws no
+dashboard:
+
+![The terminal holds one line: `Error: The program draws a dashboard only on a terminal. The standard output of the program is not a terminal.` The program draws no dashboard.](../../media/not_a_terminal.gif)
+
 ## The keys
 
 The program reads a key when a person presses it. Two parts of the code bind the

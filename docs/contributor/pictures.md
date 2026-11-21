@@ -46,10 +46,16 @@ picture of that scene in place of `docs/media/demo.gif`.
 | `variables` | The row of the variables, and the panels that a choice changes. | [Let a person select a value](../user/how-to/let-a-person-select-a-value.md) |
 | `too_small` | A terminal that is too small for one panel of its dashboard. | [Read a dashboard on a small terminal](../user/how-to/read-a-dashboard-on-a-small-terminal.md) |
 | `rows` | The row panels, which collapse and expand. | [Group panels under row panels](../user/how-to/group-panels-under-row-panels.md) |
+| `not_a_terminal` | The program with its standard output sent to a file. The program writes one message, and it draws no dashboard. | [The command line](../user/reference/command-line.md) |
 
 The two scenes of the stack hold a dashboard of their own. The script writes
 that dashboard to a file, and it gives the path of that file to the program.
 The two dashboards differ in one line, which is the line that states the rule.
+
+The scene `not_a_terminal` holds the key `output` with the value `file`. The
+script then sends the standard output of the program to a temporary file, and
+the program keeps the pseudo-terminal for its error output. The script prints
+the size of that file, and it returns 1 when the size is not 0.
 
 ## The rules of a picture
 
