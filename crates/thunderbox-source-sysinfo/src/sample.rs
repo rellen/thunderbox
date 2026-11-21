@@ -264,7 +264,7 @@ impl Sampler {
         }
 
         if let (Some(last), Some(last_at)) = (self.last, self.last_at) {
-            let seconds = (at - last_at) as f64 / 1000.0;
+            let seconds = at.saturating_sub(last_at) as f64 / 1000.0;
             if seconds > 0.0 {
                 let rx = totals.received.saturating_sub(last.received) as f64 / seconds;
                 let tx = totals.transmitted.saturating_sub(last.transmitted) as f64 / seconds;
@@ -347,5 +347,16 @@ mod tests {
             Some("cpu.core.spare"),
             "A name that holds no position must come last. {names:?}"
         );
+    }
+
+    /// The moment of a sample comes from the request, so it can be any number.
+    #[test]
+    fn sample_does_not_panic_for_moments_at_the_limits_of_the_number() {
+        let mut sampler = Sampler::new();
+        let mut history = History::new();
+        for at in [i64::MAX, i64::MIN, i64::MAX, 0, i64::MIN] {
+            sampler.sample(&mut history, at);
+        }
+        assert_eq!(history.range("cpu", i64::MIN, i64::MAX, 100).len(), 5);
     }
 }

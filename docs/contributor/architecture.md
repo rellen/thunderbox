@@ -219,7 +219,7 @@ each group:
 
 | group | function | record |
 |---|---|---|
-| the time range | `time_key` | [0035](adr/0035-the-program-binds-each-key-of-the-time-range.md) |
+| the time range | `time_key` | [0035](adr/0035-the-program-binds-each-key-of-the-time-range.md), [0076](adr/0076-a-key-that-would-pass-the-limit-leaves-the-range-as-it-was.md) |
 | a variable | `variable_key` | [0043](adr/0043-the-program-binds-each-key-of-a-variable.md) |
 | a row panel | `row_key` | [0054](adr/0054-the-program-binds-enter-and-space.md) |
 
@@ -271,7 +271,6 @@ Each record of the status Proposed holds one question:
 [0058](adr/0058-the-public-interface-holds-ratatui-core.md),
 [0059](adr/0059-version-1-may-need-no-server.md),
 [0060](adr/0060-a-height-that-uncovers-a-panel-asks-every-panel.md),
-[0061](adr/0061-a-duration-that-does-not-fit-ends-the-program.md),
 [0062](adr/0062-downsamples-promises-a-step-that-no-code-takes.md),
 [0063](adr/0063-a-narrow-top-panel-drops-the-sort-column.md), and
 [0064](adr/0064-plain-http-needs-no-ca-file.md).
@@ -301,14 +300,14 @@ documents of each feature that exists.
 
 | feature | user documents | records |
 |---|---|---|
-| the dashboard file | [reference](../user/reference/dashboard-file.md), [tutorial](../user/tutorials/write-your-first-dashboard.md) | 0014, 0041 |
+| the dashboard file | [reference](../user/reference/dashboard-file.md), [tutorial](../user/tutorials/write-your-first-dashboard.md) | 0014, 0041, 0073, 0074 |
 | the program that runs alone | [tutorial](../user/tutorials/watch-this-machine.md), [reference](../user/reference/command-line.md) | 0010, 0071, 0072 |
 | the time series panel | [reference](../user/reference/panels/timeseries.md) | 0007, 0008, 0036, 0069 |
 | the stat panel, the gauge panel, the bar gauge panel | [stat](../user/reference/panels/stat.md), [gauge](../user/reference/panels/gauge.md), [bar gauge](../user/reference/panels/bargauge.md) | 0007, 0065 |
 | the table panel | [reference](../user/reference/panels/table.md) | 0007, 0065 |
 | the top panel | [how-to](../user/how-to/show-the-busiest-processes.md), [reference](../user/reference/panels/top.md) | 0046, 0047, 0048, 0049, 0063, 0065 |
 | the row panels | [how-to](../user/how-to/group-panels-under-row-panels.md), [reference](../user/reference/panels/row.md), [explanation](../user/explanation/row-panels-and-the-place-of-a-panel.md) | 0050, 0051, 0052, 0053, 0054 |
-| the time range | [how-to](../user/how-to/show-an-earlier-window.md), [reference](../user/reference/time-ranges.md), [explanation](../user/explanation/the-time-range-and-the-window.md) | 0035, 0036, 0037, 0038 |
+| the time range | [how-to](../user/how-to/show-an-earlier-window.md), [reference](../user/reference/time-ranges.md), [explanation](../user/explanation/the-time-range-and-the-window.md) | 0035, 0036, 0037, 0038, 0073, 0074, 0075, 0076, 0077 |
 | the variables | [how-to](../user/how-to/let-a-person-select-a-value.md), [reference](../user/reference/variables.md) | 0040, 0041, 0042, 0043, 0044 |
 | the legend pattern | [how-to](../user/how-to/name-each-series.md), [reference](../user/reference/legend-patterns.md) | 0017 |
 | the thresholds and the units | [how-to](../user/how-to/colour-a-value-that-reaches-a-bound.md), [reference](../user/reference/numbers-and-units.md) | 0007 |
@@ -316,7 +315,7 @@ documents of each feature that exists.
 | the marker | [how-to](../user/how-to/change-the-glyph-of-a-chart.md) | 0009 |
 | a terminal that is too small | [how-to](../user/how-to/read-a-dashboard-on-a-small-terminal.md), [explanation](../user/explanation/panels-that-the-terminal-cannot-hold.md) | 0024, 0027, 0031, 0060 |
 | the data source sysinfo | [reference](../user/reference/data-sources/sysinfo.md) | 0038, 0047, 0048 |
-| the data source prometheus | [tutorial](../user/tutorials/read-a-prometheus-server.md), [how-to](../user/how-to/give-the-prometheus-source-a-ca-file.md), [reference](../user/reference/data-sources/prometheus.md) | 0009, 0033, 0064 |
+| the data source prometheus | [tutorial](../user/tutorials/read-a-prometheus-server.md), [how-to](../user/how-to/give-the-prometheus-source-a-ca-file.md), [reference](../user/reference/data-sources/prometheus.md) | 0009, 0033, 0064, 0073 |
 | the data source testdata | [reference](../user/reference/data-sources/testdata.md) | 0010 |
 | more than one data source | [how-to](../user/how-to/show-two-data-sources-on-one-dashboard.md) | 0034 |
 | one panel inside another program | [tutorial](../user/tutorials/put-a-panel-inside-your-program.md), [reference](../user/reference/crates.md) | 0004, 0015, 0070 |

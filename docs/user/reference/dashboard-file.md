@@ -71,7 +71,7 @@ the field.
 | field | type | default | what it states |
 |---|---|---|---|
 | `title` | text | required | The name of the dashboard. The name must hold a character that is not a space. |
-| `refresh` | duration | none | The time between two sets of queries. |
+| `refresh` | duration | none | The time between two sets of queries. The duration cannot be larger than 9223372036854775807 milliseconds. |
 | `align` | text | `"none"` | The rule that gives one width to the charts of a stack. |
 | `[time]` | table | the last 5 minutes | The time range that every panel shares. |
 | `[source.NAME]` | table | none | One data source. The file holds one such table for each data source. |
@@ -83,6 +83,9 @@ the field.
 - thunderbox starts a new set of queries each time the duration passes.
 - thunderbox starts no new set of queries while a set of queries still waits
   for an answer.
+- The program returns an error for a duration that is larger than
+  9223372036854775807 milliseconds. It writes the error before it opens the
+  terminal.
 - thunderbox starts no set of queries at a regular interval for a dashboard
   that states no `refresh`. The value `"0s"` has the same effect.
 - For such a dashboard, thunderbox starts a set of queries when the program
@@ -116,6 +119,19 @@ uses this rule.
 
 The program ignores any other field of this table. The page
 [Time ranges](time-ranges.md) states the form of a moment.
+
+An offset of a moment holds a whole number and a unit. The duration of that
+offset cannot be larger than 9223372036854775807 milliseconds.
+
+The width of the time range must keep two limits:
+
+- The width cannot be smaller than 1 second.
+- The width cannot be larger than 3650 days.
+
+The program returns an error for a file that does not keep a limit. It writes
+the error before it opens the terminal. The section
+[Second step](#second-step-dashboardvalidate) holds the texts of these errors.
+The page [Time ranges](time-ranges.md#limits-of-the-width) states each limit.
 
 ### Table `[source.NAME]`
 
@@ -245,6 +261,8 @@ The program rejects each of these faults:
 - the field `kind` of a panel, the field `align`, or the field `reduce` holds
   a value that is not in its list;
 - a moment of the table `[time]` has a form that the program cannot read;
+- an offset of a moment of the table `[time]` holds a duration that does not
+  fit;
 - the file holds a field that the program does not know. The next list names
   the places where the program makes this check.
 
@@ -260,6 +278,14 @@ The program rejects a field that it does not know in each of these places:
 The program ignores a field that it does not know in the table `[time]`. It
 also ignores such a field in the `query` table of a variable.
 
+The reason of a duration that does not fit has this form. The program writes
+it inside the report of the TOML reader, which names the line and the column of
+the field:
+
+```
+The time value "20000000000w" is not correct. A duration cannot be larger than 9223372036854775807 milliseconds.
+```
+
 ### Second step: `Dashboard::validate`
 
 The reason of a fault of this step starts with `The dashboard is not correct.`
@@ -267,12 +293,19 @@ The fault of the field `refresh` is the one exception. Its reason starts with
 `The time value`.
 
 In the texts below, `NAME`, `ROW`, `SOURCE`, and the other capital words stand
-for a value of the file.
+for a value of the file. `FIELD` is `from` or `to`.
+
+The program writes a moment in the largest unit that divides it exactly. A file
+that holds `from = "now-300s"` therefore shows `now-5m` in the texts about the
+table `[time]`. Both texts name the same moment.
 
 | fault | the text of the error |
 |---|---|
 | The title is empty, or it holds spaces alone. | `title must not be empty` |
-| The field `refresh` has a form that the program cannot read. | `The time value "TEXT" is not correct.` and the reason |
+| The field `refresh` has a form that the program cannot read, or it holds a duration that does not fit. | `The time value "TEXT" is not correct.` and the reason |
+| The sum of the present moment and an offset of the table `[time]` does not fit in a count of milliseconds. | `` The `[time]` table holds a `FIELD` field of VALUE. The sum of the present moment and that value does not fit in a count of milliseconds. `` |
+| The time range of the table `[time]` is wider than 3650 days. | `` The `[time]` table holds a `from` field of FROM and a `to` field of TO. That range is wider than 3650 days. `` |
+| The time range of the table `[time]` is narrower than 1 second. | `` The `[time]` table holds a `from` field of FROM and a `to` field of TO. That range is narrower than 1000 milliseconds. `` |
 | A panel has a width or a height of 0. | `panel "NAME" has zero extent` |
 | A panel reaches past the right edge of the grid. | `panel "NAME" spans past the 24-column grid (x=X w=W)` |
 | A panel states a `min` that is not smaller than its `max`. | `panel "NAME" has min MIN and max MAX; min must be smaller than max` |
@@ -308,8 +341,8 @@ of this step. The program rejects each of these faults:
 - an option holds a value that its data source cannot read.
 
 The reason of a fault of this step starts with `The dashboard is not correct.`
-A duration of the wrong form is the one exception. Its reason starts with
-`The time value`.
+Two faults are the exception. They are a duration of the wrong form, and a
+duration that does not fit. The reason of each starts with `The time value`.
 
 The page [The data sources](data-sources/README.md) lists the options of each
 kind, and the text of each error.
@@ -322,5 +355,9 @@ kind, and the text of each error.
   states why the field of a panel replaces the value of the column.
 - [Architecture decision record 0041](../../contributor/adr/0041-validate-reports-the-fault-of-a-variable.md)
   states why the program checks each variable.
+- [Architecture decision record 0073](../../contributor/adr/0073-a-duration-that-does-not-fit-returns-an-error.md)
+  states why a duration that does not fit returns an error.
+- [Architecture decision record 0074](../../contributor/adr/0074-validate-checks-the-time-range.md)
+  states why the program checks the width of the time range.
 - [Row panels and the place of a panel](../explanation/row-panels-and-the-place-of-a-panel.md)
   explains why no panel crosses the line of a row panel.

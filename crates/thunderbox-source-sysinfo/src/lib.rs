@@ -283,6 +283,31 @@ mod tests {
             .collect()
     }
 
+    /// The fields of a request are public, so a caller can state any number.
+    /// The data source must answer, and it must not panic.
+    #[test]
+    fn a_request_at_the_limits_of_the_number_gets_an_answer() {
+        let source = SysinfoSource::new();
+        for expr in ["cpu", "memory", "network.rx", PROCESSES] {
+            for now in [i64::MAX, i64::MIN, 0] {
+                for (from, to) in [(i64::MIN, i64::MAX), (i64::MAX, i64::MIN), (0, 0)] {
+                    let request = QueryRequest {
+                        query: Query {
+                            source: "machine".into(),
+                            expr: expr.into(),
+                        },
+                        from,
+                        to,
+                        now,
+                        step_ms: i64::MAX,
+                        max_data_points: u32::MAX,
+                    };
+                    block_on(source.query(request)).expect("The query must answer.");
+                }
+            }
+        }
+    }
+
     /// A person can move the range one hour into the past. A new sample must
     /// still carry the moment when the machine produced it. The store would
     /// otherwise hold its samples out of order, and a chart would draw a line

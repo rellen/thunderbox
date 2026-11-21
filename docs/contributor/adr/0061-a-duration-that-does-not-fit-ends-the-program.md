@@ -2,7 +2,7 @@
 
 | field | value |
 |---|---|
-| Status | Proposed |
+| Status | Superseded by [ADR 0073](0073-a-duration-that-does-not-fit-returns-an-error.md) |
 | Recorded | 2026-11-20 |
 | Source | `docs/ARCHITECTURE.md` section 13 item 6 |
 | Code | `crates/thunderbox-core/src/time.rs`, `crates/thunderbox-core/src/dashboard.rs`, `crates/thunderbox/src/main.rs` |

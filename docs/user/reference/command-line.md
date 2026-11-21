@@ -161,6 +161,9 @@ describes each glyph.
   [Time ranges](time-ranges.md#limits-of-the-width) states these limits.
 - A key that asks for the time range that the dashboard already shows does
   nothing. The key `Right` on a time range that follows the clock is an example.
+- A key that would carry an end past the largest or the smallest count of
+  milliseconds leaves the time range as it was. It does nothing, in the same
+  way.
 - A key that changes the time range returns every panel to `loading…`. It also
   starts a new set of queries.
 

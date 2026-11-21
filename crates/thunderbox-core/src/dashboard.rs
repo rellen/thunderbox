@@ -74,6 +74,11 @@ impl Dashboard {
     ///
     /// - the title is empty;
     /// - the refresh duration has a form that this crate cannot read;
+    /// - the refresh duration does not fit in a count of milliseconds;
+    /// - an end of the `[time]` table is an offset whose sum with the present
+    ///   moment does not fit in a count of milliseconds;
+    /// - the time range is wider than [`crate::MAX_SPAN_MS`];
+    /// - the time range is narrower than [`crate::MIN_SPAN_MS`];
     /// - a panel has a width or a height of 0;
     /// - a panel reaches past the right edge of the grid;
     /// - a panel sets a `min` that is not smaller than its `max`;
@@ -109,6 +114,7 @@ impl Dashboard {
         if let Some(r) = &self.refresh {
             crate::time::parse_duration_ms(r)?;
         }
+        self.time.validate(crate::time::now_ms())?;
         let names = self.validate_variables()?;
         self.validate_rows()?;
         for panel in &self.panels {
@@ -966,6 +972,58 @@ expr = "q"
     #[test]
     fn validate_returns_an_error_for_a_wrong_refresh_duration() {
         assert!(Dashboard::from_toml("title = \"x\"\nrefresh = \"soon\"").is_err());
+    }
+
+    /// Returns the text of a dashboard that holds the given `from` value in
+    /// the `[time]` table.
+    fn dashboard_with_from(from: &str) -> String {
+        format!("title = \"x\"\n[time]\nfrom = \"{from}\"\n")
+    }
+
+    #[test]
+    fn validate_returns_an_error_for_a_refresh_duration_that_does_not_fit() {
+        let err = Dashboard::from_toml("title = \"x\"\nrefresh = \"20000000000w\"")
+            .expect_err("The reader must not accept a duration that does not fit.")
+            .to_string();
+        assert!(err.contains("20000000000w"), "The text is {err}");
+    }
+
+    #[test]
+    fn validate_returns_an_error_for_a_start_that_does_not_fit() {
+        let err = Dashboard::from_toml(&dashboard_with_from("now-20000000000w"))
+            .expect_err("The reader must not accept a start that does not fit.")
+            .to_string();
+        assert!(err.contains("20000000000w"), "The text is {err}");
+    }
+
+    #[test]
+    fn validate_returns_an_error_for_a_range_wider_than_ten_years() {
+        let err = Dashboard::from_toml(&dashboard_with_from("now-3651d"))
+            .expect_err("The reader must not accept a range above the widest range.")
+            .to_string();
+        assert!(
+            err.contains("`from` field of now-3651d"),
+            "The text is {err}"
+        );
+        assert!(err.contains("wider than 3650 days"), "The text is {err}");
+    }
+
+    #[test]
+    fn validate_accepts_a_range_of_ten_years() {
+        assert!(Dashboard::from_toml(&dashboard_with_from("now-3650d")).is_ok());
+    }
+
+    #[test]
+    fn validate_returns_an_error_for_a_range_narrower_than_one_second() {
+        let err = Dashboard::from_toml(&dashboard_with_from("now-500ms"))
+            .expect_err("The reader must not accept a range below the narrowest range.")
+            .to_string();
+        assert!(err.contains("narrower than 1000 milliseconds"), "{err}");
+    }
+
+    #[test]
+    fn validate_accepts_a_range_of_one_second() {
+        assert!(Dashboard::from_toml(&dashboard_with_from("now-1s")).is_ok());
     }
 
     #[test]

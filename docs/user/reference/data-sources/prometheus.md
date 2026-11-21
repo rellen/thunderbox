@@ -32,6 +32,9 @@ connects a dashboard to a server.
   smaller step gives a chart that holds more holes than values.
 - The data source raises a `min_step` under 1 second to 1 second.
 - The data source raises a `timeout` of `"0s"` to 1 millisecond.
+- A duration of `min_step` or of `timeout` cannot be larger than
+  9223372036854775807 milliseconds. The program returns an error for a larger
+  duration, and it writes that error before it opens the terminal.
 - The data source also asks the server to stop a query after the `timeout`. It
   sends that time in milliseconds, in the form `30000ms`, and it sends 1
   millisecond or more.
@@ -45,7 +48,7 @@ of a duration.
 |---|---|
 | The table holds another option. | `a prometheus source has no option "NAME"; it takes url, name, min_step, and timeout` |
 | An option holds a value that is not text. | `the NAME of a prometheus source must be a text value` |
-| A duration has a form that the program cannot read. | `The time value "TEXT" is not correct.` and the reason |
+| A duration has a form that the program cannot read, or it is larger than 9223372036854775807 milliseconds. | `The time value "TEXT" is not correct.` and the reason |
 | The address is not correct. | `the address "TEXT" of a prometheus source is not correct.` and the reason |
 | The program cannot build a client for HTTP. | `thunderbox cannot build a client.` and the reason |
 

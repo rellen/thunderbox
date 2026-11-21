@@ -7,19 +7,41 @@ use crate::{Error, Result};
 /// A count of milliseconds after the Unix epoch.
 pub type Timestamp = i64;
 
-/// The narrowest range that [`TimeRange::with_span_ms`] returns.
+/// The number of milliseconds in one day.
+const MS_PER_DAY: i64 = 86_400_000;
+
+/// The units of a duration, from the smallest to the largest.
+///
+/// Each entry holds the name of a unit and the number of milliseconds in that
+/// unit. [`parse_duration_ms`] reads the names, and the `Display`
+/// implementation of [`RelativeTime`] writes them. One table serves both, so
+/// the two cannot differ.
+const UNITS: [(&str, i64); 6] = [
+    ("ms", 1),
+    ("s", 1_000),
+    ("m", 60_000),
+    ("h", 3_600_000),
+    ("d", MS_PER_DAY),
+    ("w", 7 * MS_PER_DAY),
+];
+
+/// The narrowest range that [`TimeRange::with_span_ms`] returns, and the
+/// narrowest range that [`TimeRange::validate`] accepts.
 ///
 /// A range of one second is about as wide as the distance between two samples
 /// of a data source of this project. A narrower range would often hold no
 /// point at all.
 pub const MIN_SPAN_MS: i64 = 1_000;
 
-/// The widest range that [`TimeRange::with_span_ms`] returns.
+/// The widest range that [`TimeRange::with_span_ms`] returns, and the widest
+/// range that [`TimeRange::validate`] accepts.
 ///
-/// The value is ten years. A person who makes the range wider many times
-/// therefore never reaches the limit of the number, and the arithmetic stays
-/// correct.
-pub const MAX_SPAN_MS: i64 = 10 * 365 * 86_400_000;
+/// The value is ten years, which is 3650 days. A person who makes the range
+/// wider many times with the keys of the program reaches this limit long
+/// before the limit of the number. The method [`TimeRange::with_span_ms`]
+/// holds the width at this limit. A range that a dashboard file or a program
+/// builds can be wider, so [`TimeRange::validate`] checks it.
+pub const MAX_SPAN_MS: i64 = 10 * 365 * MS_PER_DAY;
 
 /// A window is the pair of moments that a time range names, and the moment
 /// that named them.
@@ -39,9 +61,10 @@ pub struct TimeWindow {
 impl TimeWindow {
     /// Returns the width of the window in milliseconds.
     ///
-    /// The result is always 1 or more, so that a caller can divide by it.
+    /// The result is always 1 or more, so that a caller can divide by it. A
+    /// window that is wider than the number can hold gives the largest number.
     pub fn span_ms(&self) -> i64 {
-        (self.to - self.from).max(1)
+        self.to.saturating_sub(self.from).max(1)
     }
 }
 
@@ -63,6 +86,76 @@ pub struct TimeRange {
 impl TimeRange {
     fn default_from() -> RelativeTime {
         RelativeTime::Offset(-300_000)
+    }
+
+    /// Checks that this range names a window that the program can draw.
+    ///
+    /// The `now` parameter supplies the present moment. The method resolves
+    /// both ends against that moment, and it puts the smaller value first. The
+    /// window must then be at least [`MIN_SPAN_MS`] wide, and at most
+    /// [`MAX_SPAN_MS`] wide. A window of exactly one of those widths passes.
+    ///
+    /// # Errors
+    ///
+    /// This method returns an error in each of these conditions:
+    ///
+    /// - an end is an offset, and the sum of the offset and `now` does not fit
+    ///   in a count of milliseconds. The error names the field of that end;
+    /// - the window is wider than [`MAX_SPAN_MS`];
+    /// - the window is narrower than [`MIN_SPAN_MS`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use thunderbox_core::{RelativeTime, TimeRange};
+    /// let now = 1_000_000;
+    /// assert!(TimeRange::default().validate(now).is_ok());
+    /// let too_narrow = TimeRange {
+    ///     from: RelativeTime::Offset(-500),
+    ///     to: RelativeTime::Now,
+    /// };
+    /// assert!(too_narrow.validate(now).is_err());
+    /// ```
+    pub fn validate(&self, now: Timestamp) -> Result<()> {
+        let from = self
+            .from
+            .checked_resolve(now)
+            .ok_or_else(|| self.end_error("from", self.from))?;
+        let to = self
+            .to
+            .checked_resolve(now)
+            .ok_or_else(|| self.end_error("to", self.to))?;
+        // Two ends that each fit in an `i64` can lie further apart than an
+        // `i64` holds, so the width uses a wider number.
+        let width = i128::from(from.max(to)) - i128::from(from.min(to));
+        if width > i128::from(MAX_SPAN_MS) {
+            return Err(self.width_error(format!("wider than {} days", MAX_SPAN_MS / MS_PER_DAY)));
+        }
+        if width < i128::from(MIN_SPAN_MS) {
+            return Err(self.width_error(format!("narrower than {MIN_SPAN_MS} milliseconds")));
+        }
+        Ok(())
+    }
+
+    /// Returns the error for an end that does not fit in a count of
+    /// milliseconds.
+    fn end_error(&self, field: &str, value: RelativeTime) -> Error {
+        Error::Dashboard(format!(
+            "The `[time]` table holds a `{field}` field of {value}. The sum of the present \
+             moment and that value does not fit in a count of milliseconds."
+        ))
+    }
+
+    /// Returns the error for a range that is too wide or too narrow.
+    ///
+    /// The `limit` parameter holds the words that state the fault, such as
+    /// `wider than 3650 days`.
+    fn width_error(&self, limit: String) -> Error {
+        Error::Dashboard(format!(
+            "The `[time]` table holds a `from` field of {} and a `to` field of {}. That \
+             range is {limit}.",
+            self.from, self.to
+        ))
     }
 
     /// Returns the window that this range names at one moment.
@@ -180,6 +273,11 @@ impl TimeRange {
     /// A move back always holds the window still, even for a range that ends
     /// after the present moment.
     ///
+    /// The method returns the range as it was when the move would carry an end
+    /// past the limit of the number. It also returns the range as it was when
+    /// the range is wider than the number can hold. The width of the range
+    /// therefore never changes because an end reached that limit.
+    ///
     /// # Examples
     ///
     /// ```
@@ -194,16 +292,32 @@ impl TimeRange {
     /// assert_eq!(back.panned(1_000_001, 60_000), live);
     /// ```
     pub fn panned(&self, now: Timestamp, by_ms: i64) -> Self {
-        let span = self.span_ms(now);
-        let moved = self.to_absolute(now).moved(by_ms);
-        let end = moved.to.resolve(now);
-        if by_ms > 0 && now.saturating_sub(end) < by_ms {
+        let window = self.window(now);
+        let span = window.span_ms();
+        let (Some(from), Some(to), Some(_)) = (
+            window.from.checked_add(by_ms),
+            window.to.checked_add(by_ms),
+            window.to.checked_sub(window.from),
+        ) else {
+            return self.clone();
+        };
+        if by_ms > 0 && now.saturating_sub(to) < by_ms {
+            // The method moves the end to the present moment. The start of the
+            // new window is the present moment less the width. That value
+            // must fit, or the new window would have another width.
+            if now.checked_sub(span).is_none() {
+                return self.clone();
+            }
+            // The width is 1 or more, so the negation cannot overflow.
             return Self {
                 from: RelativeTime::Offset(-span),
                 to: RelativeTime::Now,
             };
         }
-        moved
+        Self {
+            from: RelativeTime::Absolute(from),
+            to: RelativeTime::Absolute(to),
+        }
     }
 
     /// Returns a range of a stated width that ends at the same moment.
@@ -212,6 +326,10 @@ impl TimeRange {
     /// later end keeps its kind, so a range that follows the clock still
     /// follows the clock. The method raises a width below [`MIN_SPAN_MS`], and
     /// it lowers a width above [`MAX_SPAN_MS`].
+    ///
+    /// The method returns the range as it was when the earlier end would pass
+    /// the limit of the number. The new range would then have another width
+    /// than the caller asked for.
     ///
     /// # Examples
     ///
@@ -229,10 +347,15 @@ impl TimeRange {
         } else {
             self.from
         };
-        Self {
+        // The width is at least `MIN_SPAN_MS`, so the negation cannot overflow.
+        let wider = Self {
             from: later.moved(-span),
             to: later,
+        };
+        if wider.span_ms(now) != span {
+            return self.clone();
         }
+        wider
     }
 }
 
@@ -262,11 +385,24 @@ impl RelativeTime {
     /// Returns this point as absolute milliseconds.
     ///
     /// The `now` parameter supplies the reference time.
+    ///
+    /// The method holds the value at the limit of the number when the sum of
+    /// `now` and an offset would pass that limit.
     pub fn resolve(&self, now: Timestamp) -> Timestamp {
         match self {
             Self::Now => now,
-            Self::Offset(d) => now + d,
+            Self::Offset(d) => now.saturating_add(*d),
             Self::Absolute(t) => *t,
+        }
+    }
+
+    /// Returns this point as absolute milliseconds, or `None` when the sum of
+    /// `now` and an offset does not fit in a count of milliseconds.
+    fn checked_resolve(self, now: Timestamp) -> Option<Timestamp> {
+        match self {
+            Self::Now => Some(now),
+            Self::Offset(d) => now.checked_add(d),
+            Self::Absolute(t) => Some(t),
         }
     }
 
@@ -333,7 +469,8 @@ pub fn now_ms() -> Timestamp {
 ///
 /// - the text has no unit;
 /// - the first part of the text is not a whole number;
-/// - the unit is not in the list above.
+/// - the unit is not in the list above;
+/// - the duration in milliseconds does not fit in an `i64`.
 pub fn parse_duration_ms(s: &str) -> Result<i64> {
     let s = s.trim();
     let split = s
@@ -343,27 +480,35 @@ pub fn parse_duration_ms(s: &str) -> Result<i64> {
             reason: "The text holds no unit. The known units are ms, s, m, h, d, and w.".into(),
         })?;
     let (digits, unit) = s.split_at(split);
-    let n: i64 = digits.parse().map_err(|_| Error::Time {
+    let too_large = || Error::Time {
         input: s.to_string(),
-        reason: "The text does not start with a whole number.".into(),
-    })?;
-    let mult = match unit {
-        "ms" => 1,
-        "s" => 1_000,
-        "m" => 60_000,
-        "h" => 3_600_000,
-        "d" => 86_400_000,
-        "w" => 604_800_000,
-        other => {
+        reason: format!(
+            "A duration cannot be larger than {} milliseconds.",
+            i64::MAX
+        ),
+    };
+    let n: i64 = match digits.parse() {
+        Ok(n) => n,
+        // The text before the unit holds digits alone. A text of one digit or
+        // more that an `i64` cannot hold is therefore a number that is too
+        // large.
+        Err(_) if !digits.is_empty() => return Err(too_large()),
+        Err(_) => {
             return Err(Error::Time {
                 input: s.to_string(),
-                reason: format!(
-                    "The unit {other:?} is not known. The known units are ms, s, m, h, d, and w."
-                ),
+                reason: "The text does not start with a whole number.".into(),
             });
         }
     };
-    Ok(n * mult)
+    let Some(&(_, mult)) = UNITS.iter().find(|(name, _)| *name == unit) else {
+        return Err(Error::Time {
+            input: s.to_string(),
+            reason: format!(
+                "The unit {unit:?} is not known. The known units are ms, s, m, h, d, and w."
+            ),
+        });
+    };
+    n.checked_mul(mult).ok_or_else(too_large)
 }
 
 /// Reads a point in time from the text form that a dashboard file uses.
@@ -380,6 +525,8 @@ fn parse_relative(s: &str) -> Result<RelativeTime> {
         return Ok(RelativeTime::Now);
     }
     if let Some(rest) = s.strip_prefix("now-") {
+        // The parser reads digits alone, so the duration is 0 or more and the
+        // negation cannot overflow.
         return Ok(RelativeTime::Offset(-parse_duration_ms(rest)?));
     }
     if let Some(rest) = s.strip_prefix("now+") {
@@ -393,12 +540,28 @@ fn parse_relative(s: &str) -> Result<RelativeTime> {
         })
 }
 
+/// Returns a count of milliseconds as a whole number of the largest unit that
+/// divides the count exactly, and the name of that unit.
+///
+/// The count 0 takes the unit `ms`.
+fn largest_exact_unit(ms: u64) -> (u64, &'static str) {
+    UNITS
+        .iter()
+        .rev()
+        .find(|(_, mult)| ms.is_multiple_of(mult.unsigned_abs()))
+        .filter(|_| ms != 0)
+        .map_or((ms, "ms"), |(name, mult)| (ms / mult.unsigned_abs(), name))
+}
+
 impl std::fmt::Display for RelativeTime {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Now => write!(f, "now"),
-            Self::Offset(d) if *d < 0 => write!(f, "now-{}ms", -d),
-            Self::Offset(d) => write!(f, "now+{d}ms"),
+            Self::Offset(d) => {
+                let sign = if *d < 0 { '-' } else { '+' };
+                let (count, unit) = largest_exact_unit(d.unsigned_abs());
+                write!(f, "now{sign}{count}{unit}")
+            }
             Self::Absolute(t) => write!(f, "{t}"),
         }
     }
@@ -731,5 +894,379 @@ mod tests {
             now_ms() > 1_577_836_800_000,
             "The clock of the machine must report a moment of this century."
         );
+    }
+
+    /// The two ends of a range that lie `width_ms` apart and stand still.
+    fn fixed_of_width(width_ms: i64) -> TimeRange {
+        TimeRange {
+            from: RelativeTime::Absolute(0),
+            to: RelativeTime::Absolute(width_ms),
+        }
+    }
+
+    #[test]
+    fn parse_duration_ms_returns_an_error_for_a_duration_that_does_not_fit() {
+        assert!(parse_duration_ms("20000000000w").is_err());
+        assert!(parse_duration_ms("9223372036854776s").is_err());
+        assert!(parse_duration_ms("9223372036854775808ms").is_err());
+    }
+
+    #[test]
+    fn parse_duration_ms_reads_a_duration_at_the_limit_of_the_number() {
+        assert_eq!(
+            parse_duration_ms("9223372036854775s").unwrap(),
+            9_223_372_036_854_775_000
+        );
+        assert_eq!(
+            parse_duration_ms("9223372036854775807ms").unwrap(),
+            i64::MAX
+        );
+    }
+
+    #[test]
+    fn the_error_for_a_large_duration_names_the_input_and_the_limit() {
+        // The second number and the third number do not fit before the
+        // function reads the unit.
+        for input in [
+            "20000000000w",
+            "9223372036854775808ms",
+            "99999999999999999999s",
+        ] {
+            let text = parse_duration_ms(input).unwrap_err().to_string();
+            assert!(text.contains(input), "The text must name the input. {text}");
+            assert!(
+                text.contains("9223372036854775807 milliseconds"),
+                "The text must state the limit. {text}"
+            );
+        }
+        let text = parse_duration_ms("s").unwrap_err().to_string();
+        assert!(
+            text.contains("does not start with a whole number"),
+            "A text that holds no digit must name that fault. {text}"
+        );
+    }
+
+    #[test]
+    fn parse_relative_returns_an_error_for_an_offset_that_does_not_fit() {
+        assert!(parse_relative("now-20000000000w").is_err());
+        assert!(parse_relative("now+20000000000w").is_err());
+    }
+
+    #[test]
+    fn parse_relative_reads_the_largest_offset() {
+        assert_eq!(
+            parse_relative("now-9223372036854775807ms").unwrap(),
+            RelativeTime::Offset(-i64::MAX)
+        );
+        assert_eq!(
+            parse_relative("now+9223372036854775807ms").unwrap(),
+            RelativeTime::Offset(i64::MAX)
+        );
+    }
+
+    #[test]
+    fn display_writes_the_largest_unit_that_divides_an_offset() {
+        let cases = [
+            (-300_000, "now-5m"),
+            (-90_000, "now-90s"),
+            (604_800_000, "now+1w"),
+            (-1_500, "now-1500ms"),
+            (-86_400_000, "now-1d"),
+            (7_200_000, "now+2h"),
+            (-1_209_600_000, "now-2w"),
+            (0, "now+0ms"),
+        ];
+        for (offset, text) in cases {
+            assert_eq!(
+                RelativeTime::Offset(offset).to_string(),
+                text,
+                "The offset {offset} must have this text form."
+            );
+        }
+        assert_eq!(RelativeTime::Now.to_string(), "now");
+        assert_eq!(RelativeTime::Absolute(-5).to_string(), "-5");
+    }
+
+    #[test]
+    fn display_does_not_panic_for_the_limits_of_the_number() {
+        assert_eq!(
+            RelativeTime::Offset(i64::MIN).to_string(),
+            "now-9223372036854775808ms"
+        );
+        assert_eq!(
+            RelativeTime::Offset(i64::MAX).to_string(),
+            "now+9223372036854775807ms"
+        );
+        assert_eq!(
+            RelativeTime::Absolute(i64::MIN).to_string(),
+            "-9223372036854775808"
+        );
+    }
+
+    #[test]
+    fn parse_relative_reads_each_text_that_display_writes() {
+        let offsets = [
+            0,
+            1,
+            -1,
+            999,
+            1_000,
+            -1_000,
+            1_500,
+            -90_000,
+            -300_000,
+            3_600_000,
+            -86_400_000,
+            604_800_000,
+            -1_209_600_000,
+            3_650 * 86_400_000,
+            i64::MAX,
+            -i64::MAX,
+            i64::MAX - 1,
+            -(i64::MAX - 1),
+        ];
+        for offset in offsets {
+            let point = RelativeTime::Offset(offset);
+            let text = point.to_string();
+            assert_eq!(
+                parse_relative(&text).unwrap(),
+                point,
+                "The text {text} must return the same offset."
+            );
+        }
+        for point in [RelativeTime::Now, RelativeTime::Absolute(i64::MIN)] {
+            assert_eq!(parse_relative(&point.to_string()).unwrap(), point);
+        }
+    }
+
+    #[test]
+    fn serialize_writes_the_text_that_display_writes() {
+        let range = TimeRange::default();
+        let text = toml::to_string(&range).unwrap();
+        assert!(text.contains("from = \"now-5m\""), "The text is {text}");
+        assert_eq!(toml::from_str::<TimeRange>(&text).unwrap(), range);
+    }
+
+    #[test]
+    fn resolve_holds_the_value_at_the_limit_of_the_number() {
+        assert_eq!(RelativeTime::Offset(i64::MAX).resolve(1), i64::MAX);
+        assert_eq!(RelativeTime::Offset(i64::MIN).resolve(-1), i64::MIN);
+        assert_eq!(RelativeTime::Offset(-5).resolve(i64::MAX), i64::MAX - 5);
+        assert_eq!(RelativeTime::Now.resolve(i64::MAX), i64::MAX);
+        assert_eq!(RelativeTime::Absolute(i64::MIN).resolve(i64::MAX), i64::MIN);
+    }
+
+    #[test]
+    fn a_window_that_is_wider_than_the_number_reports_the_largest_width() {
+        let wide = TimeWindow {
+            from: i64::MIN,
+            to: i64::MAX,
+            now: 0,
+        };
+        assert_eq!(wide.span_ms(), i64::MAX);
+        let reversed = TimeWindow {
+            from: i64::MAX,
+            to: i64::MIN,
+            now: 0,
+        };
+        assert_eq!(reversed.span_ms(), 1, "A caller divides by this number.");
+    }
+
+    #[test]
+    fn validate_accepts_a_width_of_exactly_one_second() {
+        assert!(fixed_of_width(MIN_SPAN_MS).validate(NOW).is_ok());
+    }
+
+    #[test]
+    fn validate_returns_an_error_for_a_width_below_one_second() {
+        let err = fixed_of_width(MIN_SPAN_MS - 1).validate(NOW).unwrap_err();
+        let text = err.to_string();
+        assert!(text.contains("`from` field of 0"), "The text is {text}");
+        assert!(text.contains("`to` field of 999"), "The text is {text}");
+        assert!(
+            text.contains("narrower than 1000 milliseconds"),
+            "The text must state the limit. {text}"
+        );
+    }
+
+    #[test]
+    fn validate_accepts_a_width_of_exactly_ten_years() {
+        assert!(fixed_of_width(MAX_SPAN_MS).validate(NOW).is_ok());
+    }
+
+    #[test]
+    fn validate_returns_an_error_for_a_width_above_ten_years() {
+        let err = fixed_of_width(MAX_SPAN_MS + 1).validate(NOW).unwrap_err();
+        let text = err.to_string();
+        assert!(text.contains("`from` field of 0"), "The text is {text}");
+        assert!(
+            text.contains(&format!("`to` field of {}", MAX_SPAN_MS + 1)),
+            "The text is {text}"
+        );
+        assert!(
+            text.contains("wider than 3650 days"),
+            "The text must state the limit. {text}"
+        );
+    }
+
+    #[test]
+    fn validate_measures_the_width_of_a_range_that_names_its_later_end_first() {
+        let reversed = TimeRange {
+            from: RelativeTime::Absolute(MAX_SPAN_MS),
+            to: RelativeTime::Absolute(0),
+        };
+        assert!(reversed.validate(NOW).is_ok());
+        let too_wide = TimeRange {
+            from: RelativeTime::Absolute(MAX_SPAN_MS + 1),
+            to: RelativeTime::Absolute(0),
+        };
+        assert!(too_wide.validate(NOW).is_err());
+    }
+
+    #[test]
+    fn validate_returns_an_error_for_a_start_that_does_not_fit() {
+        let range = TimeRange {
+            from: RelativeTime::Offset(i64::MAX),
+            to: RelativeTime::Now,
+        };
+        let text = range.validate(NOW).unwrap_err().to_string();
+        assert!(
+            text.contains("`from` field of now+9223372036854775807ms"),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn validate_returns_an_error_for_an_end_that_does_not_fit() {
+        let range = TimeRange {
+            from: RelativeTime::Offset(-300_000),
+            to: RelativeTime::Offset(i64::MIN),
+        };
+        let text = range.validate(-1).unwrap_err().to_string();
+        assert!(
+            text.contains("`to` field of now-9223372036854775808ms"),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn validate_returns_an_error_for_two_ends_that_lie_further_apart_than_a_number_holds() {
+        let range = TimeRange {
+            from: RelativeTime::Absolute(i64::MIN),
+            to: RelativeTime::Absolute(i64::MAX),
+        };
+        let text = range.validate(NOW).unwrap_err().to_string();
+        assert!(text.contains("-9223372036854775808"), "The text is {text}");
+        assert!(text.contains("9223372036854775807"), "The text is {text}");
+        assert!(text.contains("`from`") && text.contains("`to`"), "{text}");
+    }
+
+    #[test]
+    fn validate_accepts_the_default_range() {
+        assert!(TimeRange::default().validate(NOW).is_ok());
+        assert!(TimeRange::default().validate(0).is_ok());
+    }
+
+    #[test]
+    fn panned_returns_the_range_as_it_was_when_an_end_would_pass_the_limit() {
+        let high = TimeRange {
+            from: RelativeTime::Absolute(i64::MAX - 1_000),
+            to: RelativeTime::Absolute(i64::MAX),
+        };
+        assert_eq!(
+            high.panned(NOW, 1),
+            high,
+            "A move forward passes the limit."
+        );
+        let low = TimeRange {
+            from: RelativeTime::Absolute(i64::MIN),
+            to: RelativeTime::Absolute(i64::MIN + 1_000),
+        };
+        assert_eq!(low.panned(NOW, -1), low, "A move back passes the limit.");
+        assert_eq!(
+            high.panned(NOW, -1).span_ms(NOW),
+            1_000,
+            "A move that stays inside the number must keep the width."
+        );
+    }
+
+    #[test]
+    fn panned_returns_the_range_as_it_was_when_the_range_is_wider_than_a_number() {
+        let wide = TimeRange {
+            from: RelativeTime::Absolute(i64::MIN + 1),
+            to: RelativeTime::Absolute(i64::MAX - 1),
+        };
+        assert_eq!(wide.panned(NOW, 1), wide);
+        assert_eq!(wide.panned(NOW, -1), wide);
+    }
+
+    #[test]
+    fn panned_returns_the_range_as_it_was_when_the_present_moment_is_at_the_limit() {
+        let range = TimeRange {
+            from: RelativeTime::Absolute(i64::MIN),
+            to: RelativeTime::Absolute(i64::MIN + 1_000),
+        };
+        assert_eq!(range.panned(i64::MIN, 500), range);
+    }
+
+    #[test]
+    fn with_span_ms_returns_the_range_as_it_was_when_the_earlier_end_would_pass_the_limit() {
+        let low = TimeRange {
+            from: RelativeTime::Absolute(i64::MIN),
+            to: RelativeTime::Absolute(i64::MIN + 1_000),
+        };
+        assert_eq!(low.with_span_ms(NOW, 2_000), low);
+        let offset = TimeRange {
+            from: RelativeTime::Offset(i64::MIN + 1_000),
+            to: RelativeTime::Offset(i64::MIN + 2_000),
+        };
+        assert_eq!(offset.with_span_ms(0, 5_000), offset);
+        let near = TimeRange {
+            from: RelativeTime::Absolute(i64::MAX - 1_000),
+            to: RelativeTime::Absolute(i64::MAX),
+        };
+        assert_eq!(near.with_span_ms(NOW, 2_000).span_ms(NOW), 2_000);
+    }
+
+    #[test]
+    fn no_method_of_a_time_value_panics_at_the_limit_of_the_number() {
+        let numbers = [i64::MIN, i64::MIN + 1, -1, 0, 1, i64::MAX - 1, i64::MAX];
+        let mut points = vec![RelativeTime::Now];
+        for n in numbers {
+            points.push(RelativeTime::Offset(n));
+            points.push(RelativeTime::Absolute(n));
+        }
+        for &now in &numbers {
+            for &by_ms in &numbers {
+                for &from in &points {
+                    let _ = from.resolve(now);
+                    let _ = from.moved(by_ms);
+                    let _ = from.to_string();
+                    for &to in &points {
+                        let range = TimeRange { from, to };
+                        let window = range.window(now);
+                        assert!(window.from <= window.to, "{range:?} {now}");
+                        assert!(window.span_ms() >= 1);
+                        assert_eq!(range.resolve(now), (window.from, window.to));
+                        assert!(range.span_ms(now) >= 1);
+                        let fixed = range.to_absolute(now);
+                        assert_eq!(fixed.resolve(0), (window.from, window.to));
+                        let _ = range.moved(by_ms);
+                        let _ = range.validate(now);
+                        let panned = range.panned(now, by_ms);
+                        assert!(
+                            panned == range || panned.span_ms(now) == range.span_ms(now),
+                            "A move must keep the width. {range:?} {now} {by_ms}"
+                        );
+                        let resized = range.with_span_ms(now, by_ms);
+                        assert!(
+                            resized == range
+                                || resized.span_ms(now) == by_ms.clamp(MIN_SPAN_MS, MAX_SPAN_MS),
+                            "A change of the width must give the width. {range:?} {now} {by_ms}"
+                        );
+                    }
+                }
+            }
+        }
     }
 }

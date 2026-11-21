@@ -2,7 +2,8 @@
 
 This page states the form of a moment and the form of a duration. It also
 states the limits of the width of a time range, and the form of a label of the
-axis of time.
+axis of time. The program returns an error for a dashboard file that does not
+keep a limit of this page.
 
 A time range names two moments, a start and an end. A window holds three
 moments: the start and the end that a time range names, and the present moment
@@ -64,11 +65,8 @@ between them.
 - The program rejects a minus sign, as `"-5s"`.
 - The program rejects a unit in capital letters, as `"5M"`.
 - The program ignores the spaces at the start and at the end of the text.
-- A duration of a very large number, as `"20000000000w"`, can end the program
-  with the code 101. A build for release does not stop. It takes a wrong
-  duration instead.
-  [Architecture decision record 0061](../../contributor/adr/0061-a-duration-that-does-not-fit-ends-the-program.md)
-  records that fault.
+- The program returns an error for a duration that is larger than
+  9223372036854775807 milliseconds, as `"20000000000w"`.
 
 These fields hold a duration:
 
@@ -79,11 +77,33 @@ These fields hold a duration:
 | `min_step` | a `[source.NAME]` table of the kind `prometheus` | The smallest distance between two points. |
 | `timeout` | a `[source.NAME]` table of the kind `prometheus` | The longest time that the data source waits for one answer. |
 
+The field `refresh`, each offset of the table `[time]`, and the options
+`min_step` and `timeout` follow the same rules. The program returns an error
+for a duration that does not keep them. It writes that error before it opens
+the terminal.
+
 A duration of the wrong form gives an error of this form:
 
 ```
 The time value "1.5s" is not correct. The unit ".5s" is not known. The known units are ms, s, m, h, d, and w.
 ```
+
+A duration that is larger than 9223372036854775807 milliseconds gives an error
+of this form:
+
+```
+The time value "20000000000w" is not correct. A duration cannot be larger than 9223372036854775807 milliseconds.
+```
+
+A whole number of more than 19 digits, as in `"99999999999999999999s"`, gives
+the same error. The program reads no unit for such a number.
+
+The reference of each field states the place of the error:
+
+- [The dashboard file](dashboard-file.md#faults-that-the-program-rejects) states
+  the error of `refresh` and of the table `[time]`.
+- [The Prometheus data source](data-sources/prometheus.md#errors-of-the-options)
+  states the error of `min_step` and of `timeout`.
 
 ## Limits of the width
 
@@ -95,8 +115,40 @@ The time value "1.5s" is not correct. The unit ".5s" is not known. The known uni
 - The keys `-` and `+` keep the width of the time range between these two
   limits.
 - The key `+` stops at 1 second. The key `-` stops at 3650 days.
-- The limits apply to the keys alone. The dashboard file can state a time
-  range outside them.
+- The table `[time]` of a dashboard file must keep the same limits. A width of
+  exactly 1 second is correct, and a width of exactly 3650 days is correct.
+- The program puts the earlier moment first. The width of a time range does
+  not depend on the order of the two moments.
+- A time range with a fixed start and an end of `"now"` grows as the clock
+  moves. The program checks the width once, when it reads the file.
+- The sum of the present moment and an offset must fit in a count of
+  milliseconds. A `from` of `"now+9223372036854775807ms"` does not fit.
+- The program returns an error for a file that does not keep a limit. The
+  texts of these errors are in the table below.
+- A key that would carry an end past the largest or the smallest count of
+  milliseconds leaves the time range as it was. The panels stay as they are,
+  and the program starts no new set of queries.
+
+### Errors of the width
+
+The program writes one of these texts for a dashboard file that does not keep a
+limit. `FIELD` is `from` or `to`. Each other capital word stands for a moment
+of the file.
+
+| fault | the text of the error |
+|---|---|
+| The sum of the present moment and an offset does not fit in a count of milliseconds. | `` The `[time]` table holds a `FIELD` field of VALUE. The sum of the present moment and that value does not fit in a count of milliseconds. `` |
+| The width is larger than 3650 days. | `` The `[time]` table holds a `from` field of FROM and a `to` field of TO. That range is wider than 3650 days. `` |
+| The width is smaller than 1 second. | `` The `[time]` table holds a `from` field of FROM and a `to` field of TO. That range is narrower than 1000 milliseconds. `` |
+| A duration is larger than 9223372036854775807 milliseconds. | `The time value "TEXT" is not correct. A duration cannot be larger than 9223372036854775807 milliseconds.` |
+
+The program writes `The dashboard is not correct.` before each of the first
+three texts. The page [The dashboard file](dashboard-file.md#second-step-dashboardvalidate)
+states the place of each text in the output.
+
+The program writes a moment in the largest unit that divides it exactly. A
+file that holds `"now-300s"` therefore shows `now-5m` in an error. Both texts
+name the same moment.
 
 The page [The command line](command-line.md#rules-of-the-keys-of-the-time-range)
 states every rule of the keys of the time range.

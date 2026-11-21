@@ -67,6 +67,13 @@ impl Shape {
     }
 }
 
+/// The largest number of points that one query returns.
+///
+/// The request carries a number of points that a caller chooses, and that
+/// number can be as large as a `u32` holds. This limit is far above the width
+/// of any terminal.
+const MAX_POINTS: usize = 100_000;
+
 /// The text of the query that returns a list of invented processes.
 const PROCESSES: &str = "processes";
 
@@ -227,11 +234,22 @@ impl TestData {
     }
 
     /// Returns the times of the points, spread evenly across the range.
+    ///
+    /// The result holds at most [`MAX_POINTS`] times. A caller that asks for
+    /// more gets that number, so that a request cannot use all the memory.
     fn timestamps(req: &QueryRequest) -> Vec<Timestamp> {
-        let n = req.max_data_points.max(1) as usize;
-        let span = req.span_ms();
+        let n = (req.max_data_points.max(1) as usize).min(MAX_POINTS);
+        let span = i128::from(req.span_ms());
+        let from = i128::from(req.from);
         (0..n)
-            .map(|i| req.from + (span * i as i64) / n.max(1) as i64)
+            .map(|i| {
+                // The product of a wide span and an index does not fit in an
+                // `i64`, so the sum uses a wider number. The result lies
+                // between `from` and `from + span`. The clamp guards the case
+                // of a range in the wrong order, which gives a span of 1.
+                let at = from + span * i as i128 / n as i128;
+                at.clamp(i128::from(i64::MIN), i128::from(i64::MAX)) as i64
+            })
             .collect()
     }
 
@@ -308,8 +326,10 @@ impl TestData {
             }
             Shape::Ramp => {
                 let (from, to) = range;
-                let span = (to - from).max(1) as f64;
-                100.0 * ((t_ms - from) as f64 / span).clamp(0.0, 1.0)
+                // A range of the widest span would overflow a plain
+                // subtraction, so each difference stops at the limit of the number.
+                let span = to.saturating_sub(from).max(1) as f64;
+                100.0 * (t_ms.saturating_sub(from) as f64 / span).clamp(0.0, 1.0)
             }
         };
         Some(v)
@@ -511,6 +531,79 @@ mod tests {
             stamps.windows(2).all(|w| w[0] < w[1]),
             "The times must rise."
         );
+    }
+
+    /// Returns a request whose fields hold the numbers that a test names.
+    fn request_at(expr: &str, from: i64, to: i64, points: u32) -> QueryRequest {
+        QueryRequest {
+            query: Query {
+                source: "t".into(),
+                expr: expr.into(),
+            },
+            from,
+            to,
+            now: i64::MAX,
+            step_ms: i64::MAX,
+            max_data_points: points,
+        }
+    }
+
+    #[test]
+    fn timestamps_does_not_panic_for_the_widest_range() {
+        let stamps = TestData::timestamps(&request_at("ramp", i64::MIN, i64::MAX, 1_000));
+        assert_eq!(stamps.len(), 1_000);
+        assert_eq!(stamps[0], i64::MIN);
+        assert!(
+            stamps.windows(2).all(|w| w[0] < w[1]),
+            "The times must rise."
+        );
+        assert!(stamps[999] < i64::MAX);
+    }
+
+    #[test]
+    fn timestamps_does_not_panic_for_a_range_at_one_limit_of_the_number() {
+        let at_top = TestData::timestamps(&request_at("ramp", i64::MAX - 10, i64::MAX, 7));
+        assert!(at_top.iter().all(|t| *t >= i64::MAX - 10));
+        let at_bottom = TestData::timestamps(&request_at("ramp", i64::MIN, i64::MIN + 10, 7));
+        assert!(at_bottom.iter().all(|t| *t <= i64::MIN + 10));
+    }
+
+    #[test]
+    fn timestamps_does_not_panic_for_a_range_in_the_wrong_order() {
+        let stamps = TestData::timestamps(&request_at("ramp", i64::MAX, i64::MIN, 5));
+        assert_eq!(stamps.len(), 5);
+        assert!(stamps.iter().all(|t| *t == i64::MAX));
+    }
+
+    #[test]
+    fn timestamps_returns_no_more_than_the_largest_number_of_points() {
+        let stamps = TestData::timestamps(&request_at("ramp", i64::MIN, i64::MAX, u32::MAX));
+        assert_eq!(stamps.len(), MAX_POINTS);
+    }
+
+    #[test]
+    fn query_does_not_panic_for_a_range_at_the_limits_of_the_number() {
+        for expr in ["random_walk", "sine", "ramp", "gappy", PROCESSES] {
+            for (from, to) in [
+                (i64::MIN, i64::MAX),
+                (i64::MAX, i64::MIN),
+                (i64::MIN, i64::MIN),
+                (i64::MAX, i64::MAX),
+            ] {
+                let frames = block_on(TestData::new().query(request_at(expr, from, to, 50)))
+                    .expect("The query must answer.");
+                assert_eq!(frames.len(), 1);
+            }
+        }
+    }
+
+    #[test]
+    fn a_ramp_over_the_widest_range_stays_between_0_and_100() {
+        let frames =
+            block_on(TestData::new().query(request_at("ramp", i64::MIN, i64::MAX, 50))).unwrap();
+        let field = frames[0].numeric_fields().next().expect("A column.");
+        let (low, high) = field.numeric_bounds().expect("The column holds numbers.");
+        assert!(low >= 0.0 && high <= 100.0, "The bounds are {low} {high}.");
     }
 
     #[test]

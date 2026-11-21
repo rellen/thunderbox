@@ -202,4 +202,69 @@ mod tests {
             assert_eq!(time_key(key, &declared(), &declared(), NOW), None);
         }
     }
+
+    /// The six keys of the range, in the order of the list in the comment of
+    /// `time_key`.
+    const RANGE_KEYS: [Key; 6] = [
+        Key::Left,
+        Key::Right,
+        Key::Char('-'),
+        Key::Char('+'),
+        Key::Char('0'),
+        Key::Char('='),
+    ];
+
+    /// A person who holds a key down presses it many times. No press may
+    /// carry the range outside the limits of this project, and no press may
+    /// panic.
+    #[test]
+    fn many_presses_of_the_keys_keep_the_range_inside_the_limits() {
+        let mut range = declared();
+        let press_key = |key: Key, times: usize, range: &mut TimeRange| {
+            for press_number in 0..times {
+                // A press that returns `None` leaves the range as it was.
+                if let Some(asked) = time_key(key, range, &declared(), NOW) {
+                    *range = asked;
+                }
+                assert!(
+                    range.validate(NOW).is_ok(),
+                    "The press {press_number} of {key:?} gave {range:?}."
+                );
+            }
+        };
+        press_key(Key::Char('-'), 200, &mut range);
+        assert_eq!(range.span_ms(NOW), thunderbox_core::MAX_SPAN_MS);
+        press_key(Key::Left, 10_000, &mut range);
+        press_key(Key::Right, 10_000, &mut range);
+        press_key(Key::Char('+'), 200, &mut range);
+        assert_eq!(range.span_ms(NOW), thunderbox_core::MIN_SPAN_MS);
+    }
+
+    /// The caller of `time_key` states the present moment and the range. Both
+    /// can be any number, because the fields of a range are public.
+    #[test]
+    fn no_key_panics_for_a_range_at_the_limits_of_the_number() {
+        let ends = [
+            RelativeTime::Absolute(i64::MIN),
+            RelativeTime::Absolute(i64::MAX),
+            RelativeTime::Offset(i64::MIN),
+            RelativeTime::Offset(i64::MAX),
+            RelativeTime::Now,
+        ];
+        let moments = [i64::MAX, i64::MIN, 0];
+        for from in ends {
+            for to in ends {
+                let range = TimeRange { from, to };
+                for now in moments {
+                    for key in RANGE_KEYS {
+                        // A call that does not panic is the whole test.
+                        let asked = time_key(key, &range, &declared(), now);
+                        if let Some(asked) = asked {
+                            assert_ne!(asked, range, "A key that changes nothing returns None.");
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

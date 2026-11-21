@@ -103,7 +103,7 @@ git show 4d8c223a0e7ea3bd62b85e7819be8c4ee10cb451:docs/ARCHITECTURE.md
 | [0058](0058-the-public-interface-holds-ratatui-core.md) | The public interface holds `ratatui-core` | Proposed | `docs/ARCHITECTURE.md` section 13 item 1 |
 | [0059](0059-version-1-may-need-no-server.md) | Version 1 may need no server | Proposed | `docs/ARCHITECTURE.md` section 13 item 2 |
 | [0060](0060-a-height-that-uncovers-a-panel-asks-every-panel.md) | A height that uncovers a panel asks every panel | Proposed | `docs/ARCHITECTURE.md` section 13 item 4 |
-| [0061](0061-a-duration-that-does-not-fit-ends-the-program.md) | A duration that does not fit ends the program | Proposed | `docs/ARCHITECTURE.md` section 13 item 6 |
+| [0061](0061-a-duration-that-does-not-fit-ends-the-program.md) | A duration that does not fit ends the program | Superseded by [0073](0073-a-duration-that-does-not-fit-returns-an-error.md) | `docs/ARCHITECTURE.md` section 13 item 6 |
 | [0062](0062-downsamples-promises-a-step-that-no-code-takes.md) | `SourceDescriptor::downsamples` promises a step that no code takes | Proposed | `docs/ARCHITECTURE.md` section 13 item 7 |
 | [0063](0063-a-narrow-top-panel-drops-the-sort-column.md) | A narrow top panel drops the column that gives the order | Proposed | `docs/ARCHITECTURE.md` section 13 item 8 |
 | [0064](0064-plain-http-needs-no-ca-file.md) | An address of plain HTTP needs no CA file | Proposed | `docs/ARCHITECTURE.md` section 13 item 9 |
@@ -115,3 +115,10 @@ git show 4d8c223a0e7ea3bd62b85e7819be8c4ee10cb451:docs/ARCHITECTURE.md
 | [0070](0070-each-panel-draws-inside-the-intersection-of-its-area-and-the-buffer.md) | Each panel draws inside the intersection of its area and the buffer | Accepted | `docs/contributor/open-findings.md` item 2.6 |
 | [0071](0071-the-program-draws-only-on-a-terminal.md) | The program draws only on a terminal | Accepted | `docs/contributor/open-findings.md` items 4.7 and 7.2 |
 | [0072](0072-the-program-reads-its-command-line-from-left-to-right.md) | The program reads its command line from left to right | Accepted | `docs/contributor/open-findings.md` item 4.6 |
+| [0073](0073-a-duration-that-does-not-fit-returns-an-error.md) | A duration that does not fit returns an error | Accepted | [ADR 0061](0061-a-duration-that-does-not-fit-ends-the-program.md), and `docs/contributor/open-findings.md` items 4.1 and 4.3 |
+| [0074](0074-validate-checks-the-time-range.md) | `Dashboard::validate` checks the time range | Accepted | `docs/contributor/open-findings.md` item 4.3 |
+| [0075](0075-no-path-of-the-library-panics-on-a-time-value.md) | No path of the library panics on a time value | Accepted | `docs/contributor/open-findings.md` items 4.1 and 4.3 |
+| [0076](0076-a-key-that-would-pass-the-limit-leaves-the-range-as-it-was.md) | A key that would pass the limit leaves the range as it was | Accepted | `docs/contributor/open-findings.md` item 4.3 |
+| [0077](0077-the-text-form-of-an-offset-keeps-a-unit-that-a-person-can-read.md) | The text form of an offset keeps a unit that a person can read | Accepted | new |
+| [0078](0078-a-duration-that-saturates-hides-the-mistake.md) | A duration that saturates hides the mistake | Rejected | [ADR 0061](0061-a-duration-that-does-not-fit-ends-the-program.md) |
+| [0079](0079-a-key-that-clamps-an-end-changes-the-width.md) | A key that clamps an end changes the width | Rejected | new |

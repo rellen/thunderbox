@@ -169,7 +169,7 @@ pub fn format_from_now(offset_ms: i64, step_ms: i64) -> String {
 /// ```
 pub fn format_window(window: TimeWindow) -> String {
     let width = duration_text(window.span_ms());
-    let behind = window.now - window.to;
+    let behind = window.now.saturating_sub(window.to);
     if behind <= 0 {
         return format!("The panels show the last {width}.");
     }
@@ -505,5 +505,40 @@ mod tests {
             now: 172_800_000,
         };
         assert_eq!(format_window(window), "The panels show the last 2 days.");
+    }
+
+    #[test]
+    fn format_window_does_not_panic_for_the_limits_of_the_number() {
+        let ends = [i64::MIN, -1, 0, 1, i64::MAX];
+        for from in ends {
+            for to in ends {
+                for now in ends {
+                    let text = format_window(TimeWindow { from, to, now });
+                    assert!(text.starts_with("The panels show"), "The text is {text}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn format_window_names_a_window_that_ended_a_very_long_time_ago() {
+        let window = TimeWindow {
+            from: i64::MIN,
+            to: i64::MIN,
+            now: i64::MAX,
+        };
+        let text = format_window(window);
+        assert!(text.contains("that ended"), "The text is {text}");
+        assert!(text.ends_with(" days ago."), "The text is {text}");
+    }
+
+    #[test]
+    fn format_from_now_does_not_panic_for_the_limits_of_the_number() {
+        for offset in [i64::MIN, i64::MIN + 1, -1, 1, i64::MAX] {
+            for step in [i64::MIN, -1, 0, 1, i64::MAX] {
+                let text = format_from_now(offset, step);
+                assert!(!text.is_empty());
+            }
+        }
     }
 }

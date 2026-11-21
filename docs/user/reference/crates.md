@@ -141,8 +141,8 @@ cargo run -p thunderbox-dashboard --example full_embed
 | `max_data_points` | The function that returns the point limit of a panel. |
 | `Reduce` | The step that reduces a column of numbers to one number. |
 | `TimeRange`, `RelativeTime`, `TimeWindow`, `Timestamp` | The time range, a moment, a window, and a count of milliseconds after the Unix epoch. |
-| `MIN_SPAN_MS`, `MAX_SPAN_MS` | The narrowest and the widest time range that the keys give. |
-| `now_ms`, `parse_duration_ms` | The functions that read the clock, and that read a duration. |
+| `MIN_SPAN_MS`, `MAX_SPAN_MS` | The narrowest and the widest time range that the keys give, and that `TimeRange::validate` accepts. |
+| `now_ms`, `parse_duration_ms` | The functions that read the clock, and that read a duration. `parse_duration_ms` returns an error for a duration that does not fit. |
 | `legend` | The module that applies a pattern. |
 | `variable` | The module that puts the value of a variable into a query. |
 | `Error`, `Result` | The error of this crate. |

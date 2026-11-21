@@ -1031,6 +1031,24 @@ mod tests {
         assert_eq!(last_value(&[]), None);
         assert_eq!(last_value(&frames(vec![None])), None);
     }
+
+    /// A caller can state any number in a window. A panel must still draw.
+    #[test]
+    fn a_window_at_the_limits_of_the_number_draws_without_a_panic() {
+        let f = frames(vec![Some(10.0), Some(50.0), Some(20.0)]);
+        let theme = Theme::default();
+        let ends = [i64::MIN, 0, i64::MAX];
+        for from in ends {
+            for to in ends {
+                for now in ends {
+                    let window = TimeWindow { from, to, now };
+                    let p = TimeSeriesPanel::new("p", PanelData::Frames(&f), &theme).window(window);
+                    let out = text(&render(&p, 40, 10));
+                    assert!(out.contains('p'), "The panel drew nothing. {out}");
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]

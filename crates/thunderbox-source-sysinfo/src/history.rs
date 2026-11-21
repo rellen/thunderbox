@@ -163,4 +163,26 @@ mod tests {
         assert_eq!(history.names_with_prefix("cpu.core.").len(), 2);
         assert!(history.names_with_prefix("memory").is_empty());
     }
+
+    #[test]
+    fn range_does_not_panic_for_ends_at_the_limits_of_the_number() {
+        let history = filled(100);
+        for from in [i64::MIN, 0, i64::MAX] {
+            for to in [i64::MIN, 0, i64::MAX] {
+                for budget in [0, 1, 7, u32::MAX] {
+                    let out = history.range("cpu", from, to, budget);
+                    assert!(out.len() <= 100);
+                }
+            }
+        }
+        assert_eq!(
+            history.range("cpu", i64::MIN, i64::MAX, u32::MAX).len(),
+            100
+        );
+        assert!(
+            history
+                .range("cpu", i64::MAX, i64::MIN, u32::MAX)
+                .is_empty()
+        );
+    }
 }

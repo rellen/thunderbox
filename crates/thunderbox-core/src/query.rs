@@ -61,7 +61,7 @@ impl QueryRequest {
     pub fn new(query: Query, range: &TimeRange, now: Timestamp, max_data_points: u32) -> Self {
         let (from, to) = range.resolve(now);
         let budget = max_data_points.max(1);
-        let step_ms = ((to - from) / i64::from(budget)).max(1);
+        let step_ms = (to.saturating_sub(from) / i64::from(budget)).max(1);
         Self {
             query,
             from,
@@ -73,8 +73,12 @@ impl QueryRequest {
     }
 
     /// Returns the width of the range in milliseconds. The result is 1 or more.
+    ///
+    /// The fields are public, so `from` can be larger than `to`. The result is
+    /// then 1. A range that is wider than the number can hold gives the largest
+    /// number.
     pub fn span_ms(&self) -> i64 {
-        (self.to - self.from).max(1)
+        self.to.saturating_sub(self.from).max(1)
     }
 }
 
@@ -149,6 +153,51 @@ mod tests {
         };
         let req = QueryRequest::new(q, &range(60_000), 1_000_000, 0);
         assert_eq!(req.max_data_points, 1);
+    }
+
+    fn query() -> Query {
+        Query {
+            source: "s".into(),
+            expr: "up".into(),
+        }
+    }
+
+    #[test]
+    fn new_does_not_panic_for_a_range_at_the_limit_of_the_number() {
+        let wide = TimeRange {
+            from: RelativeTime::Absolute(i64::MIN),
+            to: RelativeTime::Absolute(i64::MAX),
+        };
+        let req = QueryRequest::new(query(), &wide, 0, 1);
+        assert_eq!(req.span_ms(), i64::MAX);
+        assert_eq!(req.step_ms, i64::MAX, "One point covers the whole range.");
+        let far = TimeRange {
+            from: RelativeTime::Offset(i64::MIN),
+            to: RelativeTime::Offset(i64::MAX),
+        };
+        for now in [i64::MIN, -1, 0, 1, i64::MAX] {
+            let req = QueryRequest::new(query(), &far, now, u32::MAX);
+            assert!(req.step_ms >= 1, "The step must stay at 1 or more.");
+            assert!(req.span_ms() >= 1, "The width must stay at 1 or more.");
+        }
+    }
+
+    #[test]
+    fn span_ms_does_not_panic_for_ends_in_the_wrong_order() {
+        let mut req = QueryRequest::new(query(), &range(60_000), 1_000_000, 200);
+        req.from = i64::MAX;
+        req.to = i64::MIN;
+        assert_eq!(
+            req.span_ms(),
+            1,
+            "A start after the end gives a width of 1."
+        );
+        req.from = i64::MIN;
+        req.to = i64::MAX;
+        assert_eq!(req.span_ms(), i64::MAX);
+        req.from = 5;
+        req.to = 3;
+        assert_eq!(req.span_ms(), 1);
     }
 
     #[test]

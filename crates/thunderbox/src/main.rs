@@ -319,7 +319,9 @@ async fn run(path: Option<PathBuf>) -> Result<()> {
 /// The function returns `None` while no set of queries has answered.
 fn age_of(snapshot: &Snapshot) -> Option<Duration> {
     let asked_at = snapshot.updated_at?;
-    u64::try_from(now_ms() - asked_at)
+    // The moment can be any number. The difference then stops at the limit of
+    // the number, and it does not overflow.
+    u64::try_from(now_ms().saturating_sub(asked_at))
         .ok()
         .map(Duration::from_millis)
 }
@@ -599,6 +601,16 @@ async fn draw_loop(
 mod tests {
     use super::*;
     use thunderbox_core::PanelKind;
+
+    #[test]
+    fn age_of_does_not_panic_for_a_moment_at_the_limits_of_the_number() {
+        let mut snapshot = Snapshot::default();
+        assert_eq!(age_of(&snapshot), None, "No set of queries has answered.");
+        snapshot.updated_at = Some(i64::MIN);
+        assert!(age_of(&snapshot).is_some(), "The age is very large.");
+        snapshot.updated_at = Some(i64::MAX);
+        assert_eq!(age_of(&snapshot), None, "A moment ahead gives no age.");
+    }
 
     #[test]
     fn the_dashboard_inside_the_program_is_correct() {

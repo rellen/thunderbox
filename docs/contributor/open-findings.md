@@ -77,7 +77,8 @@ and [Make the pictures again](pictures.md) now hold nine of them:
 - the four rules that a program which embeds thunderbox must keep, in ADR 0016;
 - the corrected `Snapshot::is_loading`, in ADR 0031;
 - the licence, in ADR 0057;
-- the overflow of `refresh`, in ADR 0061;
+- the overflow of a duration, in ADR 0061. ADR 0073 supersedes it, and ADR 0074
+  to ADR 0077 hold the rest of the repair;
 - the field `downsamples` that no code reads, in ADR 0062.
 
 The code now holds two more duties of a data source. It also holds the three
@@ -88,29 +89,6 @@ state.
 ---
 
 # Defects that a person can reach
-
-## 4.3 `validate` reads no field of the time range
-
-**defect**
-
-[ADR 0061](adr/0061-a-duration-that-does-not-fit-ends-the-program.md) names this
-fault. The detail below reaches no file.
-
-`MIN_SPAN_MS` and `MAX_SPAN_MS` sit at `crates/thunderbox-core/src/time.rs:15` and
-`:22`. One place reads them, which is `TimeRange::with_span_ms` at `:222`. The
-keys `+` and `-` reach that method. The `[time]` table of a dashboard file
-reaches neither value. `validate`, at `dashboard.rs:89-137`, reads `title`,
-`refresh`, `panels` and `sources`, and it reads `time` nowhere.
-
-A dashboard of `from = "now-9223372036854775807ms"` loads with no error, and
-`QueryRequest::new` gives every data source a `span_ms()` of `i64::MAX`. The
-measurement: the task of the testdata panel panicked at
-`crates/thunderbox-source-testdata/src/lib.rs:200:33`, with the words `attempt to
-multiply with overflow`.
-
-The doc comment of `MAX_SPAN_MS` states that "the arithmetic stays correct".
-That sentence holds for the path of the keys alone. The message that a person
-reads names a data source, and it never names the dashboard.
 
 ## 3.4 The testdata source answers a variable, and its descriptor denies it
 
@@ -228,7 +206,7 @@ holds one sentence, and then a text that starts with a small letter.
 texts.
 
 The pages of `docs/user/reference` quote several of these texts exactly. A
-change to a text therefore changes a page as well. The three texts of
+change to a text therefore changes a page as well. The four texts of
 `parse_duration_ms`, and the text of a query that the data source testdata
 does not know, are already sentences.
 
@@ -783,59 +761,6 @@ holds no `.await` either. It polls at `:184` with the same 100 milliseconds. The
 doc comment of `AREA_QUIET_TIME`, at
 `crates/thunderbox-dashboard/src/runtime.rs:43-44`, states that duration for both
 programs.
-
-## 4.1 Two more functions reach the overflow of a duration
-
-**defect**
-
-`docs/ARCHITECTURE.md` names this fault twice. Item 6 of section 13, at
-`:1731-1754`, holds the measurement for `refresh = "20000000000w"`, and it names
-the `from` field in one sentence. Item 3 of the list of section 12, at
-`:1210-1221`, repeats that measurement. An overflow is a result that does not
-fit in its type. That file also holds `Ok(n * mult)` and the call from
-`Dashboard::validate`. The line numbers, the two calls below that sit outside
-`thunderbox-core`, and the smallest number of each unit reach no file.
-
-The program writes `panicked at crates/thunderbox-core/src/time.rs:364:8`, and
-then `attempt to multiply with overflow`. Each measurement below reads
-`target/debug/thunderbox`. The root `Cargo.toml` declares no `[profile]` table, so
-a build for release turns that check off, and `docs/ARCHITECTURE.md:1743-1745`
-states that rule. The measurement: `target/release/thunderbox` wrapped the number,
-passed `validate`, and panicked inside ratatui 0.30.2 at `init.rs:366`.
-
-**Five units of six reach the fault.** `parse_duration_ms` reads the number into
-an `i64` at `crates/thunderbox-core/src/time.rs:346`, and `:364` multiplies it.
-The multiplier of `ms` is 1, so that unit cannot reach the fault. The smallest
-number that reaches the fault is 9223372036854776 for `s`, and it is
-15250284453 for `w`. A dashboard of `refresh = "9223372036854776s"` gives the
-same panic and the code 101. A `refresh` of `9223372036854775808ms` does not fit
-an `i64`, so `:346` returns an error and the code 1.
-
-**Four functions call `parse_duration_ms`. A dashboard file reaches three of
-those calls, and one call cannot reach the fault at all.**
-
-- `Dashboard::validate` calls it at `crates/thunderbox-core/src/dashboard.rs:103`.
-  `Dashboard::from_toml` (`dashboard.rs:53-57`) calls `validate` at `:55`, and
-  `crates/thunderbox/src/main.rs:145` and `:150` call `from_toml`.
-- `parse_relative` calls it at `time.rs:381` and at `:384`, and `RelativeTime`
-  reads its TOML text through `parse_relative` (`time.rs:414`). The `from` field
-  and the `to` field reach the fault inside `toml::from_str`, at
-  `dashboard.rs:54`, before `validate` runs. A `from` of `now-20000000000w` and
-  a `to` of `now+20000000000w` each give the same panic.
-- `DashboardRuntime::new` reads `refresh` again at
-  `crates/thunderbox-dashboard/src/runtime.rs:212`, and that call never reaches
-  the fault. `:207` reads the same text through `validate`, so
-  `dashboard.rs:103` panics first. A program that embeds thunderbox can build a
-  `Dashboard` in code, and it then reaches the fault at `:207`.
-- `Settings::from_options` of `crates/thunderbox-source-prometheus/src/lib.rs`
-  calls `duration_ms` for `min_step` at `:114` and for `timeout` at `:116`.
-  `duration_ms` sits at `:153-155`, and it calls `parse_duration_ms` at `:154`.
-  A `min_step` of `20000000000w` gives the same panic, and the report under
-  `stack backtrace` names `:154`, `:114:54` and `:258:24`.
-
-No test names a number that does not fit. The two tests of `parse_duration_ms`
-at `time.rs:422-436` hold `7d` as their largest value. The test of `validate`
-for `refresh`, at `dashboard.rs:675-678`, holds `soon` alone.
 
 ## 4.2 No test reads the sentence that a panel shows for a data source that the registry does not hold
 

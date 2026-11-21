@@ -27,6 +27,9 @@ where it is.
 A move forward that reaches the present moment makes the time range follow the
 clock again. The time range keeps the width that you selected.
 
+The keys `-` and `+` keep the width between 1 second and 3650 days. A key that
+cannot move an end leaves the time range as it was.
+
 ## Know which data source holds the past
 
 - The data sources `prometheus` and `testdata` answer for each window.
@@ -49,6 +52,12 @@ The keys `0` and `=` return to this time range. The fields `from` and `to` also
 take a fixed moment. A fixed moment is a count of milliseconds after the Unix
 epoch, as text. The Unix epoch is the start of 1 January 1970, in Coordinated
 Universal Time. The text `"1700000000000"` is an example of a fixed moment.
+
+The width of the time range must be between 1 second and 3650 days. The
+program returns an error for a file that does not keep these limits, and it
+writes that error before it opens the terminal. The page
+[The dashboard file](../reference/dashboard-file.md#second-step-dashboardvalidate)
+holds the text of each error.
 
 ## Pages for the facts and the reasons
 

@@ -450,3 +450,87 @@ fn the_help_into_a_closed_pipe_returns_0() {
         String::from_utf8_lossy(&out.stderr)
     );
 }
+
+/// Runs the program on a dashboard file that holds `text`, and returns what
+/// the program wrote.
+///
+/// The `name` parameter names the file. Each test uses its own name, so two
+/// tests that run together never share a file.
+fn run_on_dashboard(name: &str, text: &str) -> std::process::Output {
+    let directory = std::env::temp_dir().join("thunderbox-cli-test");
+    std::fs::create_dir_all(&directory).expect("The test must be able to make a directory.");
+    let path = directory.join(name);
+    std::fs::write(&path, text).expect("The test must be able to write a file.");
+    let out = program()
+        .arg(&path)
+        .output()
+        .expect("The test must be able to run the program.");
+    let _ = std::fs::remove_file(&path);
+    out
+}
+
+/// Checks that the program refused a dashboard with a message, and that it did
+/// not panic. Returns the message.
+///
+/// The code 101 is the code that Rust gives to a panic.
+fn refused_with_a_message(out: &std::process::Output) -> String {
+    let message = String::from_utf8_lossy(&out.stderr).into_owned();
+    assert!(
+        !out.status.success(),
+        "The program must report the fault. {message}"
+    );
+    assert_ne!(
+        out.status.code(),
+        Some(101),
+        "The program panicked. {message}"
+    );
+    assert!(
+        out.stdout.is_empty(),
+        "The program must send no control sequence. It sent {:?}.",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    assert!(
+        !message.contains("panicked"),
+        "The message is the text of a panic. {message}"
+    );
+    message
+}
+
+#[test]
+fn a_refresh_duration_that_does_not_fit_gets_an_error_and_no_panic() {
+    let out = run_on_dashboard(
+        "refresh-too-large.toml",
+        "title = \"x\"\nrefresh = \"20000000000w\"\n",
+    );
+    let message = refused_with_a_message(&out);
+    assert!(
+        message.contains("20000000000w"),
+        "The message must name the text. {message}"
+    );
+}
+
+#[test]
+fn a_start_that_does_not_fit_gets_an_error_and_no_panic() {
+    let out = run_on_dashboard(
+        "from-too-large.toml",
+        "title = \"x\"\n[time]\nfrom = \"now-20000000000w\"\nto = \"now\"\n",
+    );
+    let message = refused_with_a_message(&out);
+    assert!(
+        message.contains("20000000000w"),
+        "The message must name the text. {message}"
+    );
+}
+
+#[test]
+fn a_range_that_is_too_wide_gets_an_error_that_names_the_limit() {
+    let out = run_on_dashboard(
+        "range-too-wide.toml",
+        "title = \"x\"\n[time]\nfrom = \"now-3651d\"\nto = \"now\"\n",
+    );
+    let message = refused_with_a_message(&out);
+    assert!(
+        message.contains("3650 days"),
+        "The message must name the limit. {message}"
+    );
+}

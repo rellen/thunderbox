@@ -87,6 +87,8 @@ This change does not do three things. Each one is work for a later version:
    and the dashboard then refreshes at a period that nobody asked for.
    [ADR 0061](0061-a-duration-that-does-not-fit-ends-the-program.md) records
    that fault, with its measurement.
+   [ADR 0073](0073-a-duration-that-does-not-fit-returns-an-error.md) repaired
+   it later. `parse_duration_ms` now returns an error for such a `refresh`.
 
 ## Measurements
 
