@@ -15,7 +15,7 @@
 # Each change of this file costs one cold run of the checks on each operating
 # system, because the cache key names the release.
 [toolchain]
-channel = "1.98.0"
+channel = "1.100.0"
 # The checks run `cargo fmt` and `cargo clippy`. This file must name both
 # components. This file outranks the toolchain that the workflow installed
 # before it, and the `minimal` profile holds neither component.
