@@ -235,6 +235,11 @@ async fn collapsing_a_row_panel_asks_about_nothing() {
 async fn a_collapse_that_lets_a_small_panel_draw_asks_about_it() {
     let source = Arc::new(Asked::default());
     let mut dash = runtime(&source);
+    // The first set of queries must end before the area arrives. That area
+    // drops both panels, so it stops the first set. A query of the stopped set
+    // can still reach the data source after the next `take`, and the last
+    // `take` then holds it. The macOS machine of the workflow met that order.
+    settle(&dash).await;
     // Six lines hold two lines of the row panels and four lines for the
     // panels. The panels `alpha` and `bravo` then hold two lines each, and the
     // renderer draws neither of them.
