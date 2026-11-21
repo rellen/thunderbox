@@ -11,7 +11,7 @@ use std::time::Duration;
 
 mod sources;
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use ratatui::layout::{Constraint, Layout, Size};
 use ratatui::widgets::Paragraph;
@@ -171,8 +171,14 @@ fn load_dashboard(path: Option<PathBuf>) -> Result<Dashboard> {
 /// Reads the dashboard, starts the runtime, and then draws.
 ///
 /// The program reads the dashboard before it touches the terminal. A dashboard
-/// that holds a fault therefore writes a message and stops. It sends no control
-/// sequence to a program that reads the output of this one.
+/// that holds a fault therefore writes a message and stops.
+///
+/// The program then checks that its standard output is a terminal. When the
+/// output is a file or a pipe, this function returns an error, and the program
+/// returns 1. The program therefore sends no control sequence to a file, or to
+/// a program that reads the output of this one. ADR 0071 in
+/// `docs/contributor/adr` states why the check reads the output, and not the
+/// input.
 async fn run(path: Option<PathBuf>) -> Result<()> {
     let dashboard = load_dashboard(path)?;
     // The dashboard names each data source that it needs, and the `sources`
@@ -184,9 +190,30 @@ async fn run(path: Option<PathBuf>) -> Result<()> {
     let mut dash = DashboardRuntime::new(dashboard, sources, tokio::runtime::Handle::current())
         .context("The program cannot start the dashboard.")?;
 
-    // The program owns the terminal from this line to the call that puts it
-    // back. Each call to init has one call to restore that answers it.
-    let mut terminal = ratatui::init();
+    use std::io::IsTerminal;
+
+    // A redirect of the output gives the program a file or a pipe in place of a
+    // terminal. A dashboard there reaches no person, so the program returns an
+    // error.
+    if !std::io::stdout().is_terminal() {
+        bail!(
+            "The program draws a dashboard only on a terminal. The standard output of \
+             the program is not a terminal."
+        );
+    }
+
+    // The program owns the terminal from this line to the call of restore. Each
+    // call to try_init has one call to restore that answers it.
+    let mut terminal = match ratatui::try_init() {
+        Ok(terminal) => terminal,
+        Err(error) => {
+            // A terminal can accept raw mode, and it can then refuse the
+            // alternate screen. The restore returns the terminal to its first
+            // state in that case.
+            ratatui::restore();
+            return Err(error).context("The program cannot start the terminal.");
+        }
+    };
     let result = draw_loop(&mut terminal, &mut dash).await;
     ratatui::restore();
     result
