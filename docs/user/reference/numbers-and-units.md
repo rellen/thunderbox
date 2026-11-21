@@ -28,6 +28,11 @@ and it writes the four names in that error. A data source can still attach any
 name to a column. No check reads that name, so such a column takes the format
 of no unit.
 
+A panel that states `unit = "byte"` therefore stops the program before it
+draws:
+
+![The terminal holds the error of the dashboard wrong-unit.toml. The panel cpu states the unit byte, and the message lists the four known units.](../../media/wrong_unit.gif)
+
 Two rules of format need care:
 
 - The unit `percent` does not multiply the number. A number must already run

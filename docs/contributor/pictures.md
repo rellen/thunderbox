@@ -49,6 +49,8 @@ picture of that scene in place of `docs/media/demo.gif`.
 | `not_a_terminal` | The program with its standard output sent to a file. The program writes one message, and it draws no dashboard. | [The command line](../user/reference/command-line.md) |
 | `unknown_option` | The program with an option that it does not know. The program writes one message to the error output, and it stops with the code 1. | [The command line](../user/reference/command-line.md) |
 | `help` | The program with the option `--help`. The program writes the help text, and it stops. | [The command line](../user/reference/command-line.md) |
+| `wrong_unit` | A dashboard with a panel that states the unit "byte". The program writes one message to the error output, and it stops with the code 1. | [Numbers and units](../user/reference/numbers-and-units.md) |
+| `zero_refresh` | A dashboard that states `refresh = "0s"`. The program writes one message to the error output, and it stops with the code 1. | [The dashboard file](../user/reference/dashboard-file.md) |
 
 The two scenes of the stack hold a dashboard of their own. The script writes
 that dashboard to a file, and it gives the path of that file to the program.
@@ -64,6 +66,13 @@ arguments. The script gives these arguments to the program before the path of
 the dashboard. A scene that holds no `args` key gives the program the path of
 the dashboard alone. Both scenes still hold a dashboard, so that the script
 accepts them. The program stops before it reads that dashboard.
+
+The scenes `wrong_unit` and `zero_refresh` hold the key `file_name`. The script
+then writes the dashboard into a new temporary directory, under that name. It
+starts the program inside that directory, and it gives the program the bare file
+name. The message of the program names that file name, so no temporary path
+reaches the picture. A scene that holds no `file_name` key gets a temporary file
+with a random name.
 
 ## Rules of a picture
 
