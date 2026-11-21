@@ -46,7 +46,7 @@ source = "machine"
 expr = "cpu"
 ```
 
-## The types of a value
+## Types of a value
 
 | type | the TOML form | example |
 |---|---|---|
@@ -55,8 +55,8 @@ expr = "cpu"
 | number | A float or an integer. A float is a number with a decimal point. | `85.0` |
 | true or false | A boolean, which holds `true` or `false`. | `true` |
 | list of texts | An array of strings, between two square brackets. | `["web", "db"]` |
-| duration | A text that holds a whole number and a unit. The page [Time ranges](time-ranges.md#the-form-of-a-duration) states the form. | `"5s"` |
-| moment | A text that names a point in time. The page [Time ranges](time-ranges.md#the-form-of-a-moment) states the form. | `"now-5m"` |
+| duration | A text that holds a whole number and a unit. The page [Time ranges](time-ranges.md#form-of-a-duration) states the form. | `"5s"` |
+| moment | A text that names a point in time. The page [Time ranges](time-ranges.md#form-of-a-moment) states the form. | `"now-5m"` |
 | table | A TOML table. Its name stands between two square brackets, and its fields follow it. | `[time]` |
 | inline table | A TOML table on one line, between two brace brackets. | `{ x = 0, y = 0, w = 8, h = 4 }` |
 | array of tables | A TOML array of tables. Its name stands between two pairs of square brackets, and the file repeats it for each item. | `[[panel]]` |
@@ -66,7 +66,7 @@ program takes when the file omits the field. The word `none` means that the
 field has no default value. The word `required` means that the file must state
 the field.
 
-## The top level
+## Top level
 
 | field | type | default | what it states |
 |---|---|---|---|
@@ -78,7 +78,7 @@ the field.
 | `[[variable]]` | array of tables | none | One variable. The page [Variables](variables.md) states its fields. |
 | `[[panel]]` | array of tables | none | One panel, and its place on the grid. |
 
-### The field `refresh`
+### Field `refresh`
 
 - thunderbox starts a new set of queries each time the duration passes.
 - thunderbox starts no new set of queries while a set of queries still waits
@@ -89,7 +89,7 @@ the field.
   starts. It also starts one after an event, such as the key `r` or a new time
   range.
 
-### The field `align`
+### Field `align`
 
 The renderer is the part of thunderbox that draws the panels. The field `align`
 states one rule of the renderer:
@@ -107,7 +107,7 @@ The guide
 [Start each chart of a stack at the same cell](../how-to/start-each-chart-of-a-stack-at-the-same-cell.md)
 uses this rule.
 
-### The table `[time]`
+### Table `[time]`
 
 | field | type | default | what it states |
 |---|---|---|---|
@@ -117,7 +117,7 @@ uses this rule.
 The program ignores any other field of this table. The page
 [Time ranges](time-ranges.md) states the form of a moment.
 
-### The table `[source.NAME]`
+### Table `[source.NAME]`
 
 `NAME` is the name of the data source. A target and a variable refer to the data
 source by this name.
@@ -135,7 +135,7 @@ source by this name.
 The page [The data sources](data-sources/README.md) lists the options of each
 kind.
 
-### The table `[[panel]]`
+### Table `[[panel]]`
 
 | field | type | default | the kinds that read it | what it states |
 |---|---|---|---|---|
@@ -168,7 +168,7 @@ These rules apply to the fields of a panel:
 
 The page for each kind states how the panel reads each field.
 
-#### The field `grid`
+#### Field `grid`
 
 | field | type | default | what it states |
 |---|---|---|---|
@@ -187,17 +187,17 @@ The page for each kind states how the panel reads each field.
   terminal. The renderer scales the other rows onto the lines that remain.
 - The program does not check whether two panels overlap.
 
-#### The table `[[panel.threshold]]`
+#### Table `[[panel.threshold]]`
 
 | field | type | default | what it states |
 |---|---|---|---|
 | `value` | number | required | The smallest value that the threshold applies to. |
 | `color` | text | required | The name of the colour. The program knows the names `warning` and `critical`. A panel draws a value of any other name in its usual colour. |
 
-The page [Numbers and units](numbers-and-units.md#the-thresholds) states the
+The page [Numbers and units](numbers-and-units.md#thresholds) states the
 rule of a threshold.
 
-#### The table `[[panel.target]]`
+#### Table `[[panel.target]]`
 
 | field | type | default | what it states |
 |---|---|---|---|
@@ -209,7 +209,7 @@ rule of a threshold.
 - The panel runs its targets in order. It stops at the first target that
   returns an error, and the whole panel then shows that error.
 - A panel that holds no target shows `no data`.
-- The page [Variables](variables.md#the-form-of-a-reference) states the form of
+- The page [Variables](variables.md#form-of-a-reference) states the form of
   a reference to a variable.
 
 #### A dashboard that declares no data source
@@ -226,13 +226,13 @@ that holds a target shows the error
 A program that holds a dashboard can supply its own data sources. Such a
 program can read a dashboard that declares none.
 
-## The faults that the program rejects
+## Faults that the program rejects
 
 The program checks a dashboard in three steps. It writes the error
 `The dashboard in FILE is not correct.` for a fault of the first step or of the
 second step.
 
-### The first step: the TOML text
+### First step: the TOML text
 
 The program writes the reason of a fault under the words `Caused by:`. The
 reason of a fault of this step starts with `The dashboard is not valid TOML.`
@@ -260,7 +260,7 @@ The program rejects a field that it does not know in each of these places:
 The program ignores a field that it does not know in the table `[time]`. It
 also ignores such a field in the `query` table of a variable.
 
-### The second step: `Dashboard::validate`
+### Second step: `Dashboard::validate`
 
 The reason of a fault of this step starts with `The dashboard is not correct.`
 The fault of the field `refresh` is the one exception. Its reason starts with
@@ -296,7 +296,7 @@ for a value of the file.
 The program checks every variable before it checks a panel. A dashboard can
 therefore declare a variable after the panel that refers to it.
 
-### The third step: the data sources
+### Third step: the data sources
 
 The program makes each data source after the two steps above. It writes the
 error `The program cannot make the data sources of the dashboard.` for a fault
@@ -314,7 +314,7 @@ A duration of the wrong form is the one exception. Its reason starts with
 The page [The data sources](data-sources/README.md) lists the options of each
 kind, and the text of each error.
 
-## The pages that give the reason
+## Pages that give the reason
 
 - [Architecture decision record 0014](../../contributor/adr/0014-the-file-format-of-a-dashboard-is-toml.md)
   states why the file format is TOML.

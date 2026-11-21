@@ -220,7 +220,7 @@ legend = "walk {{series}}"
 - You coloured a value with two thresholds.
 - You named each series with a pattern.
 
-## The next step
+## Next step
 
 - Follow [Read a Prometheus server](read-a-prometheus-server.md) to show the
   data of a real server.

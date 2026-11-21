@@ -1,4 +1,4 @@
-# The contributor guide
+# Contributor guide
 
 This guide is for a person who changes thunderbox. It names the documents to
 read, the tools to install, and the rules that each change follows.
@@ -37,7 +37,7 @@ direnv is a program that loads a shell when a person enters a directory. The
 file `.envrc` tells direnv to load the shell of the flake. Run `direnv allow`
 once to permit that.
 
-### The release of Rust
+### Release of Rust
 
 This project pins the release of Rust. The file `rust-toolchain.toml` names it.
 rustup reads that file, and it then uses that release for every cargo command

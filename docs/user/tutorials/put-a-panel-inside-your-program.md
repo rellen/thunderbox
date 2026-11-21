@@ -274,7 +274,7 @@ colour `critical`.
 Your program holds no data source and no dashboard file of thunderbox. It also
 holds no async runtime, which is a library that runs tasks at the same time.
 
-## The next step
+## Next step
 
 - Follow [Put a dashboard inside your program](put-a-dashboard-inside-your-program.md)
   to let thunderbox run the queries for you.

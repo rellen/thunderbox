@@ -48,7 +48,7 @@ The command builds each check of `flake.nix`. The first check is the package,
 and the build of the package runs `cargo test` for the whole workspace. The
 second check is the shell.
 
-### The workflow
+### Workflow
 
 `.github/workflows/flake.yml` runs that command on Linux. `checks.yml` reads no
 Nix file, so the workflow `flake` is the one check that builds the flake.
@@ -57,7 +57,7 @@ The workflow starts only for a change to a file that its list `paths` names. A
 change under `crates` starts no run. Press the manual button of that workflow
 after such a change when the change can alter the build.
 
-### The systems
+### Systems
 
 The flake offers three systems, and one of them has no build:
 

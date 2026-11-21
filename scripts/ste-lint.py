@@ -56,6 +56,7 @@ ALLOWED_ING = {
     "operating",  # as in "operating system"
     "warning",  # the name of a threshold in the theme
     "string",  # a Rust type
+    "heading",  # a noun: the title of a section
     "during",
     "according",
     "nothing",

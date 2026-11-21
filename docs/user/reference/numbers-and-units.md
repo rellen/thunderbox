@@ -6,7 +6,7 @@ places, the steps of the field `reduce`, the thresholds, and the symbol `—`.
 A terminal has few columns, so a panel keeps the text of a number short. It
 writes `1.2G` in place of `1234567890`.
 
-## The units
+## Units
 
 The field `unit` of a panel names the unit. A data source can also attach a
 unit to a column, and the field of the panel replaces it.
@@ -23,7 +23,7 @@ unit to a column, and the field of the panel replaces it.
 The panel knows these four names alone: `percent`, `bytes`, `bytes/s`, and
 `seconds`.
 
-### The letters of the scale
+### Letters of the scale
 
 | letter | the factor |
 |---|---|
@@ -46,7 +46,7 @@ The panel knows these four names alone: `percent`, `bytes`, `bytes/s`, and
   therefore writes `1.5KB` for 1500 bytes.
 - A negative number keeps its minus sign, as `-1.5K` does.
 
-## The decimal places
+## Decimal places
 
 The field `decimals` of a panel states the number of decimal places. It holds a
 whole number from 0 to 255. A data source can also attach a number to a column,
@@ -77,7 +77,7 @@ removes the decimal point when no decimal place remains. A number under 1000
 with no unit therefore takes no decimal place. The panel writes `0` for 0.4, and
 `43` for 42.7. State `decimals` for a panel of small numbers.
 
-## The steps of `reduce`
+## Steps of `reduce`
 
 The stat panel, the gauge panel, and the bar gauge panel show one number for
 each series. The field `reduce` names the step that reduces the column of
@@ -101,7 +101,7 @@ numbers to that number.
 - The steps `last` and `first` read the position of a value in the column. A
   data source returns its values from the oldest to the newest.
 
-## The thresholds
+## Thresholds
 
 A `[[panel.threshold]]` table states one bound, and the colour of a value that
 reaches the bound. The example below is a part of a dashboard file, and it does
@@ -147,7 +147,7 @@ The guide
 [Colour a value that reaches a bound](../how-to/colour-a-value-that-reaches-a-bound.md)
 adds thresholds to a panel.
 
-## The symbol for a value that a panel cannot show
+## Symbol for a value that a panel cannot show
 
 The symbol `—` stands in the place of a number that a panel cannot show. The
 symbol is not a mark of punctuation.
@@ -164,7 +164,7 @@ symbol is not a mark of punctuation.
 The gauge panel and the bar gauge panel drop a series whose number is not
 finite, so they never draw the symbol.
 
-## The pages that give the reason
+## Pages that give the reason
 
 - [Architecture decision record 0007](../../contributor/adr/0007-the-settings-of-a-panel-win-over-the-column.md)
   states why the field of a panel replaces the value of the column.

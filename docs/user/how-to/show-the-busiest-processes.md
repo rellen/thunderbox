@@ -76,7 +76,7 @@ The data source `testdata` answers the query `processes` with a list of twelve
 invented processes. That list has the same four columns. Use it for a picture or
 for a test that must show nothing of your machine.
 
-## The pages for the facts and the reasons
+## Pages for the facts and the reasons
 
 - [The top panel](../reference/panels/top.md) states the fields `sort` and
   `threshold` of a top panel.

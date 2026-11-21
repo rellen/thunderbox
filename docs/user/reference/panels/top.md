@@ -1,4 +1,4 @@
-# The top panel
+# Top panel
 
 The kind `top` draws a list of rows in order by one column, with the largest
 value first. The program `top` shows the processes of a machine in this form.
@@ -29,7 +29,7 @@ The guide
 [Show the busiest processes](../../how-to/show-the-busiest-processes.md) adds
 this panel to a dashboard.
 
-## The data that the panel needs
+## Data that the panel needs
 
 A data source answers a query with frames. A frame is a table of columns, and
 each column holds one value for each row.
@@ -43,7 +43,7 @@ each column holds one value for each row.
 - A frame that holds no column for a header shows `—` in that column.
 - The panel shows `no data` when every frame holds no row.
 
-## The order of the rows
+## Order of the rows
 
 - The field `sort` names the column that gives the order. The name is the text
   of the header of that column.
@@ -64,7 +64,7 @@ The header holds the name after the pattern of the `legend` field. The field
 `sort` names that header. The page [Legend patterns](../legend-patterns.md)
 states the pattern.
 
-## The configuration of the columns
+## Configuration of the columns
 
 - The fields `unit` and `decimals` and the thresholds of the panel apply to the
   column that gives the order. They apply to no other column.
@@ -72,7 +72,7 @@ states the pattern.
   list of processes holds a share of the processor beside a count of bytes, and
   one unit cannot describe both.
 
-## The cells and the columns
+## Cells and the columns
 
 The panel shares the layout of the [table panel](table.md):
 
@@ -86,7 +86,7 @@ The panel shares the layout of the [table panel](table.md):
   [Architecture decision record 0063](../../../contributor/adr/0063-a-narrow-top-panel-drops-the-sort-column.md)
   records that fault.
 
-## The fields that the panel reads
+## Fields that the panel reads
 
 | field | what the panel does with it |
 |---|---|
@@ -99,7 +99,7 @@ The panel shares the layout of the [table panel](table.md):
 The panel ignores the fields `min`, `max`, and `reduce`. The program rejects
 the field `sort` on a panel of every other kind.
 
-## The texts that the panel can draw
+## Texts that the panel can draw
 
 | text | condition |
 |---|---|
@@ -122,9 +122,9 @@ red, as it writes every error.
 - A shorter panel shows fewer rows. It keeps the rows with the largest numbers.
 - A narrower panel drops the columns at the right first.
 
-## The pages that give the reason
+## Pages that give the reason
 
 - [Architecture decision record 0046](../../../contributor/adr/0046-a-top-list-is-a-kind-of-panel-of-its-own.md)
   states why this list is a kind of panel of its own.
-- [The data source sysinfo](../data-sources/sysinfo.md#the-list-of-the-processes)
+- [The data source sysinfo](../data-sources/sysinfo.md#list-of-the-processes)
   states the columns of the query `processes`.

@@ -1,21 +1,21 @@
-# The panels
+# Panels
 
 A panel draws the answer of its queries inside a border. The `kind` field of a
 `[[panel]]` table selects the panel. The page
-[The dashboard file](../dashboard-file.md#the-table-panel) lists the fields of
+[The dashboard file](../dashboard-file.md#table-panel) lists the fields of
 that table.
 
 | kind | page | what the panel draws |
 |---|---|---|
-| `timeseries` | [The time series panel](timeseries.md) | One line for each series, against time. |
-| `stat` | [The stat panel](stat.md) | One large number for each series. |
-| `gauge` | [The gauge panel](gauge.md) | One meter for each series, against a range. |
-| `bargauge` | [The bar gauge panel](bargauge.md) | One bar for each series, against a range. |
-| `table` | [The table panel](table.md) | Every value of the answer, in rows and columns. |
-| `top` | [The top panel](top.md) | A list of rows in order by one column, with the largest value first. |
-| `row` | [The row panel](row.md) | A line across the whole grid that holds the panels below it. |
+| `timeseries` | [Time series panel](timeseries.md) | One line for each series, against time. |
+| `stat` | [Stat panel](stat.md) | One large number for each series. |
+| `gauge` | [Gauge panel](gauge.md) | One meter for each series, against a range. |
+| `bargauge` | [Bar gauge panel](bargauge.md) | One bar for each series, against a range. |
+| `table` | [Table panel](table.md) | Every value of the answer, in rows and columns. |
+| `top` | [Top panel](top.md) | A list of rows in order by one column, with the largest value first. |
+| `row` | [Row panel](row.md) | A line across the whole grid that holds the panels below it. |
 
-## The fields that each kind reads
+## Fields that each kind reads
 
 A cross shows that the kind reads the field. Every kind reads `title`, `kind`,
 and `grid`.
@@ -32,12 +32,12 @@ and `grid`.
 | `[[panel.threshold]]` | | x | x | x | x | x | |
 | `[[panel.target]]` | x | x | x | x | x | x | |
 
-## The rules that every panel shares
+## Rules that every panel shares
 
 The rules in this section apply to every kind except `row`. The page
 [The row panel](row.md) states the rules of that kind.
 
-### The border and the size
+### Border and the size
 
 - Each panel draws a border with round corners. The title stands in the top
   edge of the border.
@@ -49,7 +49,7 @@ The rules in this section apply to every kind except `row`. The page
   renderer is the part of thunderbox that draws the panels. The status row
   counts such a panel, and thunderbox asks no data source about it.
 
-### The three states that hold no data
+### Three states that hold no data
 
 | text | colour | condition |
 |---|---|---|
@@ -63,7 +63,7 @@ The rules in this section apply to every kind except `row`. The page
 - A new time range returns every panel to `loading…`. A new value of a variable
   does the same.
 
-### The configuration of a column
+### Configuration of a column
 
 A data source can attach a unit, decimal places, a range, and thresholds to a
 column. The field of the panel replaces the value of the column for each of
@@ -72,21 +72,21 @@ these. A panel that states no such field uses the value that the column states.
 A panel replaces the whole list of the thresholds of a column when it states
 one threshold or more.
 
-### The colour of a series
+### Colour of a series
 
 Each series takes a colour from this list, in order: cyan, magenta, green,
 yellow, blue, and light red. The seventh series takes cyan again. A threshold
 that a value reaches gives that value the colour of the threshold. The page
-[Numbers and units](../numbers-and-units.md#the-thresholds) states that rule.
+[Numbers and units](../numbers-and-units.md#thresholds) states that rule.
 
-### The name of a series
+### Name of a series
 
 A panel names each series with the name that the `legend` field of its target
 builds. For a target that states no pattern, the panel shows the name that the
 data source gives. The page [Legend patterns](../legend-patterns.md) states both
 rules.
 
-### The short labels
+### Short labels
 
 A panel that cannot show every part writes a complete sentence that counts the
 parts that it does not show. It writes a short form only when the sentence does
@@ -103,10 +103,10 @@ A panel cuts the short form when the free cells hold less. A full stop then
 marks the cut.
 
 The symbol `—` stands in the place of a number that a panel cannot show. The
-page [Numbers and units](../numbers-and-units.md#the-symbol-for-a-value-that-a-panel-cannot-show)
+page [Numbers and units](../numbers-and-units.md#symbol-for-a-value-that-a-panel-cannot-show)
 lists where each panel draws it.
 
-## The pages that give the reason
+## Pages that give the reason
 
 - [Panels that the terminal cannot hold](../../explanation/panels-that-the-terminal-cannot-hold.md)
   explains the panel that the renderer drops.

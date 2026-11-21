@@ -83,7 +83,7 @@ of that label. The file `dashboards/prometheus.toml` holds this variable.
   reference.
 - Give a variable either `options` or `query`, and never both.
 
-## The pages for the facts and the reasons
+## Pages for the facts and the reasons
 
 - [Variables](../reference/variables.md) states each field of a variable, and
   each fault that the program reports.

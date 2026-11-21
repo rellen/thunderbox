@@ -18,7 +18,7 @@ from = "now-15m"
 to = "now"
 ```
 
-## The form of a moment
+## Form of a moment
 
 The fields `from` and `to` of the table `[time]` each hold a moment. A moment is
 a text in one of these forms:
@@ -44,7 +44,7 @@ a text in one of these forms:
 - A time range can name its end before its start. The window then puts the
   earlier moment first.
 
-## The form of a duration
+## Form of a duration
 
 A duration is a text that holds a whole number and then a unit, with no space
 between them.
@@ -85,7 +85,7 @@ A duration of the wrong form gives an error of this form:
 The time value "1.5s" is not correct. The unit ".5s" is not known. The known units are ms, s, m, h, d, and w.
 ```
 
-## The limits of the width
+## Limits of the width
 
 | limit | the width |
 |---|---|
@@ -98,10 +98,10 @@ The time value "1.5s" is not correct. The unit ".5s" is not known. The known uni
 - The limits apply to the keys alone. The dashboard file can state a time
   range outside them.
 
-The page [The command line](command-line.md#the-rules-of-the-keys-of-the-time-range)
+The page [The command line](command-line.md#rules-of-the-keys-of-the-time-range)
 states every rule of the keys of the time range.
 
-## The labels of the axis of time
+## Labels of the axis of time
 
 A time series panel writes three labels under its axis of time. Each label
 states the distance from the present moment to that place on the axis.
@@ -133,7 +133,7 @@ The panels show 5 minutes that ended 1 hour ago.
 The sentence writes each length in seconds, minutes, hours, or days. It rounds
 each count to a whole number.
 
-## The pages that give the reason
+## Pages that give the reason
 
 - [The time range and the window](../explanation/the-time-range-and-the-window.md)
   explains a window and the labels of the axis of time.

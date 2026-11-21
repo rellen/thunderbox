@@ -89,7 +89,7 @@ A configuration of NixOS or of home-manager can name the flake as an input,
 which is a repository that the configuration reads.
 [The Nix flake](../reference/nix-flake.md) states each output of the flake.
 
-## The pages for the facts and the reasons
+## Pages for the facts and the reasons
 
 - On Linux, the data source `prometheus` needs the certificate of each
   certificate authority. Read

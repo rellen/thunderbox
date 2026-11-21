@@ -1,4 +1,4 @@
-# The time series panel
+# Time series panel
 
 The kind `timeseries` draws one line for each series, against time. The panel
 fills the area below each line.
@@ -19,7 +19,7 @@ source = "machine"
 expr = "cpu"
 ```
 
-## The data that the panel needs
+## Data that the panel needs
 
 A data source answers a query with frames. A frame is a table of columns, and
 each column holds one value for each row.
@@ -42,12 +42,12 @@ each column holds one value for each row.
   the window fills part of the panel.
 - The axis of time holds three labels. Each label states the distance from the
   present moment, as `-5m`, `-2m`, and `now` do. The page
-  [Time ranges](../time-ranges.md#the-labels-of-the-axis-of-time) states the
+  [Time ranges](../time-ranges.md#labels-of-the-axis-of-time) states the
   form.
 - The axis of values holds three labels: the value at the bottom, the value in
   the middle, and the value at the top.
 - Each series takes the next colour of a fixed list of colours. The page
-  [The panels](README.md#the-colour-of-a-series) gives that list.
+  [The panels](README.md#colour-of-a-series) gives that list.
 - The panel shows a legend in its top right corner only when each of these
   conditions holds:
   - the panel holds two series or more;
@@ -58,7 +58,7 @@ each column holds one value for each row.
   [Change the glyph of a chart](../../how-to/change-the-glyph-of-a-chart.md)
   describes each glyph.
 
-## The ends of the axis of values
+## Ends of the axis of values
 
 The panel finds each end of the axis with the first rule that applies:
 
@@ -87,7 +87,7 @@ The page
 [Why each panel asks for its own points](../../explanation/why-each-panel-asks-for-its-own-points.md)
 explains the rule.
 
-## The fields that the panel reads
+## Fields that the panel reads
 
 | field | what the panel does with it |
 |---|---|
@@ -100,9 +100,9 @@ explains the rule.
 The panel ignores the field `reduce` and the thresholds.
 
 The field `align` of the dashboard also applies to this panel. The page
-[The dashboard file](../dashboard-file.md#the-field-align) states that rule.
+[The dashboard file](../dashboard-file.md#field-align) states that rule.
 
-## The texts that the panel can draw
+## Texts that the panel can draw
 
 | text | condition |
 |---|---|
@@ -123,7 +123,7 @@ The legend names each series. The page
 - Under the rule `align = "column"`, the column of the labels takes a third of
   the width inside the border, or less.
 
-## The pages that give the reason
+## Pages that give the reason
 
 - [The time range and the window](../../explanation/the-time-range-and-the-window.md)
   explains what a label of the axis of time states.

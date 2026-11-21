@@ -48,7 +48,7 @@ Use this way when you cannot install a package.
 
 The program now opens the dashboard.
 
-## The pages for the facts and the reasons
+## Pages for the facts and the reasons
 
 - [The data source prometheus](../reference/data-sources/prometheus.md) states
   the file of certificates on Linux.

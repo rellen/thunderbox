@@ -85,7 +85,7 @@ panel "this machine" refers to undeclared source "mchine"
 
 1. Correct the field `source` of that target, or declare the data source.
 
-## The pages for the facts and the reasons
+## Pages for the facts and the reasons
 
 - [The data sources](../reference/data-sources/README.md) states the table
   `[source.NAME]` and each kind of data source.

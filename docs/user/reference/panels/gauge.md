@@ -1,4 +1,4 @@
-# The gauge panel
+# Gauge panel
 
 The kind `gauge` draws one meter for each series. A meter is a bar against a
 range, and it shows how full a thing is. The panel serves a small number of
@@ -26,7 +26,7 @@ source = "machine"
 expr = "memory"
 ```
 
-## The data that the panel needs
+## Data that the panel needs
 
 A data source answers a query with frames. A frame is a table of columns, and
 each column holds one value for each row.
@@ -52,7 +52,7 @@ A meter holds these parts, from the top to the bottom:
 The panel makes one decision for every meter. All the meters therefore hold the
 same parts.
 
-### The bar
+### Bar
 
 - A light shade, `░`, marks the whole range of the meter. The filled part of the
   bar covers that shade.
@@ -63,14 +63,14 @@ same parts.
 - A number below the range gives an empty bar. A number above the range gives a
   full bar.
 
-### The range row
+### Range row
 
 - Every meter holds this row when the shortest meter holds 2 rows or more for
   the bar and the range row together.
 - A meter leaves the row empty when the two numbers and one space do not fit
   its width.
 
-## The range of a meter
+## Range of a meter
 
 The panel finds each end of the range with the first rule that applies:
 
@@ -85,7 +85,7 @@ The panel gives a width of 1 to a range that has no width. A panel that states
 `min` and `max` keeps one range from one refresh to the next. A reader can then
 compare two refreshes.
 
-## The arrangement of the meters
+## Arrangement of the meters
 
 - The panel puts the meters side by side when all of these conditions hold:
   - the panel holds 2 to 4 series;
@@ -102,7 +102,7 @@ compare two refreshes.
   holds the note alone.
 - The panel cuts a name that is too long. A full stop marks the cut.
 
-## The fields that the panel reads
+## Fields that the panel reads
 
 | field | what the panel does with it |
 |---|---|
@@ -114,7 +114,7 @@ compare two refreshes.
 | `[[panel.threshold]]` | The panel colours the bar with the colour of the threshold that the number reaches. |
 | `[[panel.target]]` | The panel shows one meter for each series of the answer of each target. |
 
-## The texts that the panel can draw
+## Texts that the panel can draw
 
 | text | condition |
 |---|---|
@@ -132,7 +132,7 @@ compare two refreshes.
   The bar keeps one row or more.
 - A bar that is narrower than its number shows no number.
 
-## The pages that give the reason
+## Pages that give the reason
 
 - [Colour a value that reaches a bound](../../how-to/colour-a-value-that-reaches-a-bound.md)
   adds thresholds to a panel.

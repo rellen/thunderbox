@@ -48,7 +48,7 @@ selects the glyph itself:
 The type `Marker` is `thunderbox_widgets::Marker`. The crate
 `thunderbox-dashboard` also offers it as `thunderbox_dashboard::widgets::Marker`.
 
-## The pages for the facts and the reasons
+## Pages for the facts and the reasons
 
 - [The time series panel](../reference/panels/timeseries.md) states how a chart
   draws a point.

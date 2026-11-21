@@ -49,7 +49,7 @@ it. The program reads the key of its terminal, and it turns that key into a
 runs alone and `full_embed.rs` each do that in one short block. No program
 holds a copy of the policy.
 
-### The rules of a move
+### Rules of a move
 
 A move fixes a moment at each end of the range, so the window stands still.
 

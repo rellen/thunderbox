@@ -137,7 +137,7 @@ The program stops, and the terminal shows the command line again.
 - You read each panel of the dashboard that the program holds.
 - You found the busiest process of your machine.
 
-## The next step
+## Next step
 
 - Follow [Write your first dashboard](write-your-first-dashboard.md) to make a
   dashboard of your own.

@@ -184,7 +184,7 @@ read.
 | 2, the active voice | A reader checks this rule. No tool checks it. |
 | 3, no -ing form | The script finds the word. A reader decides whether the word is a technical name. |
 | 4, a complete sentence | A reader checks this rule. No tool checks it. |
-| 5, an article | A reader checks this rule. No tool checks it. |
+| 5, an article | A reader checks this rule. No tool checks it. Section 1.8 states the rule for a heading. |
 | 6, one term for one thing | A reader checks this rule. No tool checks it. |
 | 7, no slang and no idiom | A reader checks this rule. No tool checks it. |
 | 8, simple punctuation | The script finds an em dash. A reader checks the slash between two words, and checks that a long list of parts became a vertical list. |
@@ -263,6 +263,22 @@ word pair that no dictionary entry explains.
 | `fall back to` | `take` |
 
 Add a row when a reviewer finds another phrase.
+
+### 1.8 The article at the start of a heading
+
+Rule 5 asks for an article. A heading is a title, and the standard permits a
+short form in a title. A heading of a page in `docs` therefore follows these
+rules:
+
+- A heading that names a thing takes no article at its start. Write
+  `## Options`. Do not write `## The options`.
+- A heading that is a sentence keeps its article.
+  `## The runtime runs the queries` is such a heading.
+- Some headings keep `The` by a decision of the project.
+  `# The command line` is one of them. Leave each heading that holds `The`
+  today as it is.
+
+The headings of this file keep their articles.
 
 Coverage of the documentation is a different matter from the style of the
 documentation. A tool can check coverage. Section 2 records what the project

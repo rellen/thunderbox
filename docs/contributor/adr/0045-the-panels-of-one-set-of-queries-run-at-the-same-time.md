@@ -44,14 +44,14 @@ that it reads:
 `Registry` holds each data source in an `Arc`, which is a pointer that several
 owners share. A copy of the registry therefore copies no data source.
 
-### The order of the answers
+### Order of the answers
 
 The answers keep the order of the panels. Each task carries the position of
 its own job, and `run_together` writes the answer of that task at that
 position. `Snapshot::panel` reads a panel at the position that the dashboard
 gives it.
 
-### The stop of a set
+### Stop of a set
 
 The drop of a `JoinSet` stops every task that the set holds. A future is the
 value that an `async` function returns, and a task runs it. The task of a set
@@ -71,7 +71,7 @@ error of its own, and every other panel keeps its answer. The limit of one
 query in [ADR 0019](0019-the-runtime-holds-one-query-to-a-limit.md) already
 followed this rule, and a panic now follows it as well.
 
-### The choices of a variable
+### Choices of a variable
 
 `load_choices` follows the same rule for the variables. The runtime asks the
 data source of every variable at the same time, and it returns the answers in

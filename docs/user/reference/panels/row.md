@@ -1,4 +1,4 @@
-# The row panel
+# Row panel
 
 The kind `row` draws one line across the whole grid. The row panel holds the
 panels below it on the grid, up to the next row panel. A person collapses a row
@@ -30,7 +30,7 @@ The guide
 [Group panels under row panels](../../how-to/group-panels-under-row-panels.md)
 adds row panels to a dashboard.
 
-## The panels that a row panel holds
+## Panels that a row panel holds
 
 - A row panel holds each panel that starts below its line, up to the line of
   the next row panel.
@@ -82,7 +82,7 @@ The line of a collapsed row panel looks like this:
 
 The page [The command line](../command-line.md#the-keys) lists every key.
 
-## The fields that the panel reads
+## Fields that the panel reads
 
 | field | what the panel does with it |
 |---|---|
@@ -96,7 +96,7 @@ The page [The command line](../command-line.md#the-keys) lists every key.
 - A row panel ignores `unit`, `decimals`, `min`, `max`, `reduce`, and the
   thresholds.
 
-## The texts that the panel can draw
+## Texts that the panel can draw
 
 | text | condition |
 |---|---|
@@ -117,7 +117,7 @@ data.
   renderer drops.
 - The line cuts a title that is too long. A full stop marks the cut.
 
-## The pages that give the reason
+## Pages that give the reason
 
 - [Row panels and the place of a panel](../../explanation/row-panels-and-the-place-of-a-panel.md)
   explains why a row panel holds panels by their place.

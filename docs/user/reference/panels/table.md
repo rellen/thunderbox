@@ -1,4 +1,4 @@
-# The table panel
+# Table panel
 
 The kind `table` draws every value of the answer, in rows and columns. The panel
 reduces no column to one number.
@@ -21,7 +21,7 @@ expr = "cpu.cores"
 legend = "core {{core}}"
 ```
 
-## The data that the panel needs
+## Data that the panel needs
 
 A data source answers a query with frames. A frame is a table of columns, and
 each column holds one value for each row.
@@ -37,7 +37,7 @@ each column holds one value for each row.
   full stop, as `cpu.usage` does.
 - The panel shows `no data` when every frame holds no row.
 
-## The rows
+## Rows
 
 - The header takes the first row inside the border. The data takes every other
   row.
@@ -49,7 +49,7 @@ each column holds one value for each row.
   of each frame at the bottom. The symbol `—` fills the cells above the rows of
   the shorter frame.
 
-## The cells
+## Cells
 
 | the type of the column | the text of a cell | the place of the text |
 |---|---|---|
@@ -63,7 +63,7 @@ each column holds one value for each row.
 - A number takes the colour of the threshold that it reaches. Every other value
   is grey, and the symbol `—` is dark grey.
 
-## The width of the columns
+## Width of the columns
 
 - One empty cell stands between two columns.
 - Each column takes the width of its widest cell, the header included, when
@@ -79,7 +79,7 @@ each column holds one value for each row.
 - A panel that is too narrow for one column draws the border and the title
   alone.
 
-## The fields that the panel reads
+## Fields that the panel reads
 
 | field | what the panel does with it |
 |---|---|
@@ -90,7 +90,7 @@ each column holds one value for each row.
 
 The panel ignores the fields `min`, `max`, and `reduce`.
 
-## The texts that the panel can draw
+## Texts that the panel can draw
 
 | text | condition |
 |---|---|
@@ -108,7 +108,7 @@ The panel ignores the fields `min`, `max`, and `reduce`.
 - A shorter panel shows fewer rows. It keeps the most recent rows.
 - A narrower panel drops the columns at the right first.
 
-## The pages that give the reason
+## Pages that give the reason
 
 - [The top panel](top.md) puts the rows in order by one column, and it shows
   the largest values first.

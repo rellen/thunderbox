@@ -106,7 +106,7 @@ program writes one of these faults:
 | `panel "cpu" crosses the line of the row "processes" at y = 9` | Make the panel end at the line of the row panel, or start below it. |
 | `panel "cpu" states the field collapsed. Only a panel of the kind row reads that field` | Remove the field `collapsed` from the panel. |
 
-## The pages for the facts and the reasons
+## Pages for the facts and the reasons
 
 - [The row panel](../reference/panels/row.md) states each field and each rule of
   a row panel.

@@ -1,4 +1,4 @@
-# The libraries that this project examined
+# Libraries that this project examined
 
 This document records the evidence for the choices of [the
 architecture](architecture.md) and of [the decision records](adr/README.md).
@@ -7,7 +7,7 @@ Each download count is the count for 90 days, from crates.io, on 26 August
 
 ---
 
-## The terminal user interface library: ratatui
+## Terminal user interface library: ratatui
 
 | crate | latest version | release date | downloads in 90 days |
 |---|---|---|---|
@@ -93,7 +93,7 @@ uses a part of a cell to separate two values that lie close together.
 - The features `unstable-rendered-line-info` and `layout-cache` reach past the
   stable interface, and serious work on a chart can need them.
 
-### The chart crates that this project rejected
+### Chart crates that this project rejected
 
 | crate | latest version | downloads in 90 days |
 |---|---|---|
@@ -124,7 +124,7 @@ work comes later.
 
 ---
 
-## The SSH server: russh
+## SSH server: russh
 
 | crate | latest version | release date | downloads in 90 days |
 |---|---|---|---|
@@ -189,7 +189,7 @@ A dashboard meets those conditions.
 
 ---
 
-## The data sources
+## Data sources
 
 | crate | latest version | release date | downloads in 90 days |
 |---|---|---|---|

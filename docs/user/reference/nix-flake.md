@@ -7,7 +7,7 @@ thunderbox, and the file `default.nix` holds the package of the program.
 The guide [Install thunderbox](../how-to/install-thunderbox.md) installs the
 program with Nix.
 
-## The inputs
+## Inputs
 
 An input is a repository that a flake reads.
 
@@ -18,7 +18,7 @@ An input is a repository that a flake reads.
 
 The file `flake.lock` pins one commit of each input.
 
-## The systems
+## Systems
 
 The flake makes each output for these systems:
 
@@ -28,7 +28,7 @@ The flake makes each output for these systems:
 
 In the names below, `SYSTEM` stands for the name of one of these systems.
 
-## The outputs
+## Outputs
 
 | output | what it is |
 |---|---|
@@ -39,7 +39,7 @@ In the names below, `SYSTEM` stands for the name of one of these systems.
 | `formatter.SYSTEM` | The program `nixfmt-tree`, which gives one format to each Nix file. |
 | `overlays.default` | An overlay that adds `pkgs.thunderbox` to the package set of a configuration. |
 
-### The output `packages.SYSTEM.default`
+### Output `packages.SYSTEM.default`
 
 - The package uses the release of Rust that `rust-toolchain.toml` names. The
   package, the shell, and rustup therefore use one release.
@@ -61,7 +61,7 @@ expression builds the program with another `rustPlatform`:
 packages.SYSTEM.default.override { rustPlatform = another; }
 ```
 
-### The output `devShells.SYSTEM.default`
+### Output `devShells.SYSTEM.default`
 
 The shell holds these tools:
 
@@ -80,7 +80,7 @@ The file `.envrc` tells the program direnv to load this shell. direnv loads a
 shell when a person enters a directory. Run `direnv allow` one time to permit
 it.
 
-### The output `overlays.default`
+### Output `overlays.default`
 
 - A configuration of NixOS or of home-manager can take this overlay. The
   configuration then holds `pkgs.thunderbox`.
@@ -89,7 +89,7 @@ it.
 - Cargo returns an error when that release is older than 1.88. The field
   `rust-version` of `Cargo.toml` names that release.
 
-## The commands
+## Commands
 
 | command | what it does |
 |---|---|
@@ -106,7 +106,7 @@ The input `rust-overlay` holds no release of Rust that is newer than its own
 commit. Nix reports a fault when `rust-toolchain.toml` names such a release. The
 command `nix flake update rust-overlay` then repairs the fault.
 
-## The pages that give the reason
+## Pages that give the reason
 
 - [Architecture decision record 0055](../../contributor/adr/0055-build-the-package-with-a-nix-flake.md)
   states why the project builds the package with a flake.
