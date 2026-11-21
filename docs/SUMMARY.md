@@ -136,6 +136,7 @@
   - [ADR 0067: Five other designs for the documentation site failed](contributor/adr/0067-five-other-designs-for-the-site-failed.md)
   - [ADR 0068: The site shows one version](contributor/adr/0068-the-site-shows-one-version.md)
   - [ADR 0069: A chart cuts its line at each hole](contributor/adr/0069-a-chart-cuts-its-line-at-each-hole.md)
+  - [ADR 0070: Each panel draws inside the intersection of its area and the buffer](contributor/adr/0070-each-panel-draws-inside-the-intersection-of-its-area-and-the-buffer.md)
   - [ADR NNNN: The decision, as one sentence](contributor/adr/0000-template.md)
 - [Make the pictures again](contributor/pictures.md)
 - [The libraries that this project examined](contributor/research.md)

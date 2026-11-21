@@ -125,6 +125,9 @@ impl Widget for RowPanel<'_> {
 
 impl Widget for &RowPanel<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
+        // The panel draws inside the buffer only. ADR 0070 in docs/contributor/adr
+        // states this rule for each panel.
+        let area = area.intersection(buf.area);
         if area.width == 0 || area.height == 0 {
             return;
         }

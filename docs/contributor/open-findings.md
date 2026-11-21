@@ -139,31 +139,6 @@ The doc comment of `MAX_SPAN_MS` states that "the arithmetic stays correct".
 That sentence holds for the path of the keys alone. The message that a person
 reads names a data source, and it never names the dashboard.
 
-## 2.6 One panel alone panics on an area outside the buffer
-
-**defect**
-
-`crates/thunderbox-widgets/src/timeseries.rs:424-427` reads
-`draws_a_panel(area.as_size())`, and it then gives the area of the caller
-straight to the `Chart` of ratatui at `:500`. That value reads the buffer with
-no check.
-
-Three other panels hold a guard. `GaugePanel` at `gauge.rs:459-461` and
-`BarGaugePanel` at `bargauge.rs:279-281` each write
-`let area = area.intersection(buf.area);`, beside a comment that reads "A cell
-outside the buffer would stop the program". `StatPanel` guards inside `put`, at
-`stat.rs:406-417`. `TablePanel` holds no such line, and it survives all the
-same.
-
-The measurements, against a buffer of 40 cells by 10 rows: the area
-`Rect::new(20,5,40,10)` panics with `index outside of buffer ... index is (24,
-12)`. A buffer at `Rect::new(10,4,40,10)`, with an area at the origin, panics at
-`(0,0)`.
-
-The crate states no rule about the area against `buf.area`. The crate comment
-at `crates/thunderbox-widgets/src/lib.rs:3` names the crate as the smaller of the
-two ways to put thunderbox inside another program.
-
 ## 3.4 The testdata source answers a variable, and its descriptor denies it
 
 **defect**

@@ -448,6 +448,9 @@ impl Widget for TimeSeriesPanel<'_> {
 
 impl Widget for &TimeSeriesPanel<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
+        // The panel draws inside the buffer only. ADR 0070 in docs/contributor/adr
+        // states this rule for each panel.
+        let area = area.intersection(buf.area);
         if !draws_a_panel(area.as_size()) {
             return;
         }
