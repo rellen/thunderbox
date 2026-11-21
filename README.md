@@ -20,6 +20,9 @@ the network, and the processes. The picture above draws the same panels over
 the data source testdata. No picture of this project shows data of the machine
 that records it.
 
+The program draws only on a terminal. It returns 1 when its output is not a
+terminal.
+
 Name a file to show your own dashboard. This command shows a dashboard of the
 repository, which reads the test data:
 

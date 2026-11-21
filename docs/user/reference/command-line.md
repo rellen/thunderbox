@@ -44,22 +44,25 @@ The help text lists the usage, the argument `FILE`, the options, and the keys.
 | code | condition |
 |---|---|
 | `0` | A person stopped the program with a key. The options `--help` and `--version` also return this code. |
-| `1` | The program stopped with an error. The next section lists the errors that a person meets most often. |
-| `101` | The program met a fault that it cannot report as an error, and it stopped at once. A start with no terminal is an example. The program then writes `failed to initialize terminal`. |
+| `1` | The program stopped with an error. The program also returns 1 when its standard output is not a terminal. The next section lists the errors that a person meets most often. |
+| `101` | The program panicked. A panic is a fault that the program cannot report as an error, and the program stops at once. |
 
 ## The errors before the terminal opens
 
 The program reads the dashboard and makes each data source before it takes the
-terminal. A fault in one of these steps stops the program. The program writes
-the message of the fault to the standard error. It writes nothing to the
-standard output, so it sends no control sequence to another program. A control
-sequence is a text that moves the cursor of a terminal or changes a colour.
+terminal. It then checks that its standard output is a terminal. A fault in one
+of these steps stops the program. The program writes the message of the fault
+to the standard error. It writes nothing to the standard output, so it sends no
+control sequence to another program. A control sequence is a text that moves
+the cursor of a terminal or changes a colour.
 
 | the first line of the message | condition |
 |---|---|
 | `Error: The program cannot read FILE.` | The program cannot open or read the file. |
 | `Error: The dashboard in FILE is not correct.` | The file is not valid TOML, or the content holds a fault. [The dashboard file](dashboard-file.md#the-faults-that-the-program-rejects) lists each fault. |
 | `Error: The program cannot make the data sources of the dashboard.` | A `[source.NAME]` table names a kind that this build does not hold. A table that holds an option which its data source rejects gives this error as well. |
+| `Error: The program draws a dashboard only on a terminal. The standard output of the program is not a terminal.` | The standard output is a file or a pipe, for example after `thunderbox > out.txt`. The program returns 1 and writes nothing to the standard output. |
+| `Error: The program cannot start the terminal.` | The program found a terminal, and the terminal refused the start. The program returns the terminal to its first state, and it then returns 1. |
 
 The lines after the words `Caused by:` state the reason.
 

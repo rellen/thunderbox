@@ -113,3 +113,4 @@ git show 4d8c223a0e7ea3bd62b85e7819be8c4ee10cb451:docs/ARCHITECTURE.md
 | [0068](0068-the-site-shows-one-version.md) | The site shows one version | Proposed | new |
 | [0069](0069-a-chart-cuts-its-line-at-each-hole.md) | A chart cuts its line at each hole | Accepted | new |
 | [0070](0070-each-panel-draws-inside-the-intersection-of-its-area-and-the-buffer.md) | Each panel draws inside the intersection of its area and the buffer | Accepted | `docs/contributor/open-findings.md` item 2.6 |
+| [0071](0071-the-program-draws-only-on-a-terminal.md) | The program draws only on a terminal | Accepted | `docs/contributor/open-findings.md` items 4.7 and 7.2 |

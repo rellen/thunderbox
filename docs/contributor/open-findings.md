@@ -89,33 +89,6 @@ state.
 
 # The defects that a person can reach
 
-## 4.7 The first command of README.md panics when a program reads the output
-
-**defect**
-
-`main.rs:156-160` states this promise: "It sends no control sequence to a
-program that reads the output of this one".
-`crates/thunderbox/tests/cli.rs:19-24` and `:44-48` hold that promise. Each of the
-two tests names a dashboard that fails to load, so each one ends before
-`main.rs:174`.
-
-The measurement, with a dashboard that loads and with no terminal:
-`./target/debug/thunderbox > out.bin` writes **8 bytes** into `out.bin`. Those
-bytes are `033 [ ? 1 0 4 9 l`, which is the sequence that leaves the alternate
-screen. The program writes a panic on the error output, and it returns 101.
-
-Those bytes come from the hook of the panic, and not from a start that
-succeeded. `try_init` installs the hook first, at `src/init.rs:397-402` of
-ratatui 0.30.2. `enable_raw_mode()` then returns the error `ENXIO`, the `expect`
-at `:366` panics, and `restore()` of the hook writes the sequence. The sentence
-that a person reads is the sentence of ratatui, and section 1 of `CLAUDE.md`
-governs no sentence of another project.
-
-No code of this project asks whether the output is a terminal. A search for
-`is_terminal`, `IsTty`, `isatty` and `atty` over `crates/` and over `scripts/`
-finds nothing. No document names a code that the program returns.
-`ratatui::try_init()` exists, and it returns an error in place of a panic.
-
 ## 4.3 `validate` reads no field of the time range
 
 **defect**
@@ -258,16 +231,6 @@ The pages of `docs/user/reference` quote several of these texts exactly. A
 change to a text therefore changes a page as well. The three texts of
 `parse_duration_ms`, and the text of a query that the data source testdata
 does not know, are already sentences.
-
-## 7.2 The program writes no sentence when it finds no terminal
-
-**defect**
-
-`crates/thunderbox/src/main.rs:189` calls `ratatui::init()`. That function
-panics when it finds no terminal, and the program then stops with the code 101.
-The text `failed to initialize terminal` comes from the library, and the
-program writes no sentence of its own. The review of
-`docs/user/reference/command-line.md` measured the code 101.
 
 ## 7.3 A long error loses the start and the end of its text
 
@@ -433,7 +396,7 @@ dashboard of `refresh = "50ms"` loads. Item 3.5 above holds the measurement.
 
 # The rules of a panel and of a program that embeds thunderbox
 
-## 2.4 `ratatui::init()` installs a hook for a panic, and that hook reaches the whole program
+## 2.4 `ratatui::try_init()` installs a hook for a panic, and that hook reaches the whole program
 
 **doc silent**
 
@@ -442,8 +405,8 @@ logger, no panic handler, and no signal handler". `query.rs:202-203` states that
 "A panic inside one job therefore stops no other job." Both hold for the
 library.
 
-The program breaks that chain. `crates/thunderbox/src/main.rs:174` calls
-`ratatui::init()`, which calls `set_panic_hook()` at `src/init.rs:398` of
+The program breaks that chain. `crates/thunderbox/src/main.rs:207` calls
+`ratatui::try_init()`, which calls `set_panic_hook()` at `src/init.rs:398` of
 ratatui 0.30.2. The body of that hook is `restore(); hook(info);` (`:566-573`),
 and `restore()` turns raw mode off and leaves the alternate screen
 (`:524-530`).
@@ -923,10 +886,10 @@ registry does not hold the data source {0}.`
 
 `sources::build` (`crates/thunderbox/src/sources.rs:38-44`) reads
 `dashboard.sources` alone, so such a dashboard gives the program an empty
-registry. The function `run` (`crates/thunderbox/src/main.rs:161-178`) then calls
-`ratatui::init()` at `:174`. A reader measured that path with two files. One
+registry. The function `run` (`crates/thunderbox/src/main.rs:182-220`) then calls
+`ratatui::try_init()` at `:207`. A reader measured that path with two files. One
 wrong name in a file that declares one data source stops the program before it
-opens the terminal. The same name reaches `ratatui::init()` in a file that
+opens the terminal. The same name reaches `ratatui::try_init()` in a file that
 declares none, and every panel then shows the sentence above.
 
 One test compares against that sentence, and it drives the path of a variable.

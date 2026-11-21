@@ -1759,6 +1759,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "ratatui",
+ "rustix",
  "thunderbox-core",
  "thunderbox-dashboard",
  "thunderbox-source",

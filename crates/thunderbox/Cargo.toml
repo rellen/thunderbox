@@ -25,5 +25,8 @@ thunderbox-widgets = { workspace = true }
 ratatui = { workspace = true }
 tokio = { workspace = true }
 
+[dev-dependencies]
+rustix = { workspace = true }
+
 [lints]
 workspace = true
