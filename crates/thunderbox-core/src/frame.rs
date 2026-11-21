@@ -59,11 +59,12 @@ impl Frame {
     ///
     /// The frame must hold one column of time values and one or more columns of
     /// numbers. Every number column must hold the same number of rows as the
-    /// time column. The method ignores the length of a column of text, and the
-    /// length of a column of true and false values. Such a column can hold
-    /// a different number of rows. The method returns the time values together
-    /// with the number columns. A caller therefore does not read the frame a
-    /// second time.
+    /// time column. The method does not check the length of a column of text,
+    /// or the length of a column of true and false values. The fifth duty of a
+    /// data source covers those columns too, and the runtime of
+    /// `thunderbox-dashboard` checks every column before a panel reads the frame.
+    /// The method returns the time values together with the number columns. A
+    /// caller therefore does not read the frame a second time.
     ///
     /// # Errors
     ///

@@ -234,6 +234,12 @@ fn collect(frames: &[Frame]) -> Option<Plot> {
     let mut declared_max: Option<f64> = None;
 
     for frame in frames {
+        // The chart skips a frame with no time column, and a frame with no column
+        // of numbers. It also skips a frame where a column of numbers and the time
+        // column hold different numbers of rows. The runtime of a dashboard already
+        // returned an error for such a frame of two lengths. The frame therefore
+        // reaches this loop only from a program that gives frames to the panel
+        // directly.
         let Ok((stamps, numeric)) = frame.time_series() else {
             continue;
         };
@@ -545,6 +551,10 @@ impl Widget for &TimeSeriesPanel<'_> {
 pub fn last_value(frames: &[Frame]) -> Option<(Timestamp, f64)> {
     let mut best: Option<(Timestamp, f64)> = None;
     for frame in frames {
+        // The function skips a frame with no time column, and a frame with no
+        // column of numbers. It also skips a frame where a column of numbers and
+        // the time column hold different numbers of rows. The runtime of a
+        // dashboard already returned an error for such a frame of two lengths.
         let Ok((stamps, numeric)) = frame.time_series() else {
             continue;
         };

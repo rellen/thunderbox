@@ -877,55 +877,6 @@ their own store. No test of `thunderbox-core` holds it for `Reduce`.
 `README.md:126` and `reduce.rs:20` name `first` as "The oldest value". Neither
 pair states that these words are true for an answer in order alone.
 
-## 3.3 A frame of two lengths gives a chart `no data`, and a table draws it
-
-**doc silent**
-
-The fifth duty of a data source names this fault twice. The duty sits at
-`crates/thunderbox-source/src/lib.rs:25` and `:35-43`, and at
-`docs/ARCHITECTURE.md:397` and `:404-407`. Neither place names a caller, and
-neither holds a measurement. The second place writes "The chart then draws no
-line for that frame. The table draws the same frame, and it fills the short
-column with the symbol of a value that is not there."
-
-Three parts of the detail below reach no file. The first is the error that no
-`match` arm reads, and the count that the status row misses. The second is the
-three panels that the fault does not reach. The third is the measurement.
-
-`Frame::time_series`, at `crates/thunderbox-core/src/frame.rs:75-96`, returns an
-error for a frame of two lengths. `collect`, at
-`crates/thunderbox-widgets/src/timeseries.rs:210-301`, calls it at `:222-224`, and
-`last_value`, at `:509-528`, calls it at `:512-514`. Each call drops the error
-with a `let ... else` block that holds `continue;`, and no comment states why.
-
-The code builds `Error::FrameShape` (`crates/thunderbox-core/src/error.rs:30`) at
-`frame.rs:78`, at `:85` and at `:88`. No `match` arm names it, and no code makes
-a panel that holds it. `Snapshot::error_count`
-(`crates/thunderbox-dashboard/src/snapshot.rs:176-178`) therefore counts no error.
-
-`collect` returns `None` when `time_series` returns an error for every frame.
-`plot`, at `timeseries.rs:168-184`, reads `collect` at `:172`, and the panel
-writes `NO_DATA` at `:436`. The table panel reads the same frame at
-`table.rs:265-303`, and its `collect` takes the number of rows from the longest
-frame at `:271`. `entry`, at `:210-242`, returns the symbol of a value that is
-not there for a short column. `table.rs:252` and `:209` state those two rules.
-
-The fault does not reach the stat panel, the gauge panel and the bar gauge
-panel. Those three call `reduce_frames` (`panel.rs:204-220`), and the stat panel
-also calls `series_points` (`stat.rs:393-404`). Each function reads
-`numeric_fields`, and neither one calls `time_series`.
-
-A reader drew each panel at 40 cells by 8 cells, against two frames. The first
-frame holds a time column of four values, and `usage`, a number column, holds
-10, 50 and 20. The error ends with `field "usage" has 3 values but the time
-field has 4`. `Frame::len` (`frame.rs:37-39`) reads the longest column, so it
-returns 4 for each frame. `last_value` returns `None`, and the chart draws
-`no data`. The table draws four rows with `—` under `usage` in the last row, and
-the stat panel draws `20`. The second frame holds a time column of three values,
-and `usage` holds 10, 50, 20 and 80. The chart draws `no data` again, the last
-row holds `—` under `time` and `80` under `usage`, and the stat panel draws
-`80`. A person reads two panels that disagree, and no message names the cause.
-
 ## 1.5 A new time range holds `Snapshot::is_loading` at `true` for a terminal that shrank, and its doc comment denies that
 
 **doc wrong**

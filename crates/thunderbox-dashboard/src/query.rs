@@ -300,6 +300,9 @@ async fn run_panel(
         };
         match answer {
             Ok(mut answer) => {
+                if let Some(error) = uneven_frame(&target.source, &answer) {
+                    return PanelState::Error(error);
+                }
                 legend::apply(target.legend.as_deref(), &mut answer);
                 frames.append(&mut answer);
             }
@@ -307,6 +310,35 @@ async fn run_panel(
         }
     }
     PanelState::Ready(Arc::new(frames))
+}
+
+/// Returns the error for an answer that holds a frame of two lengths.
+///
+/// The fifth duty of a data source asks that every column of one frame hold
+/// the same number of rows. The crate comment of `thunderbox-source` states
+/// that duty. A panel reads a frame of two lengths in its own way, so the
+/// function returns an error and no panel draws such a frame.
+///
+/// The function reads every frame of `answer`, and every column of each frame.
+/// It reads the time column, each column of numbers, each column of text, and
+/// each column of true and false values. A frame of zero rows passes, and so
+/// does a frame with no column. The error names `source`, the length of the
+/// shortest column, and the length of the longest column. ADR 0081 in
+/// `docs/contributor/adr` states the reason.
+fn uneven_frame(source: &str, answer: &[Frame]) -> Option<String> {
+    answer.iter().find_map(|frame| {
+        let lengths = frame.fields.iter().map(|field| field.len());
+        let shortest = lengths.clone().min()?;
+        let longest = lengths.max()?;
+        (shortest != longest).then(|| {
+            format!(
+                "The data source {source:?} answered a frame with a column of {} and a \
+                 column of {}. Each column of one frame must hold the same number of rows.",
+                plural(shortest as u128, "row"),
+                plural(longest as u128, "row"),
+            )
+        })
+    })
 }
 
 /// Returns the choices of each variable that states a query.
@@ -431,7 +463,7 @@ fn plural(count: u128, unit: &str) -> String {
 mod tests {
     use super::*;
     use async_trait::async_trait;
-    use thunderbox_core::{Field, RelativeTime, Result};
+    use thunderbox_core::{Field, RelativeTime, Result, Values};
     use thunderbox_source::{DataSource, SourceDescriptor};
     use tokio::sync::Barrier;
 
@@ -1176,5 +1208,120 @@ mod tests {
             panic!("A panel that holds no target must hold no error.");
         };
         assert!(frames.is_empty());
+    }
+
+    /// A data source that gives the same frames to every query.
+    struct Fixed(Vec<Frame>);
+
+    #[async_trait]
+    impl DataSource for Fixed {
+        fn descriptor(&self) -> SourceDescriptor {
+            SourceDescriptor::new("fixed", "Fixed")
+        }
+
+        async fn query(&self, _req: QueryRequest) -> Result<Vec<Frame>> {
+            Ok(self.0.clone())
+        }
+    }
+
+    /// Returns the state of a panel whose one target reads these frames.
+    async fn state_of(frames: Vec<Frame>) -> PanelState {
+        let sources = Registry::new().with("s", Arc::new(Fixed(frames)));
+        run_panel(
+            &sources,
+            &[target("up", None)],
+            &range(),
+            10,
+            1_000_000,
+            &no_values(),
+        )
+        .await
+    }
+
+    /// Returns a column of these values, with no name.
+    fn column(values: Values) -> Field {
+        Field {
+            values,
+            ..Default::default()
+        }
+    }
+
+    /// Returns a frame that holds a time column and a column of numbers.
+    fn series(stamps: Vec<Timestamp>, numbers: Vec<Option<f64>>) -> Frame {
+        Frame::new(vec![
+            Field::time("time", stamps),
+            Field::f64("usage", numbers),
+        ])
+    }
+
+    #[tokio::test]
+    async fn a_number_column_shorter_than_the_time_column_gives_the_panel_an_error() {
+        let state = state_of(vec![series(
+            vec![0, 1000, 2000],
+            vec![Some(1.0), Some(2.0)],
+        )])
+        .await;
+        let error = state
+            .error()
+            .expect("A frame of two lengths must give the panel an error.");
+        assert!(
+            error.contains("\"s\""),
+            "The message must name the data source. {error}"
+        );
+        assert!(
+            error.contains("2 rows") && error.contains("3 rows"),
+            "The message must state the shortest and the longest column. {error}"
+        );
+        assert!(
+            error.contains("Each column of one frame must hold the same number of rows."),
+            "The message must state the rule. {error}"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_column_of_text_or_of_true_and_false_values_of_another_length_gives_an_error() {
+        let short = [
+            column(Values::Str(vec![Some("a".into()), Some("b".into())])),
+            column(Values::Bool(vec![Some(true), Some(false)])),
+        ];
+        for other in short {
+            let mut frame = series(vec![0, 1000, 2000], vec![Some(1.0), Some(2.0), Some(3.0)]);
+            frame.fields.push(other.clone());
+            let state = state_of(vec![frame]).await;
+            assert!(
+                state.error().is_some(),
+                "The check must read every column of the frame. {other:?}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn an_answer_whose_second_frame_holds_two_lengths_gives_the_panel_an_error() {
+        let state = state_of(vec![
+            series(vec![0, 1000], vec![Some(1.0), Some(2.0)]),
+            series(vec![0, 1000], vec![Some(1.0)]),
+        ])
+        .await;
+        let error = state
+            .error()
+            .expect("The check must read every frame of the answer.");
+        assert!(
+            error.contains("1 row and") && error.contains("2 rows"),
+            "The message must state the lengths of the second frame. {error}"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_frame_of_one_length_a_frame_of_zero_rows_and_a_frame_with_no_column_pass() {
+        let state = state_of(vec![
+            series(vec![0, 1000], vec![Some(1.0), Some(2.0)]),
+            series(vec![], vec![]),
+            Frame::new(vec![]),
+        ])
+        .await;
+        let PanelState::Ready(frames) = state else {
+            panic!("Each frame keeps the fifth duty, so the panel holds the answer.");
+        };
+        assert_eq!(frames.len(), 3, "The panel must keep every frame.");
     }
 }

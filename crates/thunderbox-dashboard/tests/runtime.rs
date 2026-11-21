@@ -305,6 +305,23 @@ impl DataSource for Broken {
     }
 }
 
+/// A data source that breaks the fifth duty. Its frame holds a time column of
+/// four rows and a column of numbers of three rows.
+struct Uneven;
+
+#[async_trait]
+impl DataSource for Uneven {
+    fn descriptor(&self) -> SourceDescriptor {
+        SourceDescriptor::new("uneven", "Uneven")
+    }
+    async fn query(&self, _req: QueryRequest) -> Result<Vec<Frame>> {
+        Ok(vec![Frame::new(vec![
+            Field::time("time", vec![0, 1000, 2000, 3000]),
+            Field::f64("usage", vec![Some(10.0), Some(50.0), Some(20.0)]),
+        ])])
+    }
+}
+
 /// A data source that never answers, so a test can watch a query in flight.
 struct Slow;
 
@@ -680,6 +697,33 @@ async fn one_data_source_that_returns_an_error_changes_one_panel_only() {
         snap.panel(1).error(),
         Some("The data source returned an error. the machine did not answer"),
         "The second panel must hold the text of the error."
+    );
+    assert_eq!(snap.error_count(), 1);
+}
+
+/// ADR 0081 in `docs/contributor/adr` states this rule. A frame of two lengths
+/// gives its panel an error, and the status row counts that error.
+#[tokio::test]
+async fn a_frame_of_two_lengths_gives_its_panel_an_error_that_the_count_reads() {
+    let registry = Registry::new()
+        .with("good", Arc::new(Counter::default()))
+        .with("bad", Arc::new(Uneven));
+    let runtime =
+        DashboardRuntime::new(dashboard(), registry, handle()).expect("The runtime must start.");
+    settle(&runtime).await;
+
+    let snap = runtime.snapshot();
+    assert!(
+        matches!(snap.panel(0), PanelState::Ready(_)),
+        "The first panel must hold its data."
+    );
+    assert_eq!(
+        snap.panel(1).error(),
+        Some(
+            "The data source \"bad\" answered a frame with a column of 3 rows and a column of \
+             4 rows. Each column of one frame must hold the same number of rows."
+        ),
+        "The second panel must hold the error of the frame."
     );
     assert_eq!(snap.error_count(), 1);
 }
