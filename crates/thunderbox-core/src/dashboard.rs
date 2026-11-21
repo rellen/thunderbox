@@ -12,6 +12,27 @@ use crate::{Error, Query, Reduce, Result, Threshold, TimeRange, variable};
 /// grid to the width of the terminal.
 pub const GRID_COLUMNS: u16 = 24;
 
+/// The names of the units that a panel can state in its field `unit`.
+///
+/// `thunderbox-widgets` holds one rule of format for each name, and a test of
+/// that crate holds the two lists together. [`Dashboard::validate`] returns an
+/// error for a panel that states any other name. The match is exact, so
+/// `Percent` is not `percent`. ADR 0080 in `docs/contributor/adr` states the
+/// reason.
+///
+/// A data source can state any unit in [`crate::FieldConfig`]. No dashboard
+/// check reads that unit, and a name outside this list then takes the format
+/// of a value with no unit.
+///
+/// # Examples
+///
+/// ```
+/// use thunderbox_core::UNITS;
+/// assert!(UNITS.contains(&"bytes/s"));
+/// assert!(!UNITS.contains(&"Percent"));
+/// ```
+pub const UNITS: [&str; 4] = ["percent", "bytes", "bytes/s", "seconds"];
+
 /// A dashboard document.
 ///
 /// The native file format is TOML. A later version can add a reader for the
@@ -22,7 +43,8 @@ pub struct Dashboard {
     /// The name of the dashboard. This name must not be empty.
     pub title: String,
     /// The time between two refreshes, as a duration. The value `5s` is an
-    /// example.
+    /// example. [`Dashboard::validate`] returns an error for a duration of 0. A
+    /// dashboard with no such field does not refresh on a clock.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub refresh: Option<String>,
     /// The rule that gives one width to the charts of a stack.
@@ -79,7 +101,9 @@ impl Dashboard {
     ///   moment does not fit in a count of milliseconds;
     /// - the time range is wider than [`crate::MAX_SPAN_MS`];
     /// - the time range is narrower than [`crate::MIN_SPAN_MS`];
+    /// - the refresh duration is 0, in any unit;
     /// - a panel has a width or a height of 0;
+    /// - a panel states a unit that [`UNITS`] does not hold;
     /// - a panel reaches past the right edge of the grid;
     /// - a panel sets a `min` that is not smaller than its `max`;
     /// - a panel that is not a top panel states a `sort` column;
@@ -111,8 +135,13 @@ impl Dashboard {
         if self.title.trim().is_empty() {
             return Err(Error::Dashboard("title must not be empty".into()));
         }
-        if let Some(r) = &self.refresh {
-            crate::time::parse_duration_ms(r)?;
+        if let Some(r) = &self.refresh
+            && crate::time::parse_duration_ms(r)? == 0
+        {
+            return Err(Error::Dashboard(format!(
+                "The field refresh holds {r:?}. The value must be more than 0. A \
+                 dashboard with no field refresh does not refresh on a clock."
+            )));
         }
         self.time.validate(crate::time::now_ms())?;
         let names = self.validate_variables()?;
@@ -132,6 +161,19 @@ impl Dashboard {
                 return Err(Error::Dashboard(format!(
                     "panel {:?} spans past the {GRID_COLUMNS}-column grid (x={} w={})",
                     panel.title, g.x, g.w
+                )));
+            }
+            // A unit that no rule knows would take the format of a value with
+            // no unit. The panel would then look like a data source that
+            // answers wrongly.
+            if let Some(unit) = &panel.unit
+                && !UNITS.contains(&unit.as_str())
+            {
+                return Err(Error::Dashboard(format!(
+                    "The panel {:?} states the unit {unit:?}, and no rule knows that unit. \
+                     The known units are {}.",
+                    panel.title,
+                    UNITS.join(", ")
                 )));
             }
             if let (Some(min), Some(max)) = (panel.min, panel.max)
@@ -1024,6 +1066,83 @@ expr = "q"
     #[test]
     fn validate_accepts_a_range_of_one_second() {
         assert!(Dashboard::from_toml(&dashboard_with_from("now-1s")).is_ok());
+    }
+
+    /// Returns the text of a dashboard that states this refresh duration.
+    fn refresh_text(refresh: &str) -> String {
+        format!("title = \"x\"\nrefresh = \"{refresh}\"\n")
+    }
+
+    /// A person who writes `0s` asks for the fastest refresh. The runtime would
+    /// read the value as no refresh at all, so the check returns an error.
+    #[test]
+    fn validate_returns_an_error_that_names_refresh_for_a_refresh_of_0() {
+        for refresh in ["0s", "0ms", "0m"] {
+            let error = Dashboard::from_toml(&refresh_text(refresh))
+                .expect_err("A refresh of 0 is a fault.")
+                .to_string();
+            assert!(
+                error.contains("refresh") && error.contains("more than 0"),
+                "The message for {refresh} is wrong. {error}"
+            );
+        }
+    }
+
+    #[test]
+    fn validate_accepts_a_refresh_above_0_and_a_dashboard_with_no_refresh() {
+        for refresh in ["1ms", "1s"] {
+            assert!(
+                Dashboard::from_toml(&refresh_text(refresh)).is_ok(),
+                "The refresh {refresh} is correct."
+            );
+        }
+        assert!(
+            Dashboard::from_toml("title = \"x\"\n").is_ok(),
+            "A dashboard with no refresh is correct."
+        );
+    }
+
+    /// Returns the text of a dashboard whose one panel states this unit.
+    fn unit_text(unit: &str) -> String {
+        format!(
+            "title = \"x\"\n[[panel]]\ntitle = \"cpu\"\nkind = \"stat\"\n\
+             grid = {{ x = 0, y = 0, w = 6, h = 4 }}\nunit = \"{unit}\"\n"
+        )
+    }
+
+    #[test]
+    fn validate_accepts_each_unit_of_the_list() {
+        for unit in UNITS {
+            assert!(
+                Dashboard::from_toml(&unit_text(unit)).is_ok(),
+                "The unit {unit} is in the list, so it is correct."
+            );
+        }
+    }
+
+    /// A unit that no rule knows would draw no letter of a unit. The match is
+    /// exact, so a name that differs in case alone also returns an error.
+    #[test]
+    fn validate_returns_an_error_that_names_a_unit_that_no_rule_knows() {
+        for unit in ["byte", "Percent", "bytes/sec", "", "furlongs"] {
+            let error = Dashboard::from_toml(&unit_text(unit))
+                .expect_err("A unit that no rule knows is a fault.")
+                .to_string();
+            assert!(
+                error.contains(&format!("{unit:?}")),
+                "The message must name the unit {unit:?}. {error}"
+            );
+            assert!(
+                error.contains("\"cpu\""),
+                "The message must name the panel. {error}"
+            );
+            for name in UNITS {
+                assert!(
+                    error.contains(name),
+                    "The message must list the unit {name}. {error}"
+                );
+            }
+        }
     }
 
     #[test]

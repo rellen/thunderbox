@@ -8,8 +8,10 @@ writes `1.2G` in place of `1234567890`.
 
 ## Units
 
-The field `unit` of a panel names the unit. A data source can also attach a
-unit to a column, and the field of the panel replaces it.
+The field `unit` of a panel names the unit. The name must be `percent`,
+`bytes`, `bytes/s`, or `seconds`. The match is exact, so the program rejects
+`Percent` and `byte`. A data source can also attach a unit to a column, and the
+field of the panel replaces it.
 
 | unit | the form of the text | examples |
 |---|---|---|
@@ -17,11 +19,23 @@ unit to a column, and the field of the panel replaces it.
 | `bytes` | The number with a letter of the scale, and then `B`. | `999B`, `1.5KB`, `2MB`, `3GB` |
 | `bytes/s` | The number with a letter of the scale, and then `B/s`. | `1.2MB/s`, `8.3GB/s` |
 | `seconds` | The number, and then `s`. The number takes two decimal places or fewer by default, and it takes no letter of the scale. | `1.5s`, `0.12s`, `3600s` |
-| any other name | The number with a letter of the scale. The panel writes no name of a unit. | `1.5K`, `150K` |
+| a name of a data source that no rule knows | The number with a letter of the scale. The panel writes no name of a unit. | `1.5K`, `150K` |
 | no unit | The number with a letter of the scale. | `43`, `150K`, `-1.5K` |
 
 The panel knows these four names alone: `percent`, `bytes`, `bytes/s`, and
-`seconds`.
+`seconds`. The program returns an error for a panel that states any other name,
+and it writes the four names in that error. A data source can still attach any
+name to a column. No check reads that name, so such a column takes the format
+of no unit.
+
+Two rules of format need care:
+
+- The unit `percent` does not multiply the number. A number must already run
+  from 0 to 100. A ratio of 0.42 therefore draws `0%`. Multiply the ratio by
+  100 in the query.
+- The unit `seconds` does not change the scale. The number 0.002 draws `0s`,
+  and the number 86400 draws `86400s`. State `decimals` for a small number of
+  seconds.
 
 ### Letters of the scale
 

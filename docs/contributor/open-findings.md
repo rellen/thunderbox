@@ -445,28 +445,6 @@ thunderbox that draw a round border.
 One smaller fact reaches no file. `Marker::from_str` accepts `tty` as a second
 name for `block` (`marker.rs:74`), and no document lists that name.
 
-## 5.3 Each name of a unit holds a rule, and an unknown name takes another rule
-
-**doc silent**
-
-`README.md:137` states that "The formatter knows `percent`, `bytes`, `bytes/s`,
-and `seconds`." `value.rs:44-51` holds three rules that no file states.
-
-- **`percent` multiplies by nothing, and it takes 0 decimals.** A value must
-  already run from 0 to 100. A ratio of 0.42 from Prometheus therefore draws
-  `0%`. `value.rs:214-217` does state the rule that divides by 1000 for
-  `bytes`, and the doctest at `value.rs:38` does show the behaviour of
-  `percent`. Neither states the requirement.
-- **`seconds` changes no scale, and it takes 2 decimals.** `places` then drops a
-  zero at the end (`value.rs:241-253`). The value 0.002 draws `0s`, the value
-  0.0001 draws `0s`, and the value 86400 draws `86400s`.
-- **A name that this list does not hold takes `si`, with no letter of a unit**
-  (`value.rs:49`). A panel of `unit = "furlongs"` therefore draws `1.5K`.
-
-Each of the three looks like a data source that answers wrongly.
-`dashboards/prometheus.toml` and `README.md:436-445` make the first two easy to
-reach, and they do so by design.
-
 ## 2.2 The guard of `set_marker` carries every frame, and no test holds it
 
 **doc silent**
@@ -518,21 +496,6 @@ Two more facts reach no file.
 ---
 
 # Behaviour of a dashboard file that surprises a reader
-
-## 4.4 A `refresh` of `"0s"` means that the dashboard never refreshes
-
-**doc silent**
-
-`DashboardRuntime::new` reads
-`u64::try_from(millis).ok().filter(|m| *m > 0).map(Duration::from_millis)`
-(`runtime.rs:211-218`). A value of zero therefore becomes `None`. That value is
-the value of a dashboard that holds no field `refresh`, and
-`docs/ARCHITECTURE.md:642` states that such a dashboard "never ticks for the
-clock". `validate` accepts the value.
-
-The comment at `runtime.rs:213` gives the reason for the filter, which is that
-"A period of zero would ask the data source without a pause". It states no
-result for the person. A person who writes `0s` asks for the fastest refresh.
 
 ## 4.5 `thunderbox-core` accepts a `kind` of a source that no crate implements
 
