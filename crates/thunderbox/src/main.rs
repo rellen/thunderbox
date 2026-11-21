@@ -6,6 +6,9 @@
 //! owner of the terminal changes. A server for SSH does not exist yet, and ADR
 //! 0013 in `docs/contributor/adr` states the plan for it.
 
+use std::ffi::OsString;
+use std::fmt;
+use std::io::{self, Write};
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -33,7 +36,11 @@ The dashboard inside the program reads this machine. It draws the processor,
 each core, the memory, the network, and the processes.
 
 Usage:
-    thunderbox [FILE]
+    thunderbox [OPTION] [--] [FILE]
+
+    The argument -- ends the options, and each argument after it is a file
+    name. A file name that starts with a dash needs ./ in front of it, or --
+    before it.
 
 Arguments:
     FILE    The dashboard to show, as a TOML file. The program shows the
@@ -117,33 +124,121 @@ const SLOW_ANSWER: Duration = Duration::from_secs(1);
 const OLD_NUMBERS: Duration = Duration::from_secs(5);
 
 /// What a person asked the program to do.
+///
+/// [`parse_arguments`] returns this value when it can read the command line.
+#[derive(Debug, PartialEq)]
 enum Command {
-    /// Show a dashboard. The program reads the file, or it uses the default.
+    /// Show a dashboard. The program reads the named file, or it uses the
+    /// default dashboard when the command line names no file. The path keeps
+    /// each byte of the argument, so a name that is not text reaches the file
+    /// system unchanged.
     Run(Option<PathBuf>),
-    /// Write a text and stop.
+    /// Write a text to the standard output and stop. The options `--help` and
+    /// `--version` give this command.
     Write(String),
 }
 
-/// Reads the arguments of the command line.
-fn parse_arguments(arguments: Vec<String>) -> Command {
-    for argument in &arguments {
-        match argument.as_str() {
-            "-h" | "--help" => return Command::Write(HELP.to_string()),
-            "-V" | "--version" => {
-                return Command::Write(format!("thunderbox {}\n", env!("CARGO_PKG_VERSION")));
-            }
-            _ => {}
+/// A command line that the program cannot read.
+#[derive(Debug, PartialEq)]
+enum ArgumentError {
+    /// An argument starts with a dash, and the program knows no such option.
+    UnknownOption(OsString),
+    /// The command line names a second file. The program shows one dashboard.
+    SecondFile(PathBuf),
+}
+
+impl fmt::Display for ArgumentError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::UnknownOption(option) => write!(
+                f,
+                "The program does not know the option {}. Run thunderbox --help to read the \
+                 list of the options.",
+                option.to_string_lossy()
+            ),
+            Self::SecondFile(path) => write!(
+                f,
+                "The command line names a second file, {}. The program shows one dashboard \
+                 only.",
+                path.display()
+            ),
         }
     }
-    Command::Run(arguments.into_iter().next().map(PathBuf::from))
+}
+
+impl std::error::Error for ArgumentError {}
+
+/// Reads the arguments of the command line.
+///
+/// The function reads the arguments from left to right. The first argument
+/// that decides the result stops the function:
+///
+/// - `-h` or `--help` gives the help text.
+/// - `-V` or `--version` gives the version.
+/// - Any other argument that starts with a dash is an unknown option. The
+///   function returns an error that names it.
+/// - A second file name returns an error that names that file.
+///
+/// The first file name decides nothing, so `board.toml --help` still gives the
+/// help text. The argument `--` ends the options. Each argument after it is a
+/// file name, even when it starts with a dash. A file name that starts with a
+/// dash therefore needs `./` in front of it, or `--` before it.
+///
+/// The function takes each argument as an `OsString`, so it never fails on a
+/// name that is not text.
+fn parse_arguments(arguments: Vec<OsString>) -> Result<Command, ArgumentError> {
+    let mut file: Option<PathBuf> = None;
+    let mut options_ended = false;
+    for argument in arguments {
+        if !options_ended {
+            if argument == "--" {
+                options_ended = true;
+                continue;
+            }
+            if argument == "-h" || argument == "--help" {
+                return Ok(Command::Write(HELP.to_string()));
+            }
+            if argument == "-V" || argument == "--version" {
+                return Ok(Command::Write(format!(
+                    "thunderbox {}\n",
+                    env!("CARGO_PKG_VERSION")
+                )));
+            }
+            if argument.as_encoded_bytes().starts_with(b"-") {
+                return Err(ArgumentError::UnknownOption(argument));
+            }
+        }
+        if file.is_some() {
+            return Err(ArgumentError::SecondFile(PathBuf::from(argument)));
+        }
+        file = Some(PathBuf::from(argument));
+    }
+    Ok(Command::Run(file))
+}
+
+/// Writes a text to the output, and then flushes the output.
+///
+/// A closed pipe is not a fault. The program that reads the output closed the
+/// pipe, as `head` does after its first lines, and that program has every
+/// byte that it wants. The function therefore returns `Ok` for a closed pipe.
+///
+/// # Errors
+///
+/// Returns an error for each other fault of the write or of the flush. A full
+/// disk is an example.
+fn write_text(output: &mut impl Write, text: &str) -> Result<()> {
+    match output
+        .write_all(text.as_bytes())
+        .and_then(|()| output.flush())
+    {
+        Err(error) if error.kind() == io::ErrorKind::BrokenPipe => Ok(()),
+        written => written.context("The program cannot write the text to the standard output."),
+    }
 }
 
 fn main() -> Result<()> {
-    match parse_arguments(std::env::args().skip(1).collect()) {
-        Command::Write(text) => {
-            print!("{text}");
-            Ok(())
-        }
+    match parse_arguments(std::env::args_os().skip(1).collect())? {
+        Command::Write(text) => write_text(&mut io::stdout().lock(), &text),
         Command::Run(path) => {
             let runtime = tokio::runtime::Builder::new_multi_thread()
                 .enable_all()
@@ -927,21 +1022,176 @@ mod tests {
         }
     }
 
+    /// Returns the arguments of one command line, as the program receives them.
+    fn line(arguments: &[&str]) -> Vec<OsString> {
+        arguments.iter().map(OsString::from).collect()
+    }
+
+    /// Returns the result of a command line that shows a dashboard.
+    fn shows(file: Option<&str>) -> Result<Command, ArgumentError> {
+        Ok(Command::Run(file.map(PathBuf::from)))
+    }
+
+    /// Returns the result of a command line that asks for the help text.
+    fn help() -> Result<Command, ArgumentError> {
+        Ok(Command::Write(HELP.to_string()))
+    }
+
+    /// Returns the result of a command line that asks for the version.
+    fn version() -> Result<Command, ArgumentError> {
+        Ok(Command::Write(format!(
+            "thunderbox {}\n",
+            env!("CARGO_PKG_VERSION")
+        )))
+    }
+
+    /// Returns the result of a command line that names an unknown option.
+    fn unknown(option: &str) -> Result<Command, ArgumentError> {
+        Err(ArgumentError::UnknownOption(option.into()))
+    }
+
+    /// Returns the result of a command line that names a second file.
+    fn second(file: &str) -> Result<Command, ArgumentError> {
+        Err(ArgumentError::SecondFile(file.into()))
+    }
+
     #[test]
-    fn the_help_option_writes_a_text_and_stops() {
-        let command = parse_arguments(vec!["--help".into()]);
-        match command {
-            Command::Write(text) => assert!(text.contains("Usage")),
-            Command::Run(_) => panic!("The program must not start the terminal."),
+    fn parse_arguments_reads_each_command_line_by_its_rules() {
+        let cases = vec![
+            (vec![], shows(None)),
+            (vec!["board.toml"], shows(Some("board.toml"))),
+            (vec!["--help"], help()),
+            (vec!["-h"], help()),
+            (vec!["--version"], version()),
+            (vec!["-V"], version()),
+            // The rows of the table of the fault.
+            (vec!["--colour"], unknown("--colour")),
+            (vec!["-x"], unknown("-x")),
+            (
+                vec!["--", "my-dashboard.toml"],
+                shows(Some("my-dashboard.toml")),
+            ),
+            (vec!["/no/a.toml", "/no/b.toml"], second("/no/b.toml")),
+            (vec!["board.toml", "--help"], help()),
+            (vec!["--colour", "--help"], unknown("--colour")),
+            // The argument `--` ends the options.
+            (vec!["--", "-dash.toml"], shows(Some("-dash.toml"))),
+            (vec!["--", "--help"], shows(Some("--help"))),
+            (vec!["--", "--"], shows(Some("--"))),
+            (vec!["--"], shows(None)),
+            (vec!["./-dash.toml"], shows(Some("./-dash.toml"))),
+            (vec!["board.toml", "--", "other.toml"], second("other.toml")),
+            // The first argument that decides the result stops the parser.
+            (vec!["--help", "--colour"], help()),
+            (vec!["--version", "--help"], version()),
+            (vec!["a.toml", "b.toml", "--help"], second("b.toml")),
+            (vec!["-"], unknown("-")),
+        ];
+        for (arguments, expected) in cases {
+            assert_eq!(
+                parse_arguments(line(&arguments)),
+                expected,
+                "The command line {arguments:?} gives the wrong result."
+            );
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_name_that_is_not_text_reaches_the_file_system_unchanged() {
+        use std::os::unix::ffi::OsStringExt;
+        let name = OsString::from_vec(b"bad\xFF.toml".to_vec());
+        assert_eq!(
+            parse_arguments(vec![name.clone()]),
+            Ok(Command::Run(Some(PathBuf::from(name))))
+        );
+    }
+
+    #[test]
+    fn the_error_of_an_unknown_option_names_the_option_and_the_help_option() {
+        let text = unknown("--colour").unwrap_err().to_string();
+        assert!(
+            text.contains("--colour") && text.contains("thunderbox --help"),
+            "The message is wrong. {text}"
+        );
+    }
+
+    #[test]
+    fn the_error_of_a_second_file_names_that_file() {
+        let text = second("/no/b.toml").unwrap_err().to_string();
+        assert!(text.contains("/no/b.toml"), "The message is wrong. {text}");
+    }
+
+    #[test]
+    fn the_usage_block_states_that_two_dashes_end_the_options() {
+        assert!(
+            HELP.contains("The argument -- ends the options"),
+            "The help text must state the rule of --."
+        );
+    }
+
+    /// A writer that returns an error of one kind at each write.
+    struct FailsAtWrite(io::ErrorKind);
+
+    impl Write for FailsAtWrite {
+        fn write(&mut self, _: &[u8]) -> io::Result<usize> {
+            Err(io::Error::from(self.0))
+        }
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    /// A writer that takes each write, and returns an error only at the flush.
+    ///
+    /// A test that holds the writer `FailsAtWrite` alone passes when the code
+    /// drops the flush. This writer reports that fault.
+    struct FailsAtFlush(io::ErrorKind);
+
+    impl Write for FailsAtFlush {
+        fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> io::Result<()> {
+            Err(io::Error::from(self.0))
         }
     }
 
     #[test]
-    fn a_file_name_reaches_the_program() {
-        match parse_arguments(vec!["board.toml".into()]) {
-            Command::Run(Some(path)) => assert_eq!(path, PathBuf::from("board.toml")),
-            _ => panic!("The program must read the name of the file."),
-        }
+    fn write_text_writes_the_whole_text() {
+        let mut output = Vec::new();
+        write_text(&mut output, HELP).expect("A vector takes every write.");
+        assert_eq!(output, HELP.as_bytes());
+    }
+
+    #[test]
+    fn write_text_returns_an_error_when_the_write_fails() {
+        let error = write_text(&mut FailsAtWrite(io::ErrorKind::StorageFull), HELP)
+            .expect_err("A full disk is a fault.");
+        assert!(
+            error.to_string().contains("cannot write"),
+            "The message is wrong. {error}"
+        );
+    }
+
+    #[test]
+    fn write_text_returns_an_error_when_only_the_flush_fails() {
+        assert!(
+            write_text(&mut FailsAtFlush(io::ErrorKind::StorageFull), HELP).is_err(),
+            "A flush that fails is a fault."
+        );
+    }
+
+    #[test]
+    fn write_text_returns_ok_for_a_closed_pipe() {
+        assert!(
+            write_text(&mut FailsAtWrite(io::ErrorKind::BrokenPipe), HELP).is_ok(),
+            "A reader that closed the pipe is not a fault of the write."
+        );
+        assert!(
+            write_text(&mut FailsAtFlush(io::ErrorKind::BrokenPipe), HELP).is_ok(),
+            "A reader that closed the pipe is not a fault of the flush."
+        );
     }
 
     #[test]

@@ -12,6 +12,7 @@ the time range.
 
 ```
 thunderbox [FILE]
+thunderbox -- FILE
 thunderbox --help
 thunderbox --version
 ```
@@ -19,16 +20,29 @@ thunderbox --version
 | argument | what it is |
 |---|---|
 | `FILE` | The path of a dashboard file. [The dashboard file](dashboard-file.md) states its form. The program shows its own dashboard when a person names no file. That dashboard reads this machine through the data source `sysinfo`. |
+| `--` | The argument that ends the options. Each argument after it is a file name. |
 
 The program reads its arguments with these rules:
 
-- The program reads each argument in order. The first option that it finds
-  decides what the program does.
-- When no argument is an option, the program takes the first argument as
-  `FILE`. It ignores every other argument.
-- The program knows two options alone. It takes any other first argument as the
-  path of a file. The argument `--foo` therefore gives the error
-  `The program cannot read --foo.`
+- The program reads the arguments from left to right. It stops at the first
+  argument that decides the result, and it reads no later argument.
+- The argument `-h` or `--help` gives the help text. The argument `-V` or
+  `--version` gives the version.
+- Any other argument that starts with a dash is an unknown option. The program
+  returns an error that names the option.
+- A second file name returns an error that names that file. The program shows
+  one dashboard only.
+- The first file name decides nothing. The command `thunderbox board.toml
+  --help` therefore writes the help text.
+- An unknown option before `--help` decides the result. The command
+  `thunderbox --colour --help` therefore returns the error for `--colour`.
+- The argument `--` ends the options. Each argument after it is a file name,
+  even when it starts with a dash. The command `thunderbox -- -dash.toml`
+  therefore names the file `-dash.toml`.
+- A file name that starts with a dash needs `./` in front of it, or `--` before
+  it.
+- The program keeps each byte of a file name. A name that is not text reaches
+  the file system unchanged.
 
 ## Options
 
@@ -43,9 +57,21 @@ The help text lists the usage, the argument `FILE`, the options, and the keys.
 
 | code | condition |
 |---|---|
-| `0` | A person stopped the program with a key. The options `--help` and `--version` also return this code. |
-| `1` | The program stopped with an error. The program also returns 1 when its standard output is not a terminal. The next section lists the errors that a person meets most often. |
+| `0` | A person stopped the program with a key. The options `--help` and `--version` also return this code. They return it when the standard output is a closed pipe, as in `thunderbox --help \| head -1`. |
+| `1` | The program stopped with an error. The program also returns 1 when its standard output is not a terminal. Each error of the command line returns 1 as well. The next two sections list the errors that a person meets most often. |
 | `101` | The program panicked. A panic is a fault that the program cannot report as an error, and the program stops at once. |
+
+## Errors of the command line
+
+The program checks the command line first. A fault there stops the program
+before it reads a file. The program writes the message to the standard error and
+returns 1.
+
+| the message | condition |
+|---|---|
+| `Error: The program does not know the option OPTION. Run thunderbox --help to read the list of the options.` | An argument that starts with a dash is not `-h`, `--help`, `-V`, or `--version`, and no `--` stands before it. |
+| `Error: The command line names a second file, FILE. The program shows one dashboard only.` | The command line names two files or more. The message names the second file. |
+| `Error: The program cannot write the text to the standard output.` | The program could not write the help text or the version, for example because the disk is full. A closed pipe is not such a fault, and it returns 0. |
 
 ## Errors before the terminal opens
 
