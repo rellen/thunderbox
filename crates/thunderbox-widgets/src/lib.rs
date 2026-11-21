@@ -32,6 +32,15 @@
 //!
 //! [`RowPanel`] draws the line of a row panel. A row panel shows no data, so
 //! that renderer takes a title and a theme alone.
+//!
+//! # The area of a panel
+//!
+//! A caller can give a panel any area. The area can reach past the buffer, and
+//! the buffer can start away from the origin. Each panel draws only inside the
+//! intersection of the area and the buffer. It draws there exactly what it draws
+//! when the caller gives it that intersection, and it panics for no area. Each
+//! panel asks [`draws_a_panel`] about the intersection, and not about the area.
+//! ADR 0070 in `docs/contributor/adr` states this rule.
 
 mod bargauge;
 mod gauge;

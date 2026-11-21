@@ -44,6 +44,10 @@ const MIN_CELLS: u16 = 3;
 /// This function is the one place that holds the smallest size. A caller and a
 /// panel therefore never disagree.
 ///
+/// A panel asks this function about the intersection of its area and the
+/// buffer. A caller whose area reaches past the buffer must ask about the same
+/// intersection.
+///
 /// # Examples
 ///
 /// ```

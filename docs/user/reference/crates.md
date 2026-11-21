@@ -72,6 +72,11 @@ on `thunderbox-core`.
 Each panel implements the trait `Widget` of `ratatui-core`. A program draws a
 panel with `Widget::render`.
 
+A program can pass any area to `render`. The area can reach past the buffer, and
+the buffer can start away from the origin. Each panel draws only inside the
+intersection of the area and the buffer, and it does not panic. The
+intersection is the part that both share.
+
 This command runs a short example of this way:
 
 ```

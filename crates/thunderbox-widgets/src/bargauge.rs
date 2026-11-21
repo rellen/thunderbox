@@ -278,6 +278,7 @@ impl Widget for &BarGaugePanel<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         // The panel measures each row against the width of the area. An area
         // wider than the buffer would push the end of a row past the border.
+        // ADR 0070 in docs/contributor/adr states this rule for each panel.
         let area = area.intersection(buf.area);
         if !draws_a_panel(area.as_size()) {
             return;

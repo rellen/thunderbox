@@ -319,6 +319,6 @@ documents of each feature that exists.
 | the data source prometheus | [tutorial](../user/tutorials/read-a-prometheus-server.md), [how-to](../user/how-to/give-the-prometheus-source-a-ca-file.md), [reference](../user/reference/data-sources/prometheus.md) | 0009, 0033, 0064 |
 | the data source testdata | [reference](../user/reference/data-sources/testdata.md) | 0010 |
 | more than one data source | [how-to](../user/how-to/show-two-data-sources-on-one-dashboard.md) | 0034 |
-| one panel inside another program | [tutorial](../user/tutorials/put-a-panel-inside-your-program.md), [reference](../user/reference/crates.md) | 0004, 0015 |
+| one panel inside another program | [tutorial](../user/tutorials/put-a-panel-inside-your-program.md), [reference](../user/reference/crates.md) | 0004, 0015, 0070 |
 | a dashboard inside another program | [tutorial](../user/tutorials/put-a-dashboard-inside-your-program.md), [explanation](../user/explanation/two-ways-into-another-program.md) | 0015, 0016 |
 | the Nix flake | [how-to](../user/how-to/install-thunderbox.md), [reference](../user/reference/nix-flake.md) | 0055, 0056 |
