@@ -401,8 +401,9 @@ The workflow holds one step that the nine commands above do not hold. That step
 compiles the workspace with release 1.88.0, which is the release that the field
 `rust-version` of `Cargo.toml` names. The step runs on Linux alone.
 
-`rust-toolchain.toml` pins release 1.98.0 for every command that a person runs
-here. Code that needs a release newer than 1.88.0 therefore passes on this
+`rust-toolchain.toml` pins a release newer than 1.88.0 for every command that a
+person runs here. Dependabot raises that release, so this file names no number
+for it. Code that needs a release newer than 1.88.0 therefore passes on this
 machine, and it then fails in the workflow. Read the step `Check that the oldest
 supported release compiles the workspace` when that failure arrives.
 
@@ -472,8 +473,9 @@ installs the program. ADR 0055 and ADR 0056 record the decisions of the flake.
 release. A machine that holds no rustup otherwise runs them with another
 release, and it reports nothing.
 
-The measurement: one machine held no rustup, and its `cargo` reported release
-1.96.1. Inside the shell on that machine, `cargo` reported release 1.98.0.
+The measurement: on 2026-11-21, one machine held no rustup, and its `cargo`
+reported release 1.96.1. Inside the shell on that machine, `cargo` reported
+release 1.100.0, which `rust-toolchain.toml` named on that day.
 
 Run this command after a change to a Nix file, to `flake.lock`, to
 `Cargo.lock`, or to `rust-toolchain.toml`:
