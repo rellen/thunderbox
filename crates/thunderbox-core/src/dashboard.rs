@@ -111,6 +111,10 @@ impl Dashboard {
     /// - a panel that is not a table panel or a top panel states the field
     ///   `left`;
     /// - a panel states a `left` column that has an empty name;
+    /// - a panel that is not a table panel or a top panel states the field
+    ///   `widths`;
+    /// - a panel states a width for a column that has an empty name;
+    /// - a panel states the width 0 for a column;
     /// - a row panel does not span the whole width of the grid with one row;
     /// - a row panel holds a target;
     /// - a panel that is not a row panel states the field `collapsed`;
@@ -219,6 +223,31 @@ impl Dashboard {
                 if panel.left.iter().any(|name| name.trim().is_empty()) {
                     return Err(Error::Dashboard(format!(
                         "panel {:?} states a left column with an empty name",
+                        panel.title
+                    )));
+                }
+            }
+            if !panel.widths.is_empty() {
+                // A panel of another kind draws no column. A person who writes
+                // the field on such a panel expects a change that the panel
+                // never draws.
+                if !matches!(panel.kind, PanelKind::Table | PanelKind::Top) {
+                    return Err(Error::Dashboard(format!(
+                        "panel {:?} states the field widths. Only a panel of the kind table \
+                         or top reads that field",
+                        panel.title
+                    )));
+                }
+                if panel.widths.keys().any(|name| name.trim().is_empty()) {
+                    return Err(Error::Dashboard(format!(
+                        "panel {:?} states a width for a column with an empty name",
+                        panel.title
+                    )));
+                }
+                if let Some((name, _)) = panel.widths.iter().find(|(_, width)| **width == 0) {
+                    return Err(Error::Dashboard(format!(
+                        "panel {:?} states the width 0 for the column {name:?}. A width must \
+                         be 1 or more",
                         panel.title
                     )));
                 }
@@ -465,6 +494,21 @@ pub struct Panel {
     /// other kind of panel.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub left: Vec<String>,
+    /// The number of cells that each named column takes.
+    ///
+    /// The key is the text that the header of a column shows. The value is the
+    /// number of cells of that column. A table panel and a top panel give a
+    /// column of this table exactly that width. The columns that state no width
+    /// share the rest of the panel in equal shares. An entry here replaces the
+    /// `width` that the data source states for the column. A name that no
+    /// header shows has no effect.
+    ///
+    /// Only a panel of the kind [`PanelKind::Table`] or [`PanelKind::Top`]
+    /// reads this field. [`Dashboard::validate`] rejects the field on every
+    /// other kind of panel. It also rejects a width of 0 and a name that is
+    /// empty.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub widths: BTreeMap<String, u16>,
     /// States whether a row panel starts collapsed.
     ///
     /// A collapsed row panel hides the panels that it holds, and the panels
@@ -919,6 +963,73 @@ grid = {{ x = 0, y = 0, w = 12, h = 8 }}
                 "{names}"
             );
         }
+    }
+
+    #[test]
+    fn a_table_panel_and_a_top_panel_read_the_widths_of_their_columns() {
+        for kind in ["table", "top"] {
+            let dash =
+                Dashboard::from_toml(&one_panel(kind, "widths = { pid = 6, cpu = 4, MemB = 4 }"))
+                    .expect("The reader must accept a panel that states its widths.");
+            assert_eq!(dash.panels[0].widths.get("pid"), Some(&6));
+            assert_eq!(dash.panels[0].widths.get("MemB"), Some(&4));
+            let round = Dashboard::from_toml(&dash.to_toml().unwrap()).unwrap();
+            assert_eq!(round, dash, "The widths must survive a round trip.");
+        }
+    }
+
+    #[test]
+    fn a_panel_that_states_no_widths_writes_no_field() {
+        let dash = Dashboard::from_toml(&one_panel("table", "")).unwrap();
+        assert!(dash.panels[0].widths.is_empty());
+        let written = dash.to_toml().unwrap();
+        assert!(
+            !written.contains("widths"),
+            "The writer leaves out a field that the panel does not state. {written}"
+        );
+    }
+
+    #[test]
+    fn validate_returns_an_error_for_widths_on_a_panel_that_is_not_a_table_or_a_top() {
+        for kind in ["timeseries", "stat", "gauge", "bargauge"] {
+            let err = Dashboard::from_toml(&one_panel(kind, "widths = { pid = 6 }"))
+                .unwrap_err()
+                .to_string();
+            assert_eq!(
+                err,
+                "The dashboard is not correct. panel \"processes\" states the field widths. \
+                 Only a panel of the kind table or top reads that field",
+                "{kind}"
+            );
+        }
+    }
+
+    #[test]
+    fn validate_returns_an_error_for_a_width_of_a_column_with_an_empty_name() {
+        for names in [r#""""#, r#""  ""#] {
+            let err =
+                Dashboard::from_toml(&one_panel("top", &format!("widths = {{ {names} = 6 }}")))
+                    .unwrap_err()
+                    .to_string();
+            assert_eq!(
+                err,
+                "The dashboard is not correct. panel \"processes\" states a width for a column \
+                 with an empty name",
+                "{names}"
+            );
+        }
+    }
+
+    #[test]
+    fn validate_returns_an_error_for_a_width_of_0() {
+        let err = Dashboard::from_toml(&one_panel("table", "widths = { pid = 6, cpu = 0 }"))
+            .unwrap_err()
+            .to_string();
+        assert_eq!(
+            err,
+            "The dashboard is not correct. panel \"processes\" states the width 0 for the \
+             column \"cpu\". A width must be 1 or more"
+        );
     }
 
     /// A dashboard of two row panels. The first one holds the chart, and the

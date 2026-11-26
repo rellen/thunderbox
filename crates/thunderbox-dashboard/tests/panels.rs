@@ -481,3 +481,30 @@ fn a_table_panel_and_a_top_panel_of_a_dashboard_keep_the_columns_that_the_dashbo
         );
     }
 }
+
+/// The field `widths` of a dashboard must reach the table panel and the top
+/// panel. A view that dropped the field would give each column an equal share,
+/// and each test of `thunderbox-widgets` would still pass.
+#[test]
+fn a_table_panel_and_a_top_panel_of_a_dashboard_give_the_columns_the_widths_that_the_dashboard_names()
+ {
+    let start_of_name = |header: &str| {
+        header
+            .chars()
+            .position(|c| c == 'n')
+            .expect("The header holds `name`.")
+    };
+    for kind in ["table", "top"] {
+        let (header, _) = pid_rows(kind, "");
+        // The 38 inner cells hold two columns of 19 cells and one gap, so the
+        // name starts at the cell 21.
+        assert_eq!(
+            start_of_name(&header),
+            21,
+            "No field widths. {kind} {header}"
+        );
+        let (header, _) = pid_rows(kind, "widths = { pid = 8 }");
+        // The pid takes 8 cells, so the name starts at the cell 10.
+        assert_eq!(start_of_name(&header), 10, "{kind} {header}");
+    }
+}

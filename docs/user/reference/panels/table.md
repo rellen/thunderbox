@@ -87,34 +87,69 @@ does not fit, and it shows `—` when no shorter form fits.
 
 ## Width of the columns
 
-Each column takes an equal share of the width inside the border. The width of a
-column never depends on the text of a cell or of a header. The columns
-therefore keep their places when the data refreshes.
+A column is a fixed column or a flex column. A fixed column has a width in
+cells. A flex column has no width. The width of a column never depends on the
+text of a cell or of a header. The columns therefore keep their places when the
+data refreshes.
+
+A column gets its width from the first of these sources that states one:
+
+1. The field `widths` of the panel, for the header that the panel shows.
+2. The hint `width` of the data source for that column.
+
+A column that no source names is a flex column. The data source `sysinfo`
+states the widths of the process list. The page
+[The data source sysinfo](../data-sources/sysinfo.md#list-of-the-processes)
+lists them.
+
+The field `widths` is a table from the text of a header to a number of cells. A
+header of a column of a frame that has a name includes that name and the full
+stop, as in `"cpu.usage"`. A name that matches no header has no effect. A width
+must be 1 or more.
+
+```toml
+[[panel]]
+title = "processes"
+kind = "table"
+widths = { pid = 6, cpu = 4 }
+grid = { x = 0, y = 13, w = 12, h = 6 }
+```
+
+The panel gives the width in these steps:
 
 - One empty cell stands between two columns.
-- The panel draws every column when each column can have 4 cells. The columns
-  share the width inside the border in equal parts. The columns and the empty
-  cells fill that width.
-- A share can leave a few cells over. The columns from the left take one more
-  cell each, until no cell remains.
-- Otherwise the panel drops the columns at the right. It draws the largest
-  number of columns that leaves room for one empty cell and for the note `+N`.
-  Those columns share the rest of the width in equal parts. The note stands at
-  the right of the header row, and `N` is the number of columns that the panel
-  dropped.
+- The columns need the widths of the fixed columns, 4 cells for each flex
+  column, and one empty cell between each pair of columns. The panel draws every
+  column when they fit.
+- A fixed column takes exactly its width. The flex columns share the rest of the
+  width inside the border in equal parts. The columns and the empty cells fill
+  that width.
+- A share can leave a few cells over. The flex columns from the left take one
+  more cell each, until no cell remains.
+- A panel that has no flex column leaves the spare cells empty at the right of
+  the last column.
+- A panel that has no fixed column gives each column an equal share.
+- Otherwise the panel drops the columns at the right, fixed or flex. It draws
+  the largest number of columns that leaves room for one empty cell and for the
+  note `+N`. The flex columns among them share the rest of the width. The note
+  stands at the right of the header row, and `N` is the number of columns that
+  the panel dropped.
 - A short column can hold empty cells, and a long text takes a share that is
   too small. The panel cuts a text that is too long. A full stop marks the cut.
-- The panel cuts a header that is too long in the same way.
+- The panel cuts a header that is too long in the same way. A header that is
+  wider than a fixed column loses its end.
 - The panel never cuts a number. A number that does not fit its column loses
   decimal places, one at each step, until it fits. The number `12.3M` in a column
   of 4 cells shows `12M`. The panel never drops a digit of the whole part, a
   letter of the scale, a sign, or a unit. It shows `—` when the number with no
   decimal place still does not fit. The number `855MB` in a column of 4 cells
-  shows `—`. An identifier never loses a decimal place.
+  shows `—`. An identifier never loses a decimal place. A number of 7 digits in
+  a fixed column of 6 cells shows `—`.
 - A panel that is too narrow for one column and its note draws the first
-  column and no note. That column takes the whole width.
-- A panel that is narrower than 4 cells inside the border draws the border and
-  the title alone.
+  column and no note. A fixed column takes exactly its width. A flex column
+  takes the whole width.
+- A panel that is too narrow for the first column draws the border and the
+  title alone. A flex column needs 4 cells.
 
 ## Fields that the panel reads
 
@@ -123,6 +158,7 @@ therefore keep their places when the data refreshes.
 | `unit` | The panel writes each number in this unit. |
 | `decimals` | The panel writes each number with this number of decimal places. |
 | `left` | The panel keeps the columns of these headers at the left. |
+| `widths` | The panel gives the columns of these headers a fixed number of cells. |
 | `[[panel.threshold]]` | The panel colours each number with the colour of the threshold that the number reaches. |
 | `[[panel.target]]` | The panel shows the columns of the answer of each target. |
 

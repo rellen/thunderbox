@@ -249,6 +249,14 @@ pub struct FieldConfig {
     ///   source states it.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub identifier: bool,
+    /// The number of cells that the column takes in a table panel or a top
+    /// panel.
+    ///
+    /// A column that states a width is a fixed column. The panel gives it
+    /// exactly that width. The other columns share the rest of the panel in
+    /// equal shares. The `widths` field of the panel replaces this width. Every
+    /// other kind of panel ignores this field.
+    pub width: Option<u16>,
 }
 
 impl FieldConfig {
@@ -479,6 +487,26 @@ mod tests {
         };
         let text = toml::to_string(&config).unwrap();
         assert!(text.contains("identifier = true"), "{text}");
+        let back: FieldConfig = toml::from_str(&text).unwrap();
+        assert_eq!(back, config);
+    }
+
+    #[test]
+    fn an_ordinary_configuration_writes_no_width_key() {
+        let text = toml::to_string(&FieldConfig::default()).unwrap();
+        assert!(!text.contains("width"), "The form changed. {text}");
+        let back: FieldConfig = toml::from_str(&text).unwrap();
+        assert_eq!(back.width, None);
+    }
+
+    #[test]
+    fn a_width_survives_a_round_trip_through_toml() {
+        let config = FieldConfig {
+            width: Some(6),
+            ..Default::default()
+        };
+        let text = toml::to_string(&config).unwrap();
+        assert!(text.contains("width = 6"), "{text}");
         let back: FieldConfig = toml::from_str(&text).unwrap();
         assert_eq!(back, config);
     }

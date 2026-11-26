@@ -171,6 +171,7 @@ kind.
 | `reduce` | text | `"last"` | `stat`, `gauge`, `bargauge` | The step that reduces a column of numbers to one number. |
 | `sort` | text | none | `top` | The header of the column that puts the rows in order. |
 | `left` | array of text | empty | `table`, `top` | The headers of the columns that stand at the left. Each name is the text that the header of a column shows. |
+| `widths` | table of whole numbers | empty | `table`, `top` | The number of cells of each named column. Each key is the text that the header of a column shows. Each value is 1 or more. The columns that state no width share the rest of the panel in equal parts. |
 | `collapsed` | true or false | `false` | `row` | The state that a row panel starts in. |
 | `[[panel.threshold]]` | array of tables | none | `stat`, `gauge`, `bargauge`, `table`, `top` | One bound, and the colour of a value that reaches it. |
 | `[[panel.target]]` | array of tables | none | every kind except `row` | One query of the panel. |
@@ -184,9 +185,11 @@ These rules apply to the fields of a panel:
   name `Percent` is a fault, and so is an empty name.
 - A top panel applies `unit`, `decimals`, and the thresholds to one column
   alone. That column is the column that puts the rows in order.
-- A panel ignores a field that its kind does not read, with four exceptions.
+- A data source can attach a width to a column. The field `widths` of the panel
+  replaces that width for each column that it names.
+- A panel ignores a field that its kind does not read, with five exceptions.
   The program rejects `sort` on a panel that is not a top panel. It rejects
-  `left` on a panel that is not a table panel or a top panel. It rejects
+  `left` and `widths` on a panel that is not a table panel or a top panel. It rejects
   `collapsed` on a panel that is not a row panel. It rejects a target on a row
   panel.
 - The program rejects a `min` that is not smaller than the `max` of the same
@@ -325,6 +328,9 @@ table `[time]`. Both texts name the same moment.
 | A top panel states a `sort` column that has an empty name. | `panel "NAME" states a sort column with an empty name` |
 | A panel that is not a table panel or a top panel states the field `left`. | `panel "NAME" states the field left. Only a panel of the kind table or top reads that field` |
 | A panel states a `left` column that has an empty name. | `panel "NAME" states a left column with an empty name` |
+| A panel that is not a table panel or a top panel states the field `widths`. | `panel "NAME" states the field widths. Only a panel of the kind table or top reads that field` |
+| A panel states a width for a column that has an empty name. | `panel "NAME" states a width for a column with an empty name` |
+| A panel states the width 0 for a column. | `panel "NAME" states the width 0 for the column "COLUMN". A width must be 1 or more` |
 | A row panel does not span the whole width of the grid with one row. | `row "NAME" must span the whole grid with one row, as in grid = { x = 0, y = Y, w = 24, h = 1 }` |
 | A row panel holds a target. | `row "NAME" holds a target. A row panel shows no data` |
 | A panel that is not a row panel states the field `collapsed`. | `panel "NAME" states the field collapsed. Only a panel of the kind row reads that field` |

@@ -351,12 +351,14 @@ impl DashboardView {
             PanelKind::Table => TablePanel::new(title, data, &self.theme)
                 .options(options)
                 .left(&panel.left)
+                .widths(&panel.widths)
                 .focused(selected)
                 .render(area, buf),
             PanelKind::Top => {
                 let mut top = TopPanel::new(title, data, &self.theme)
                     .options(options)
                     .left(&panel.left)
+                    .widths(&panel.widths)
                     .focused(selected);
                 if let Some(column) = panel.sort.as_deref() {
                     top = top.sort_by(column);

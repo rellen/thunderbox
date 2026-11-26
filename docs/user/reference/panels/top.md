@@ -93,10 +93,29 @@ The panel shares the layout of the [table panel](table.md):
   number `855MB` in a column of 4 cells shows `—`. An identifier never loses a
   decimal place.
 - A cell shows `—` for a hole in the data, and for a value that is not finite.
-- Each column takes an equal share of the width inside the border, as in the
-  table panel. The text of a cell never changes the width of a column. The
-  section "Width of the columns" of the [table panel](table.md) states the
-  rule.
+- A column can take a fixed number of cells. The hint `width` of the data source
+  states it, and the field `widths` of the panel replaces it. The panel takes
+  the first field of a header, as it does for every other hint. The columns that
+  state no width share the rest of the width inside the border in equal parts.
+  The text of a cell never changes the width of a column. The section "Width of
+  the columns" of the [table panel](table.md) states the rule.
+- The field `widths` is a table from the text of a header to a number of cells.
+  The example below gives the column `pid` 8 cells and the column `cpu` 5 cells.
+  The example is a part of a dashboard file, and it does not load alone.
+
+  ```toml
+  [[panel]]
+  title = "processes"
+  kind = "top"
+  sort = "cpu"
+  widths = { pid = 8, cpu = 5 }
+  grid = { x = 12, y = 13, w = 12, h = 6 }
+
+  [[panel.target]]
+  source = "machine"
+  expr = "processes"
+  ```
+
 - The example below keeps the column `pid` at the left. The example is a part
   of a dashboard file, and it does not load alone.
 
@@ -125,14 +144,15 @@ The panel shares the layout of the [table panel](table.md):
 |---|---|
 | `sort` | The panel puts the rows in order by the column of this header. |
 | `left` | The panel keeps the columns of these headers at the left. |
+| `widths` | The panel gives the columns of these headers a fixed number of cells. |
 | `unit` | The panel writes the column that gives the order in this unit. |
 | `decimals` | The panel writes the column that gives the order with this number of decimal places. |
 | `[[panel.threshold]]` | The panel colours each number of the column that gives the order with the colour of the threshold that it reaches. |
 | `[[panel.target]]` | The panel puts the rows of the answer of each target into the list. |
 
 The panel ignores the fields `min`, `max`, and `reduce`. The program rejects
-the field `sort` on a panel of every other kind. It rejects the field `left` on
-a panel of every kind except `table` and `top`.
+the field `sort` on a panel of every other kind. It rejects the fields `left`
+and `widths` on a panel of every kind except `table` and `top`.
 
 ## Texts that the panel can draw
 

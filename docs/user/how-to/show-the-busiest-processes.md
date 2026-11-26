@@ -39,8 +39,8 @@ of this machine, and the busiest process comes first.
 
 The panel shows one row for each process. The column `cpu` gives the order, and
 a share of 85 or more is red. The bottom border counts the rows that do not fit.
-Each column takes an equal share of the width of the panel, so the columns stay
-where they are when the list refreshes.
+The columns stay where they are when the list refreshes. The width of a column
+never depends on its text.
 
 The data source `sysinfo` keeps no list from the past. The panel therefore shows
 `no data` while the window stands still in the past.
@@ -84,6 +84,29 @@ expr = "processes"
 The field `left` holds the header of each column that stands at the left. A name
 that matches no header has no effect. [The top panel](../reference/panels/top.md)
 states the rule.
+
+## Change the width of a column
+
+The data source states a width for some columns. To change a width, add the field
+`widths` to the panel. The field holds the header of each column and its number
+of cells:
+
+```toml
+[[panel]]
+title = "the busiest processes"
+kind = "top"
+sort = "cpu"
+widths = { pid = 8, cpu = 5 }
+grid = { x = 0, y = 0, w = 24, h = 12 }
+
+[[panel.target]]
+source = "machine"
+expr = "processes"
+```
+
+The columns that state no width share the rest of the panel in equal parts. A
+width must be 1 or more. [The table panel](../reference/panels/table.md) states
+the rule.
 
 ## Show a list that is not of this machine
 
