@@ -22,6 +22,7 @@
 //! The two panels draw a sheet with one function, so they share one layout.
 
 use std::cmp::Ordering;
+use std::collections::BTreeMap;
 
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::{Alignment, Rect};
@@ -82,6 +83,8 @@ pub struct TopPanel<'a> {
     sort: Option<&'a str>,
     /// The headers of the columns that stand at the left.
     left: &'a [String],
+    /// The number of cells of each column that the dashboard file names.
+    widths: Option<&'a BTreeMap<String, u16>>,
     /// The border changes colour when a person selects the panel.
     focused: bool,
 }
@@ -97,6 +100,7 @@ impl<'a> TopPanel<'a> {
             options: PanelOptions::default(),
             sort: None,
             left: &[],
+            widths: None,
             focused: false,
         }
     }
@@ -112,6 +116,19 @@ impl<'a> TopPanel<'a> {
     /// shows this header.
     pub fn sort_by(mut self, column: &'a str) -> Self {
         self.sort = Some(column);
+        self
+    }
+
+    /// Gives the columns of these headers a fixed width.
+    ///
+    /// Each key is the text that the header of a column shows. Each value is
+    /// the number of cells that the column takes. An entry here replaces the
+    /// `width` that the data source states for the column. The panel takes the
+    /// first field of a header, as it does for the other settings of a column.
+    /// The columns that have no width share the rest of the panel in equal
+    /// shares. A name that matches no header has no effect.
+    pub fn widths(mut self, widths: &'a BTreeMap<String, u16>) -> Self {
+        self.widths = Some(widths);
         self
     }
 
@@ -291,6 +308,12 @@ fn rank(
                     .collect(),
                 right,
                 left: false,
+                // The first field of a header states the width of the column.
+                width: lookup
+                    .iter()
+                    .find_map(|fields| fields[column])
+                    .and_then(|field| field.config.width)
+                    .map(|width| usize::from(width).max(1)),
                 sorted,
             }
         })
@@ -335,6 +358,9 @@ impl Widget for &TopPanel<'_> {
         };
         let mut sheet = ranked.sheet;
         sheet.keep_left(self.left);
+        if let Some(widths) = self.widths {
+            sheet.fix_widths(widths);
+        }
         draw_sheet(&sheet, block, self.theme, area, buf);
 
         if ranked.dropped > 0 {
@@ -1104,6 +1130,130 @@ mod tests {
                 .unwrap_or_default()
                 .contains(crate::MISSING),
             "{out}"
+        );
+    }
+
+    /// Returns one frame of four processes in the shape of the process list.
+    /// The columns `pid`, `cpu`, and `MemB` state their widths.
+    fn processes_with_widths(names: &[&str]) -> Vec<Frame> {
+        let sized = |field: Field, width: u16| {
+            let mut config = field.config.clone();
+            config.width = Some(width);
+            field.with_config(config)
+        };
+        let rows = names.len();
+        vec![Frame::named(
+            "processes",
+            vec![
+                sized(
+                    Field::f64("pid", vec![Some(1.0); rows]).with_config(FieldConfig {
+                        identifier: true,
+                        ..Default::default()
+                    }),
+                    6,
+                ),
+                text_field("name", names),
+                sized(number_field("cpu", "percent", vec![Some(5.0); rows]), 4),
+                sized(Field::f64("MemB", vec![Some(12_000_000.0); rows]), 4),
+            ],
+        )]
+    }
+
+    #[test]
+    fn the_panel_gives_the_process_columns_the_widths_that_the_data_source_states() {
+        let theme = Theme::default();
+        let f = processes_with_widths(&["init", "shell"]);
+        let p = TopPanel::new("processes", PanelData::Frames(&f), &theme);
+        let header = line(&render(&p, 40, 8), 1);
+        // The 38 inner cells hold the widths 6, 4, and 4, three gaps, and the
+        // name with the other 21 cells. The `pid` ends at the cell 6, the name
+        // starts at the cell 8, the `cpu` ends at the cell 33, and the `MemB`
+        // fills the cells 35 to 38.
+        assert_eq!(
+            header.chars().skip(4).take(3).collect::<String>(),
+            "pid",
+            "{header}"
+        );
+        assert_eq!(
+            header.chars().skip(8).take(4).collect::<String>(),
+            "name",
+            "{header}"
+        );
+        assert_eq!(
+            header.chars().skip(31).take(3).collect::<String>(),
+            "cpu",
+            "{header}"
+        );
+        assert_eq!(
+            header.chars().skip(35).take(4).collect::<String>(),
+            "MemB",
+            "{header}"
+        );
+        let row = line(&render(&p, 40, 8), 2);
+        assert_eq!(
+            row.chars().skip(35).take(4).collect::<String>(),
+            " 12M",
+            "{row}"
+        );
+    }
+
+    #[test]
+    fn the_process_columns_stay_at_the_same_cells_when_the_rows_change() {
+        let theme = Theme::default();
+        let header_of = |names: &[&str]| {
+            let f = processes_with_widths(names);
+            let p = TopPanel::new("processes", PanelData::Frames(&f), &theme);
+            line(&render(&p, 40, 8), 1)
+        };
+        assert_eq!(
+            header_of(&["a"]),
+            header_of(&["a very long name of a process", "b"])
+        );
+    }
+
+    #[test]
+    fn the_widths_of_the_panel_replace_the_widths_of_the_process_columns() {
+        let theme = Theme::default();
+        let f = processes_with_widths(&["init"]);
+        let widths = BTreeMap::from([("pid".to_string(), 8_u16), ("cpu".to_string(), 5)]);
+        let p = TopPanel::new("processes", PanelData::Frames(&f), &theme).widths(&widths);
+        let header = line(&render(&p, 40, 8), 1);
+        // The widths are 8, 5, and 4, so the name takes 38 - 17 - 3 = 18 cells
+        // and starts at the cell 10.
+        assert_eq!(
+            header.chars().skip(6).take(3).collect::<String>(),
+            "pid",
+            "{header}"
+        );
+        assert_eq!(
+            header.chars().skip(10).take(4).collect::<String>(),
+            "name",
+            "{header}"
+        );
+        assert_eq!(
+            header.chars().skip(31).take(3).collect::<String>(),
+            "cpu",
+            "{header}"
+        );
+    }
+
+    #[test]
+    fn the_panel_takes_the_width_of_the_first_field_of_a_header() {
+        let theme = Theme::default();
+        let mut f = processes_with_widths(&["init"]);
+        // A second frame holds the same headers and states other widths. The
+        // first frame wins.
+        let mut second = processes_with_widths(&["shell"]);
+        for field in &mut second[0].fields {
+            field.config.width = Some(9);
+        }
+        f.extend(second);
+        let p = TopPanel::new("processes", PanelData::Frames(&f), &theme);
+        let header = line(&render(&p, 40, 8), 1);
+        assert_eq!(
+            header.chars().skip(4).take(3).collect::<String>(),
+            "pid",
+            "{header}"
         );
     }
 }

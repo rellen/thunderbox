@@ -2,7 +2,7 @@
 
 | field | value |
 |---|---|
-| Status | Accepted |
+| Status | Superseded by [ADR 0087](0087-a-column-can-take-a-fixed-width-and-the-other-columns-share-the-rest.md) |
 | Recorded | 2026-11-27 |
 | Source | new |
 | Code | `crates/thunderbox-widgets/src/table.rs` |
