@@ -1068,4 +1068,42 @@ mod tests {
         );
         assert!(out.lines().any(|l| l.starts_with("\u{2502}1    ")), "{out}");
     }
+    #[test]
+    fn the_panel_drops_decimal_places_of_a_number_that_does_not_fit_its_column() {
+        let theme = Theme::default();
+        let f = vec![Frame::new(vec![Field::f64("v", vec![Some(12_300_000.0)])])];
+        let p = TopPanel::new("T", PanelData::Frames(&f), &theme);
+        // The panel holds one column of four cells, inside a border of two.
+        let narrow = text(&render(&p, 6, 4));
+        assert!(
+            narrow.lines().nth(2).unwrap_or_default().contains("12M"),
+            "{narrow}"
+        );
+        assert!(!narrow.contains("12.3M"), "{narrow}");
+        let wide = text(&render(&p, 7, 4));
+        assert!(
+            wide.lines().nth(2).unwrap_or_default().contains("12.3M"),
+            "{wide}"
+        );
+    }
+
+    #[test]
+    fn the_panel_draws_the_symbol_for_a_number_that_has_no_shorter_form_that_fits() {
+        let theme = Theme::default();
+        let f = vec![Frame::new(vec![number_field(
+            "v",
+            "bytes",
+            vec![Some(855_000_000.0)],
+        )])];
+        let p = TopPanel::new("T", PanelData::Frames(&f), &theme);
+        let out = text(&render(&p, 6, 4));
+        assert!(!out.contains("855"), "{out}");
+        assert!(
+            out.lines()
+                .nth(2)
+                .unwrap_or_default()
+                .contains(crate::MISSING),
+            "{out}"
+        );
+    }
 }

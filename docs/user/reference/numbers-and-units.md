@@ -212,9 +212,18 @@ symbol is not a mark of punctuation.
 | `stat` | The number that the step returns is not finite. The sum of two very large numbers is an example. |
 | `stat` | The number does not fit its tile. The panel never cuts a number. |
 | `table`, `top` | The cell holds a hole, or a value that is not finite. |
-| `table`, `top` | The number does not fit its column. The panel never cuts a number. |
+| `table`, `top` | The number does not fit its column, and no form of it with fewer decimal places fits. The panel never cuts a number. |
 | `table` | A frame holds fewer rows than another frame. The symbol fills the cells above the rows of the shorter frame. |
 | `top` | A frame holds no column for a header that another frame holds. |
+
+A table panel and a top panel first drop decimal places from a number that does
+not fit its column. They drop one place at each step, down to no place, and they
+draw the first text that fits. The number `12.3M` in a column of 4 cells shows
+`12M`. The panel keeps every digit of the whole part, the letter of the scale,
+the sign, and the unit. The number `855MB` in a column of 4 cells shows `—`,
+because its form with no decimal place is still `855MB`. An identifier never
+loses a decimal place. A stat panel, a gauge, a bar gauge, and a chart keep the
+decimal places that the format gives.
 
 The gauge panel and the bar gauge panel drop a series whose number is not
 finite, so they never draw the symbol.

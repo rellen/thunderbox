@@ -82,8 +82,8 @@ grid = { x = 0, y = 13, w = 12, h = 6 }
 ```
 
 A number in a column of the field `left` stands at the left, and the panel
-still never cuts that number. The panel shows `—` in the place of a number that
-does not fit.
+still never cuts that number. The panel drops decimal places from a number that
+does not fit, and it shows `—` when no shorter form fits.
 
 ## Width of the columns
 
@@ -105,8 +105,12 @@ therefore keep their places when the data refreshes.
 - A short column can hold empty cells, and a long text takes a share that is
   too small. The panel cuts a text that is too long. A full stop marks the cut.
 - The panel cuts a header that is too long in the same way.
-- The panel never cuts a number. It shows `—` in the place of a number that does
-  not fit its column.
+- The panel never cuts a number. A number that does not fit its column loses
+  decimal places, one at each step, until it fits. The number `12.3M` in a column
+  of 4 cells shows `12M`. The panel never drops a digit of the whole part, a
+  letter of the scale, a sign, or a unit. It shows `—` when the number with no
+  decimal place still does not fit. The number `855MB` in a column of 4 cells
+  shows `—`. An identifier never loses a decimal place.
 - A panel that is too narrow for one column and its note draws the first
   column and no note. That column takes the whole width.
 - A panel that is narrower than 4 cells inside the border draws the border and

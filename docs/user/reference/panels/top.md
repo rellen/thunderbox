@@ -87,6 +87,11 @@ The panel shares the layout of the [table panel](table.md):
   when they hold numbers. The field holds a list of headers, as in
   `left = ["pid"]`. A name that matches no header has no effect. The panel
   still never cuts a number in such a column.
+- A number that does not fit its column loses decimal places, one at each step,
+  until it fits. The number `12.3M` in a column of 4 cells shows `12M`. The
+  panel shows `—` when the number with no decimal place still does not fit. The
+  number `855MB` in a column of 4 cells shows `—`. An identifier never loses a
+  decimal place.
 - A cell shows `—` for a hole in the data, and for a value that is not finite.
 - Each column takes an equal share of the width inside the border, as in the
   table panel. The text of a cell never changes the width of a column. The

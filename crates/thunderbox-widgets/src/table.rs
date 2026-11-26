@@ -24,7 +24,7 @@ use ratatui_widgets::table::{Cell, Row, Table};
 use thunderbox_core::{Field, Frame, Values};
 
 use crate::panel::{NO_DATA, clip, frames_or_message, panel_block, render_message};
-use crate::{MISSING, PanelData, PanelOptions, Theme, draws_a_panel, format_time};
+use crate::{MISSING, PanelData, PanelOptions, Theme, draws_a_panel, format_time, format_value};
 
 /// The smallest width that the panel gives to a column.
 ///
@@ -107,6 +107,14 @@ pub(crate) struct Entry {
     pub(crate) text: String,
     /// The style that the panel draws the text with.
     pub(crate) style: Style,
+    /// The shorter texts of the same number, from the most decimal places to
+    /// the fewest.
+    ///
+    /// The panel draws the first of these texts that fits the column, when
+    /// `text` does not fit. The list is empty for a text, a time, a bool, a
+    /// value that is not there, and an identifier. The panel rounds none of
+    /// them.
+    pub(crate) shorter: Vec<String>,
 }
 
 /// One column of the table.
@@ -219,7 +227,35 @@ pub(crate) fn missing_entry(theme: &Theme) -> Entry {
     Entry {
         text: MISSING.to_string(),
         style: theme.muted,
+        shorter: Vec::new(),
     }
+}
+
+/// Returns the shorter texts of a number, from the most decimal places to the
+/// fewest.
+///
+/// The function writes the number again with one decimal place fewer at each
+/// step, down to no decimal place. It calls [`format_value`] for each text. The
+/// format therefore decides how a number rounds, and which letter of the scale
+/// it takes. The number 999.9K becomes `1M` with no decimal place. The function
+/// keeps a text only when it needs fewer cells than the text before it. The
+/// list is therefore empty for a number that has no shorter form.
+///
+/// The `decimals` argument is the number of decimal places that the panel
+/// asks for. The format writes at most two places when `decimals` is `None`.
+fn shorter_texts(value: f64, unit: Option<&str>, decimals: Option<u8>, full: &str) -> Vec<String> {
+    let most = decimals.unwrap_or(2);
+    let mut kept: Vec<String> = Vec::new();
+    let mut width = display_width(full);
+    for places in (0..most).rev() {
+        let text = format_value(value, unit, Some(places));
+        let cells = display_width(&text);
+        if cells < width {
+            width = cells;
+            kept.push(text);
+        }
+    }
+    kept
 }
 
 /// Returns the cell of one column at one row.
@@ -235,6 +271,7 @@ pub(crate) fn entry(field: &Field, row: usize, options: &PanelOptions<'_>, theme
     let plain_entry = |text: String| Entry {
         text,
         style: theme.text,
+        shorter: Vec::new(),
     };
     match &field.values {
         Values::Time(values) => match values.get(row) {
@@ -245,9 +282,21 @@ pub(crate) fn entry(field: &Field, row: usize, options: &PanelOptions<'_>, theme
             Some(v) => {
                 let fallback = theme.text.fg.unwrap_or(Color::Reset);
                 let color = options.color_for(v, &field.config, theme, fallback);
+                let text = options.text(v, &field.config);
+                let shorter = if field.config.identifier {
+                    Vec::new()
+                } else {
+                    shorter_texts(
+                        v,
+                        options.unit_for(&field.config),
+                        options.decimals_for(&field.config),
+                        &text,
+                    )
+                };
                 Entry {
-                    text: options.text(v, &field.config),
+                    text,
                     style: theme.text.fg(color),
+                    shorter,
                 }
             }
             None => missing(),
@@ -376,9 +425,16 @@ fn cell(text: String, style: Style, right: bool) -> Cell<'static> {
 /// panel must not cut a number. A number that lost its last digits states a
 /// different number, and a reader believes that number. The caller draws the
 /// symbol of a value that is not there in the place of such a number.
-fn cell_text(text: &str, width: usize, number: bool) -> Option<String> {
-    if number && display_width(text) > width {
-        return None;
+///
+/// A number first drops decimal places. The function returns the first text of
+/// `text` and `shorter` that fits the column. The text `12.3M` in a column of 4
+/// cells therefore becomes `12M`. It returns `None` only when no text fits.
+fn cell_text(text: &str, shorter: &[String], width: usize, number: bool) -> Option<String> {
+    if number {
+        return std::iter::once(text)
+            .chain(shorter.iter().map(String::as_str))
+            .find(|candidate| display_width(candidate) <= width)
+            .map(str::to_string);
     }
     Some(clip_cells(text, width))
 }
@@ -541,7 +597,7 @@ pub(crate) fn draw_sheet(
                         let Some(found) = column.entries.get(row) else {
                             return cell(String::new(), theme.text, at_right(column));
                         };
-                        match cell_text(&found.text, *width, column.right) {
+                        match cell_text(&found.text, &found.shorter, *width, column.right) {
                             Some(text) => cell(text, found.style, at_right(column)),
                             // The number does not fit. The panel draws the
                             // symbol of a value that it cannot show.
@@ -1437,15 +1493,50 @@ mod tests {
 
     #[test]
     fn cell_text_cuts_a_name_and_marks_the_cut() {
-        assert_eq!(cell_text("hostname", 4, false).as_deref(), Some("hos."));
-        assert_eq!(cell_text("host", 4, false).as_deref(), Some("host"));
+        assert_eq!(
+            cell_text("hostname", &[], 4, false).as_deref(),
+            Some("hos.")
+        );
+        assert_eq!(cell_text("host", &[], 4, false).as_deref(), Some("host"));
     }
 
     #[test]
     fn cell_text_returns_nothing_for_a_number_that_does_not_fit() {
-        assert_eq!(cell_text("98765%", 6, true).as_deref(), Some("98765%"));
-        assert_eq!(cell_text("98765%", 4, true), None);
-        assert_eq!(cell_text("-1.2M", 4, true), None);
+        assert_eq!(cell_text("98765%", &[], 6, true).as_deref(), Some("98765%"));
+        assert_eq!(cell_text("98765%", &[], 4, true), None);
+        assert_eq!(cell_text("-12.3M", &["-12M".to_string()], 3, true), None);
+    }
+
+    #[test]
+    fn cell_text_returns_the_first_shorter_text_that_fits() {
+        let shorter = vec!["12.3M".to_string(), "12M".to_string()];
+        assert_eq!(
+            cell_text("12.34M", &shorter, 6, true).as_deref(),
+            Some("12.34M")
+        );
+        assert_eq!(
+            cell_text("12.34M", &shorter, 5, true).as_deref(),
+            Some("12.3M")
+        );
+        assert_eq!(
+            cell_text("12.34M", &shorter, 4, true).as_deref(),
+            Some("12M")
+        );
+        assert_eq!(cell_text("12.34M", &shorter, 2, true), None);
+        let one = vec!["1.3G".to_string(), "1G".to_string()];
+        assert_eq!(cell_text("1.26G", &one, 2, true).as_deref(), Some("1G"));
+    }
+
+    #[test]
+    fn shorter_texts_round_with_the_format_and_never_cut_a_digit() {
+        assert_eq!(shorter_texts(12_300_000.0, None, None, "12.3M"), ["12M"]);
+        assert_eq!(
+            shorter_texts(1_260_000_000.0, None, Some(2), "1.26G"),
+            ["1.3G", "1G"]
+        );
+        assert_eq!(shorter_texts(999_950.0, None, Some(1), "1.0M"), ["1M"]);
+        assert!(shorter_texts(855_000_000.0, Some("bytes"), None, "855MB").is_empty());
+        assert!(shorter_texts(98_765.0, Some("percent"), Some(0), "98765%").is_empty());
     }
 
     #[test]
@@ -1589,5 +1680,86 @@ mod tests {
         let out = text(&render(&p, 6, 4));
         assert!(!out.contains("987"), "{out}");
         assert!(out.contains(MISSING), "{out}");
+    }
+    /// Returns the text that a table panel draws for one number in a column of
+    /// `column` cells. The panel is `column + 2` cells wide.
+    fn one_number(
+        value: f64,
+        options: PanelOptions<'_>,
+        config: FieldConfig,
+        column: u16,
+    ) -> String {
+        let theme = Theme::default();
+        let f = vec![Frame::new(vec![
+            Field::f64("v", vec![Some(value)]).with_config(config),
+        ])];
+        let p = TablePanel::new("T", PanelData::Frames(&f), &theme).options(options);
+        let out = text(&render(&p, column + 2, 4));
+        let line = out.lines().nth(2).unwrap_or_default();
+        line.trim_matches('\u{2502}').trim().to_string()
+    }
+
+    #[test]
+    fn the_panel_drops_decimal_places_of_a_number_that_does_not_fit_its_column() {
+        let none = || PanelOptions::default();
+        assert_eq!(
+            one_number(12_300_000.0, none(), FieldConfig::default(), 5),
+            "12.3M"
+        );
+        assert_eq!(
+            one_number(12_300_000.0, none(), FieldConfig::default(), 4),
+            "12M"
+        );
+    }
+
+    #[test]
+    fn the_panel_draws_the_symbol_for_a_number_that_has_no_shorter_form_that_fits() {
+        let options = PanelOptions {
+            unit: Some("bytes"),
+            ..Default::default()
+        };
+        // The text `855MB` needs five cells, and its form with no decimal place
+        // is the same text.
+        assert_eq!(
+            one_number(855_000_000.0, options, FieldConfig::default(), 4),
+            MISSING
+        );
+    }
+
+    #[test]
+    fn the_panel_drops_one_decimal_place_at_each_step_down_to_none() {
+        let options = || PanelOptions {
+            decimals: Some(2),
+            ..Default::default()
+        };
+        let c = FieldConfig::default;
+        assert_eq!(one_number(1_260_000_000.0, options(), c(), 5), "1.26G");
+        assert_eq!(one_number(1_260_000_000.0, options(), c(), 4), "1.3G");
+    }
+
+    #[test]
+    fn the_panel_never_rounds_an_identifier() {
+        let options = PanelOptions::default();
+        let config = FieldConfig {
+            identifier: true,
+            decimals: Some(1),
+            ..Default::default()
+        };
+        assert_eq!(one_number(1234.5, options, config, 4), MISSING);
+    }
+
+    #[test]
+    fn the_panel_takes_the_next_letter_when_a_rounded_number_reaches_1000() {
+        let options = PanelOptions {
+            decimals: Some(2),
+            ..Default::default()
+        };
+        // The value 999900 with two decimal places gives `999.90K`, and with one
+        // place it gives `999.9K`. Both need more than four cells. With no
+        // decimal place the number reaches 1000K, and the format writes `1M`.
+        assert_eq!(
+            one_number(999_900.0, options, FieldConfig::default(), 4),
+            "1M"
+        );
     }
 }
