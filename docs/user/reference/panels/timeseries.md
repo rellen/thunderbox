@@ -3,6 +3,11 @@
 The kind `timeseries` draws one line for each series, against time. The panel
 fills the area below each line.
 
+The chart draws each fill first, and it draws each line over every fill. Every
+series therefore stays visible. A series that lies below a later series loses
+its fill, because the fill of the later series covers it. The line of that
+series still shows.
+
 The example below is a part of a dashboard file, and it does not load alone.
 The file also needs a `title`, and a table `[source.machine]` of the kind
 `sysinfo`.

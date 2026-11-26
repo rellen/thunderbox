@@ -473,31 +473,46 @@ impl Widget for &TimeSeriesPanel<'_> {
         // ratatui joins each point of a dataset to the next point. Each run of a
         // series therefore takes a dataset of its own, and no line crosses a
         // hole. A dataset of one point still draws that point.
+        //
+        // ratatui draws each dataset as one layer, in order. A later layer
+        // replaces the glyph and the colour of each cell that it paints. The
+        // fill of a later series would therefore hide an earlier series that
+        // lies below it. A filled chart draws every fill first. It then draws
+        // every line over the fills (ADR 0082 in docs/contributor/adr).
         let floor = plot.y_bounds[0];
-        let datasets: Vec<Dataset<'_>> = plot
-            .series
-            .iter()
-            .enumerate()
-            .flat_map(|(i, s)| {
-                let color = self.theme.series_color(i);
-                s.runs.iter().enumerate().map(move |(r, run)| {
-                    let ds = Dataset::default()
-                        .data(&s.points[run.clone()])
-                        .marker(self.marker.into())
-                        .style(Style::default().fg(color));
-                    // The legend lists each dataset that holds a name. The
-                    // first run alone takes the name, so the legend lists each
-                    // series once.
-                    let ds = if r == 0 { ds.name(s.name.clone()) } else { ds };
-                    if self.filled {
-                        // Fill the area down to the bottom of the axis.
-                        ds.graph_type(GraphType::Area).fill_to_y(floor)
-                    } else {
-                        ds.graph_type(GraphType::Line)
-                    }
+        let runs = |fill: bool| {
+            plot.series
+                .iter()
+                .enumerate()
+                .flat_map(move |(i, s)| {
+                    let color = self.theme.series_color(i);
+                    s.runs.iter().enumerate().map(move |(r, run)| {
+                        let ds = Dataset::default()
+                            .data(&s.points[run.clone()])
+                            .marker(self.marker.into())
+                            .style(Style::default().fg(color));
+                        // The legend lists each dataset that holds a name. Only
+                        // the first run of a series in the first pass takes the
+                        // name, so the legend lists each series once.
+                        let ds = if r == 0 && (fill || !self.filled) {
+                            ds.name(s.name.clone())
+                        } else {
+                            ds
+                        };
+                        if fill {
+                            // Fill the area down to the bottom of the axis.
+                            ds.graph_type(GraphType::Area).fill_to_y(floor)
+                        } else {
+                            ds.graph_type(GraphType::Line)
+                        }
+                    })
                 })
-            })
-            .collect();
+                .collect::<Vec<Dataset<'_>>>()
+        };
+        let mut datasets = runs(self.filled);
+        if self.filled {
+            datasets.extend(runs(false));
+        }
 
         let mut value_labels = y_labels(
             plot.y_bounds,
@@ -768,6 +783,79 @@ mod tests {
                 "The legend must list {name} once.\n{out}"
             );
         }
+    }
+
+    /// Returns one frame with two series over the same times. The first
+    /// series lies below the second series at each time.
+    fn a_lower_series_then_a_higher_series() -> Vec<Frame> {
+        let stamps: Vec<i64> = (0..16).map(|i| i * 1000).collect();
+        let lower: Vec<Option<f64>> = (0..16).map(|i| Some(1000.0 + i as f64 * 10.0)).collect();
+        let higher: Vec<Option<f64>> = (0..16)
+            .map(|i| Some(5000.0 + i as f64 * 320.0 / 15.0))
+            .collect();
+        vec![Frame::named(
+            "cpu",
+            vec![
+                Field::time("time", stamps),
+                Field::f64("lower", lower),
+                Field::f64("higher", higher),
+            ],
+        )]
+    }
+
+    /// Counts the cells that hold a braille character in the colour of the
+    /// first series, and in the colour of the second series. The panel hides
+    /// its legend, so the count holds no cell of the legend.
+    fn cells_of_two_colours(filled: bool) -> (usize, usize) {
+        let f = a_lower_series_then_a_higher_series();
+        let theme = Theme::default();
+        let p = TimeSeriesPanel::new("CPU", PanelData::Frames(&f), &theme)
+            .filled(filled)
+            .show_legend(false);
+        let buf = render(&p, 60, 12);
+        let (first, second) = (theme.series_color(0), theme.series_color(1));
+        let (mut a, mut b) = (0, 0);
+        for y in 0..buf.area.height {
+            for x in 0..buf.area.width {
+                let cell = &buf[(x, y)];
+                let braille = cell
+                    .symbol()
+                    .chars()
+                    .next()
+                    .is_some_and(|c| ('\u{2801}'..='\u{28FF}').contains(&c));
+                if braille && cell.fg == first {
+                    a += 1;
+                } else if braille && cell.fg == second {
+                    b += 1;
+                }
+            }
+        }
+        (a, b)
+    }
+
+    #[test]
+    fn a_filled_chart_shows_a_series_that_lies_below_a_later_series() {
+        let (first, second) = cells_of_two_colours(true);
+        assert!(
+            first > 0,
+            "The chart shows no cell in the colour of the first series. Cells of the first colour: {first}. Cells of the second colour: {second}."
+        );
+    }
+
+    #[test]
+    fn a_filled_chart_shows_the_series_that_lies_above_an_earlier_series() {
+        let (first, second) = cells_of_two_colours(true);
+        assert!(
+            second > 0,
+            "The chart shows no cell in the colour of the second series. Cells of the first colour: {first}. Cells of the second colour: {second}."
+        );
+    }
+
+    #[test]
+    fn a_line_chart_shows_each_series_that_lies_below_a_later_series() {
+        let (first, second) = cells_of_two_colours(false);
+        assert!(first > 0, "The chart shows no cell of the first colour.");
+        assert!(second > 0, "The chart shows no cell of the second colour.");
     }
 
     /// A gap in time between two values is not a hole. The line therefore
