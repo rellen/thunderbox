@@ -1396,4 +1396,29 @@ mod tests {
         assert_eq!(plain("a\nb\tc"), "a b c");
         assert_eq!(plain("alpha"), "alpha");
     }
+
+    #[test]
+    fn the_panel_puts_an_identifier_at_the_right_and_writes_every_digit() {
+        let theme = Theme::default();
+        let f = vec![Frame::new(vec![
+            Field::f64("pid", vec![Some(1234.0), Some(5.0)]).with_config(FieldConfig {
+                identifier: true,
+                ..Default::default()
+            }),
+        ])];
+        let p = TablePanel::new("CPU", PanelData::Frames(&f), &theme);
+        // The column is four cells wide, and the panel needs six cells with the
+        // border. The header has three letters and holds one blank at its left.
+        let out = text(&render(&p, 6, 5));
+        assert!(out.contains("1234"), "No letter of the scale. {out}");
+        assert!(!out.contains("1.2K"), "{out}");
+        assert!(
+            out.lines().any(|line| line.contains(" pid")),
+            "The header must stand at the right. {out}"
+        );
+        assert!(
+            out.lines().any(|line| line.contains("   5")),
+            "The cell must stand at the right. {out}"
+        );
+    }
 }

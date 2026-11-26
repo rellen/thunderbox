@@ -131,13 +131,19 @@ impl ProcessSampler {
                 ..Default::default()
             })
         };
-        // The number of a process is a name, and not a quantity. A column of
-        // numbers would write `1.2K` for the process 1234, and a top panel
-        // would put the rows in order by it.
+        // The number of a process is a name, and not a quantity. The column
+        // is an identifier, so a panel writes every digit of 1234 and never
+        // writes `1.2K`. A top panel never puts the rows in order by it.
+        let identifier = |values: Vec<f64>, name: &str| {
+            Field::f64(name, values.into_iter().map(Some).collect()).with_config(FieldConfig {
+                identifier: true,
+                ..Default::default()
+            })
+        };
         Frame::named(
             PROCESSES,
             vec![
-                text(rows.iter().map(|r| r.pid.to_string()).collect(), "pid"),
+                identifier(rows.iter().map(|r| f64::from(r.pid)).collect(), "pid"),
                 text(rows.iter().map(|r| r.name.clone()).collect(), "name"),
                 number(rows.iter().map(|r| r.cpu).collect(), "cpu", "percent"),
                 number(rows.iter().map(|r| r.memory).collect(), "memory", "bytes"),
@@ -155,14 +161,13 @@ mod tests {
 
     /// Returns the number of each process of a frame, in the order of the rows.
     fn pids(frame: &Frame) -> Vec<u32> {
-        let Values::Str(values) = &frame.fields[0].values else {
-            panic!("The first column must hold text. {:?}", frame.fields[0]);
+        let Values::F64(values) = &frame.fields[0].values else {
+            panic!("The first column must hold numbers. {:?}", frame.fields[0]);
         };
         values
             .iter()
             .map(|v| {
-                v.as_deref()
-                    .and_then(|t| t.parse().ok())
+                v.map(|number| number as u32)
                     .expect("Each row must hold the number of its process.")
             })
             .collect()
@@ -176,6 +181,25 @@ mod tests {
         assert!(
             pids(&frame).contains(&std::process::id()),
             "The list must hold the process that runs this test."
+        );
+    }
+
+    #[test]
+    fn the_column_pid_holds_numbers_and_is_an_identifier() {
+        let mut sampler = ProcessSampler::new();
+        sampler.sample_if_due(1_000, GAP);
+        let frame = sampler.frame(0, 2_000);
+        let pid = &frame.fields[0];
+        assert_eq!(pid.name, "pid");
+        assert!(matches!(pid.values, Values::F64(_)), "{pid:?}");
+        assert!(pid.config.identifier, "{pid:?}");
+        assert!(
+            !pid.is_numeric(),
+            "The number of a process is not a series, so it never gives the order."
+        );
+        assert!(
+            frame.fields[1..].iter().all(|f| !f.config.identifier),
+            "Only the column pid is an identifier."
         );
     }
 

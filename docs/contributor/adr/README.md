@@ -91,7 +91,7 @@ git show 4d8c223a0e7ea3bd62b85e7819be8c4ee10cb451:docs/ARCHITECTURE.md
 | [0046](0046-a-top-list-is-a-kind-of-panel-of-its-own.md) | A list in the form of `top` is a kind of panel of its own | Accepted | `docs/ARCHITECTURE.md` section 12 |
 | [0047](0047-the-process-list-of-sysinfo-keeps-no-past.md) | The list of processes of sysinfo keeps no past | Accepted | `docs/ARCHITECTURE.md` section 12 |
 | [0048](0048-the-process-list-reads-the-machine-through-its-own-system.md) | The list of processes reads the machine through a `System` of its own | Accepted | `docs/ARCHITECTURE.md` section 12 |
-| [0049](0049-the-number-of-a-process-is-text.md) | The number of a process is text | Accepted | `docs/ARCHITECTURE.md` section 12 |
+| [0049](0049-the-number-of-a-process-is-text.md) | The number of a process is text | Superseded by [0083](0083-a-column-can-hold-identifiers.md) | `docs/ARCHITECTURE.md` section 12 |
 | [0050](0050-a-row-panel-holds-panels-by-their-place.md) | A row panel holds panels by their place on the grid | Accepted | `docs/ARCHITECTURE.md` section 12 |
 | [0051](0051-a-row-panel-takes-one-line.md) | A row panel takes one line, and a collapse gives its rows to the other panels | Accepted | `docs/ARCHITECTURE.md` section 12 |
 | [0052](0052-the-runtime-owns-the-collapse.md) | The runtime owns the collapse, and each snapshot carries it | Accepted | `docs/ARCHITECTURE.md` section 12 |
@@ -124,3 +124,4 @@ git show 4d8c223a0e7ea3bd62b85e7819be8c4ee10cb451:docs/ARCHITECTURE.md
 | [0079](0079-a-key-that-clamps-an-end-changes-the-width.md) | A key that clamps an end changes the width | Rejected | new |
 | [0080](0080-a-dashboard-states-a-refresh-above-0-and-a-known-unit.md) | A dashboard states a refresh above 0 and a known unit | Accepted | `docs/contributor/open-findings.md` items 4.4 and 5.3 |
 | [0081](0081-the-runtime-returns-an-error-for-a-frame-of-two-lengths.md) | The runtime returns an error for a frame of two lengths | Accepted | `docs/contributor/open-findings.md` item 3.3 |
+| [0083](0083-a-column-can-hold-identifiers.md) | A column can hold identifiers | Accepted | [ADR 0049](0049-the-number-of-a-process-is-text.md) |

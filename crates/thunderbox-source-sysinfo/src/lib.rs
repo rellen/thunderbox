@@ -41,8 +41,9 @@
 //! The query `processes` returns one frame, and that frame holds one row for
 //! each process of the machine. The four columns are these:
 //!
-//! - `pid`, the number of the process, as text. A column of numbers would
-//!   write `1.2K` for the process 1234;
+//! - `pid`, the number of the process. This column holds numbers and is an
+//!   identifier, so a panel writes every digit of 1234 and never writes
+//!   `1.2K`. A top panel never puts the rows in order by this column;
 //! - `name`, the short name of the program that the process runs;
 //! - `cpu`, the share of the processor since the sample before. A value of 100
 //!   is one whole core, as in the program `top`;

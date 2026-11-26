@@ -55,12 +55,14 @@ each column holds one value for each row.
 |---|---|---|
 | time | The time of day as `HH:MM:SS`, on the clock of Coordinated Universal Time. | left |
 | numbers | The number in the unit and with the decimal places of the panel. | right |
+| numbers that are an identifier | Every digit of the number, with no letter of the scale and no unit. The unit, the decimal places, and the thresholds of the panel do not apply. | right |
 | text | The text. Each control character becomes a space. | left |
 | true or false | `true` or `false` | left |
 
 - A cell shows `—` for a hole in the data, and for a value that is not finite.
 - A cell shows `—` when its column holds no value at that row.
-- A number takes the colour of the threshold that it reaches. Every other value
+- A number takes the colour of the threshold that it reaches. An identifier
+  takes no threshold. Every other value
   is grey, and the symbol `—` is dark grey.
 
 ## Width of the columns

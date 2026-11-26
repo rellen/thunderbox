@@ -96,6 +96,42 @@ removes the decimal point when no decimal place remains. A number under 1000
 with no unit therefore takes no decimal place. The panel writes `0` for 0.4, and
 `43` for 42.7. State `decimals` for a panel of small numbers.
 
+## Identifiers
+
+An identifier is a column of numbers that names a thing and does not measure
+it. The number of a process is an example. The number 1234 names a process, and
+no sum or share of it means anything. A data source marks such a column as an
+identifier. A dashboard file has no field for that mark.
+
+A panel writes an identifier in this way:
+
+- The panel writes every digit of the number. It writes the number 1234 as
+  `1234`, and it never writes `1.2K`.
+- The panel writes no unit.
+- A whole number holds no decimal point.
+- The panel applies the decimal places of the column when the data source
+  states them.
+
+No option of the panel applies to an identifier. These fields have no effect
+on it:
+
+| field of the panel | the effect on an identifier |
+|---|---|
+| `unit` | none |
+| `decimals` | none |
+| `[[panel.threshold]]` | none, so the identifier keeps its usual colour |
+
+An identifier is not a series. The panels `stat`, `gauge`, `bargauge`, and
+`timeseries` skip it, and a `legend` pattern never renames it. A `top` panel
+never puts the rows in order by an identifier. The table panel and the top
+panel stand an identifier at the right of its column, as they do for every
+column of numbers.
+
+This rule is an exception. For every other column, the field of the panel
+replaces the value of the column, as the section [Units](#units) states. A unit
+or a threshold of a measure means nothing for a name, so an identifier keeps
+its own form.
+
 ## Steps of `reduce`
 
 The stat panel, the gauge panel, and the bar gauge panel show one number for
@@ -187,4 +223,6 @@ finite, so they never draw the symbol.
 
 - [Architecture decision record 0007](../../contributor/adr/0007-the-settings-of-a-panel-win-over-the-column.md)
   states why the field of a panel replaces the value of the column.
+- [Architecture decision record 0083](../../contributor/adr/0083-a-column-can-hold-identifiers.md)
+  states why a column can hold identifiers.
 - [The panels](panels/README.md) lists the fields that each kind reads.

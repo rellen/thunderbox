@@ -120,12 +120,13 @@ async fn the_panel_of_the_processes_lists_the_process_that_runs_this_test() {
         .iter()
         .find(|f| f.name == "pid")
         .expect("The list must hold the column pid.");
-    let Values::Str(pids) = &pid.values else {
-        panic!("The number of a process is text. {pid:?}");
+    assert!(pid.config.identifier, "{pid:?}");
+    let Values::F64(pids) = &pid.values else {
+        panic!("The number of a process is a number. {pid:?}");
     };
-    let me = std::process::id().to_string();
+    let me = f64::from(std::process::id());
     assert!(
-        pids.iter().any(|p| p.as_deref() == Some(me.as_str())),
+        pids.contains(&Some(me)),
         "The list must hold the process that runs this test."
     );
 }

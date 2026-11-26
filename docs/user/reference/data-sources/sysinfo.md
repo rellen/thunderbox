@@ -100,15 +100,17 @@ The query `processes` reads no store. Its answer holds one frame, named
 
 | column | what it holds | the type of the column | unit |
 |---|---|---|---|
-| `pid` | The number of the process. | text | none |
+| `pid` | The number of the process. | numbers, and an identifier | none |
 | `name` | The short name of the program that the process runs. | text | none |
 | `cpu` | The share of the processor since the sample before. A value of 100 is one whole core, as in the program `top`. | numbers | `percent` |
 | `memory` | The memory that the process holds in physical memory. | numbers | `bytes` |
 
 - The frame holds no time column, because a row describes a process and not a
   moment.
-- The column `pid` holds text. A column of numbers would write `1.2K` for the
-  process 1234.
+- The column `pid` holds numbers, and it is an identifier. A panel writes the
+  process 1234 as `1234`, and never as `1.2K`. A top panel never puts the rows
+  in order by this column. The page [Numbers and units](../numbers-and-units.md)
+  states the rules for an identifier.
 - The rows come in the order of the number of each process. A top panel puts
   them in its own order.
 - The list holds each process one time. It holds no thread of a process as a row
@@ -149,4 +151,6 @@ The data source states no longest wait. thunderbox therefore waits 60 seconds.
 - [Architecture decision record 0047](../../../contributor/adr/0047-the-process-list-of-sysinfo-keeps-no-past.md)
   states why the list of the processes keeps no past.
 - [Architecture decision record 0049](../../../contributor/adr/0049-the-number-of-a-process-is-text.md)
-  states why the number of a process is text.
+  states why the number of a process was text. Record 0083 replaced it.
+- [Architecture decision record 0083](../../../contributor/adr/0083-a-column-can-hold-identifiers.md)
+  states why the number of a process is an identifier.

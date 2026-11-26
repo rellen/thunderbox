@@ -84,7 +84,7 @@ The panel `processes` holds four columns:
 
 | column | what it shows |
 |---|---|
-| `pid` | The number of the process. |
+| `pid` | The number of the process. The panel writes every digit of it, at the right of the column. |
 | `name` | The name of the program that the process runs. |
 | `cpu` | The share of the processor that the process used since the sample before. A value of 100 is one whole core. |
 | `memory` | The memory that the process holds. |
