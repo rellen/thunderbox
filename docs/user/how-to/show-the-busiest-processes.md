@@ -47,7 +47,7 @@ The data source `sysinfo` keeps no list from the past. The panel therefore shows
 
 ## Put the process with the most memory first
 
-1. Change the field `sort` to `"memory"`.
+1. Change the field `sort` to `"MemB"`.
 2. Change the bound of the threshold to a count of bytes:
 
    ```toml
@@ -57,10 +57,11 @@ The data source `sysinfo` keeps no list from the past. The panel therefore shows
    ```
 
 The panel now puts the process that holds the most memory first. A process
-that holds 1000000000 bytes or more is red in the column `memory`.
+that holds 1000000000 bytes or more is red in the column `MemB`.
 
-The thresholds and the field `unit` of a top panel describe the column of the
-field `sort` alone. [The top panel](../reference/panels/top.md) states the
+The column `MemB` holds bytes and shows the letter of the scale alone, as in
+`855M`. The thresholds and the field `unit` of a top panel describe the column
+of the field `sort` alone. [The top panel](../reference/panels/top.md) states the
 rules of the order and of each column.
 
 ## Keep the number of the process at the left
@@ -87,7 +88,7 @@ states the rule.
 
 ## Change the width of a column
 
-The data source states a width for some columns. To change a width, add the field
+The data source states a width for the columns `pid`, `cpu`, and `MemB`. To change a width, add the field
 `widths` to the panel. The field holds the header of each column and its number
 of cells:
 

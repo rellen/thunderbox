@@ -87,7 +87,7 @@ The panel `processes` holds four columns:
 | `pid` | The number of the process. The panel writes every digit of it, at the right of the column. |
 | `name` | The name of the program that the process runs. |
 | `cpu` | The share of the processor that the process used since the sample before. A value of 100 is one whole core. |
-| `memory` | The memory that the process holds. |
+| `MemB` | The memory that the process holds, in bytes. The panel writes the letter of the scale alone, as in `855M`. |
 
 A line under the header `cpu` marks the column that gives the order. The bottom
 border counts the rows that do not fit, for example `74 rows do not fit.`

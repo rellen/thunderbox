@@ -82,9 +82,9 @@ The labels of the second form stand in the alphabetical order of their names.
 
 | kind | the name of a column | the labels |
 |---|---|---|
-| `sysinfo` | The name of the query. The query `cpu.cores` names each column after the position of its core: `0`, `1`, and so on. The query `processes` names its columns `pid`, `name`, `cpu`, and `memory`. | `core` on the query `cpu.cores` alone. |
+| `sysinfo` | The name of the query. The query `cpu.cores` names each column after the position of its core: `0`, `1`, and so on. The query `processes` names its columns `pid`, `name`, `cpu`, and `MemB`. | `core` on the query `cpu.cores` alone. |
 | `prometheus` | The name of the metric. A series with no name of a metric takes the text of the query. | Every label of the series, except `__name__`. |
-| `testdata` | The text of the query, for every series of one answer. The query `processes` names its columns `pid`, `name`, `cpu`, and `memory`. | `series`, which holds `0`, `1`, and so on. The query `processes` attaches no label. |
+| `testdata` | The text of the query, for every series of one answer. The query `processes` names its columns `pid`, `name`, `cpu`, and `MemB`. | `series`, which holds `0`, `1`, and so on. The query `processes` attaches no label. |
 
 These patterns give each series a name of its own:
 

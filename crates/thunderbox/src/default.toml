@@ -89,7 +89,9 @@ expr = "cpu.cores"
 legend = "core {{core}}"
 
 # The settings of a top panel describe the column that puts the rows in
-# order. The column memory keeps the unit bytes that the data source states.
+# order. The other columns keep the hints that the data source states. The
+# column MemB holds bytes and shows the letter of the scale alone, and the
+# data source gives the columns pid, cpu, and MemB a fixed width.
 [[panel]]
 title = "processes"
 kind = "top"

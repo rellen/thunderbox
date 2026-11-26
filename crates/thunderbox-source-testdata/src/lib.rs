@@ -257,7 +257,7 @@ impl TestData {
     ///
     /// The frame holds one row for each process, and the four columns of the
     /// list of the sysinfo data source: `pid` as an identifier, `name`, `cpu` as a
-    /// share, and `memory` in bytes. The rows come in the order of the number
+    /// share, and `MemB` in bytes with no unit. The rows come in the order of the number
     /// of each process, as the rows of that list do.
     ///
     /// Each value depends only on the seed and on `at`. The share of each
@@ -283,25 +283,27 @@ impl TestData {
             values: Values::Str(values),
             ..Default::default()
         };
-        let number = |name: &str, unit: &str, values: Vec<Option<f64>>| {
-            Field::f64(name, values).with_config(FieldConfig {
-                unit: Some(unit.into()),
-                min: Some(0.0),
-                ..Default::default()
-            })
-        };
+        let cpu = Field::f64("cpu", cpu).with_config(FieldConfig {
+            unit: Some("percent".into()),
+            min: Some(0.0),
+            width: Some(4),
+            ..Default::default()
+        });
+        // The column holds bytes and states no unit, as the list of the sysinfo
+        // data source does.
+        let memory = Field::f64("MemB", memory).with_config(FieldConfig {
+            min: Some(0.0),
+            width: Some(4),
+            ..Default::default()
+        });
         let identifier = Field::f64("pid", pids).with_config(FieldConfig {
             identifier: true,
+            width: Some(6),
             ..Default::default()
         });
         Frame::named(
             PROCESSES,
-            vec![
-                identifier,
-                text("name", names),
-                number("cpu", "percent", cpu),
-                number("memory", "bytes", memory),
-            ],
+            vec![identifier, text("name", names), cpu, memory],
         )
     }
 
@@ -674,12 +676,17 @@ mod tests {
     fn processes_returns_the_columns_of_the_sysinfo_list() {
         let frame = processes_at(&TestData::new(), 1_000_000);
         let names: Vec<&str> = frame.fields.iter().map(|f| f.name.as_str()).collect();
-        assert_eq!(names, vec!["pid", "name", "cpu", "memory"]);
+        assert_eq!(names, vec!["pid", "name", "cpu", "MemB"]);
         assert_eq!(frame.len(), PROCESS_TABLE.len());
         assert!(frame.fields.iter().all(|f| f.len() == frame.len()));
         assert!(frame.time_field().is_none(), "A row describes a process.");
         assert_eq!(frame.fields[2].config.unit.as_deref(), Some("percent"));
-        assert_eq!(frame.fields[3].config.unit.as_deref(), Some("bytes"));
+        assert_eq!(
+            frame.fields[3].config.unit, None,
+            "The column MemB holds no unit, so a panel writes the letter of the scale alone."
+        );
+        let widths: Vec<Option<u16>> = frame.fields.iter().map(|f| f.config.width).collect();
+        assert_eq!(widths, vec![Some(6), None, Some(4), Some(4)]);
         assert!(frame.fields[0].config.identifier);
         let pids = frame.fields[0]
             .values

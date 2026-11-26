@@ -9,8 +9,12 @@ use std::sync::Arc;
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;
 use ratatui_core::style::Modifier;
-use thunderbox_core::{Dashboard, Field, FieldConfig, Frame, RelativeTime, Threshold, TimeRange};
+use thunderbox_core::{
+    Dashboard, Field, FieldConfig, Frame, Query, QueryRequest, RelativeTime, Threshold, TimeRange,
+};
 use thunderbox_dashboard::{DashboardView, PanelState, Snapshot};
+use thunderbox_source::DataSource;
+use thunderbox_source_testdata::TestData;
 
 /// The name that a dashboard writes for each type of panel.
 const KINDS: [&str; 6] = ["timeseries", "stat", "gauge", "bargauge", "table", "top"];
@@ -507,4 +511,70 @@ fn a_table_panel_and_a_top_panel_of_a_dashboard_give_the_columns_the_widths_that
         // The pid takes 8 cells, so the name starts at the cell 10.
         assert_eq!(start_of_name(&header), 10, "{kind} {header}");
     }
+}
+
+/// Returns the process list of the data source testdata for one moment.
+async fn process_list() -> Vec<Frame> {
+    let at = 1_000_000;
+    let request = QueryRequest::new(
+        Query {
+            source: "t".into(),
+            expr: "processes".into(),
+        },
+        &TimeRange {
+            from: RelativeTime::Absolute(at - 60_000),
+            to: RelativeTime::Absolute(at),
+        },
+        at,
+        10,
+    );
+    TestData::new()
+        .query(request)
+        .await
+        .expect("The query must answer.")
+}
+
+/// A top panel that draws the process list of the data source testdata gives
+/// `pid` 6 cells, `cpu` 4 cells, and `MemB` 4 cells. The name takes the rest.
+#[tokio::test]
+async fn a_top_panel_gives_the_columns_of_the_process_list_the_widths_that_the_data_source_states()
+{
+    let file = r#"
+title = "one panel"
+
+[[panel]]
+title = "processes"
+kind = "top"
+grid = { x = 0, y = 0, w = 24, h = 10 }
+"#;
+    let dashboard = Dashboard::from_toml(file).expect("The test dashboard must be correct.");
+    let frames = process_list().await;
+    let draw = |frames: Vec<Frame>| {
+        let mut snapshot = Snapshot::loading(1, TimeRange::default());
+        snapshot.panels[0] = PanelState::Ready(Arc::new(frames));
+        let area = Rect::new(0, 0, 40, 8);
+        let mut buf = Buffer::empty(area);
+        DashboardView::new().render(&dashboard, &snapshot, area, &mut buf);
+        text(&buf)
+    };
+    let out = draw(frames.clone());
+    let header: Vec<char> = out.lines().nth(1).unwrap_or_default().chars().collect();
+    let at = |start: usize, count: usize| header[start..start + count].iter().collect::<String>();
+    // The 38 inner cells hold 6, 4, and 4 cells, three gaps, and 21 cells of
+    // the name. The border stands in the cell 0.
+    assert_eq!(at(4, 3), "pid", "{out}");
+    assert_eq!(at(8, 4), "name", "{out}");
+    assert_eq!(at(31, 3), "cpu", "{out}");
+    assert_eq!(at(35, 4), "MemB", "{out}");
+    // A list with other rows keeps every column at the same cells.
+    let mut other = frames;
+    let rows = other[0].len();
+    other[0].fields[1].values =
+        thunderbox_core::Values::Str(vec![Some("a process with a very long name".into()); rows]);
+    let moved = draw(other);
+    assert_eq!(
+        moved.lines().nth(1),
+        out.lines().nth(1),
+        "The columns must not move when the rows change."
+    );
 }

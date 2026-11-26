@@ -128,6 +128,16 @@ impl ProcessSampler {
             Field::f64(name, values.into_iter().map(Some).collect()).with_config(FieldConfig {
                 unit: Some(unit.to_string()),
                 min: Some(0.0),
+                width: Some(4),
+                ..Default::default()
+            })
+        };
+        // The memory column holds bytes and states no unit. A panel then writes
+        // the letter of the scale alone, as in `855M`.
+        let memory = |values: Vec<f64>, name: &str| {
+            Field::f64(name, values.into_iter().map(Some).collect()).with_config(FieldConfig {
+                min: Some(0.0),
+                width: Some(4),
                 ..Default::default()
             })
         };
@@ -137,6 +147,7 @@ impl ProcessSampler {
         let identifier = |values: Vec<f64>, name: &str| {
             Field::f64(name, values.into_iter().map(Some).collect()).with_config(FieldConfig {
                 identifier: true,
+                width: Some(6),
                 ..Default::default()
             })
         };
@@ -146,7 +157,7 @@ impl ProcessSampler {
                 identifier(rows.iter().map(|r| f64::from(r.pid)).collect(), "pid"),
                 text(rows.iter().map(|r| r.name.clone()).collect(), "name"),
                 number(rows.iter().map(|r| r.cpu).collect(), "cpu", "percent"),
-                number(rows.iter().map(|r| r.memory).collect(), "memory", "bytes"),
+                memory(rows.iter().map(|r| r.memory).collect(), "MemB"),
             ],
         )
     }
@@ -209,7 +220,7 @@ mod tests {
         sampler.sample_if_due(1_000, GAP);
         let frame = sampler.frame(0, 2_000);
         let names: Vec<&str> = frame.fields.iter().map(|f| f.name.as_str()).collect();
-        assert_eq!(names, vec!["pid", "name", "cpu", "memory"]);
+        assert_eq!(names, vec!["pid", "name", "cpu", "MemB"]);
         let rows = frame.len();
         assert!(rows > 0, "A machine runs at least one process.");
         assert!(
@@ -217,7 +228,19 @@ mod tests {
             "The fifth duty of a data source asks for one length."
         );
         assert_eq!(frame.fields[2].config.unit.as_deref(), Some("percent"));
-        assert_eq!(frame.fields[3].config.unit.as_deref(), Some("bytes"));
+        assert_eq!(
+            frame.fields[3].config.unit, None,
+            "The column MemB holds no unit, so a panel writes the letter of the scale alone."
+        );
+    }
+
+    #[test]
+    fn the_columns_state_the_widths_of_the_process_list() {
+        let mut sampler = ProcessSampler::new();
+        sampler.sample_if_due(1_000, GAP);
+        let frame = sampler.frame(0, 2_000);
+        let widths: Vec<Option<u16>> = frame.fields.iter().map(|f| f.config.width).collect();
+        assert_eq!(widths, vec![Some(6), None, Some(4), Some(4)]);
     }
 
     #[test]

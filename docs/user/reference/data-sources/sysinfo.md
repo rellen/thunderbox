@@ -98,12 +98,12 @@ Some signals need two samples:
 The query `processes` reads no store. Its answer holds one frame, named
 `processes`, with one row for each process and these four columns:
 
-| column | what it holds | the type of the column | unit |
-|---|---|---|---|
-| `pid` | The number of the process. | numbers, and an identifier | none |
-| `name` | The short name of the program that the process runs. | text | none |
-| `cpu` | The share of the processor since the sample before. A value of 100 is one whole core, as in the program `top`. | numbers | `percent` |
-| `memory` | The memory that the process holds in physical memory. | numbers | `bytes` |
+| column | what it holds | the type of the column | unit | width |
+|---|---|---|---|---|
+| `pid` | The number of the process. | numbers, and an identifier | none | 6 cells |
+| `name` | The short name of the program that the process runs. | text | none | none |
+| `cpu` | The share of the processor since the sample before. A value of 100 is one whole core, as in the program `top`. | numbers | `percent` | 4 cells |
+| `MemB` | The memory that the process holds in physical memory, in bytes. | numbers | none | 4 cells |
 
 - The frame holds no time column, because a row describes a process and not a
   moment.
@@ -111,6 +111,15 @@ The query `processes` reads no store. Its answer holds one frame, named
   process 1234 as `1234`, and never as `1.2K`. A top panel never puts the rows
   in order by this column. The page [Numbers and units](../numbers-and-units.md)
   states the rules for an identifier.
+- The column `MemB` holds bytes and states no unit. A panel writes the letter of
+  the scale alone, as in `855M` and `2.1G`. A table panel or a top panel rounds a
+  number that does not fit its 4 cells, so `12.3M` shows `12M`. The header
+  `MemB` states that the values are bytes.
+- The data source states a width for three columns. A table panel or a top
+  panel gives each of them exactly that many cells, and the column `name` takes
+  the rest. The field `widths` of a panel replaces a width. A number of 7 digits
+  in the column `pid` shows `—` in 6 cells. A share above 999 in the column `cpu`
+  shows `—` in 4 cells.
 - The rows come in the order of the number of each process. A top panel puts
   them in its own order.
 - The list holds each process one time. It holds no thread of a process as a row

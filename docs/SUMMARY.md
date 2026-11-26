@@ -154,6 +154,7 @@
   - [ADR 0085: A panel can keep a column of numbers at the left](contributor/adr/0085-a-panel-can-keep-a-column-of-numbers-at-the-left.md)
   - [ADR 0086: A table rounds a number to fit its column](contributor/adr/0086-a-table-rounds-a-number-to-fit-its-column.md)
   - [ADR 0087: A column can take a fixed width, and the other columns share the rest](contributor/adr/0087-a-column-can-take-a-fixed-width-and-the-other-columns-share-the-rest.md)
+  - [ADR 0088: The process list names its memory column MemB and states no unit](contributor/adr/0088-the-process-list-names-its-memory-column-memb-and-states-no-unit.md)
   - [ADR NNNN: The decision, as one sentence](contributor/adr/0000-template.md)
 - [Make the pictures again](contributor/pictures.md)
 - [Libraries that this project examined](contributor/research.md)

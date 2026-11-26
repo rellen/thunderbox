@@ -204,7 +204,7 @@ records the step that thunderbox does not take.
 [The research](research.md) records the evidence for each library. These
 records govern the data sources that exist:
 
-- sysinfo: [0038](adr/0038-a-sysinfo-sample-carries-the-moment-of-the-machine.md), [0047](adr/0047-the-process-list-of-sysinfo-keeps-no-past.md), [0048](adr/0048-the-process-list-reads-the-machine-through-its-own-system.md), [0049](adr/0049-the-number-of-a-process-is-text.md), [0083](adr/0083-a-column-can-hold-identifiers.md);
+- sysinfo: [0038](adr/0038-a-sysinfo-sample-carries-the-moment-of-the-machine.md), [0047](adr/0047-the-process-list-of-sysinfo-keeps-no-past.md), [0048](adr/0048-the-process-list-reads-the-machine-through-its-own-system.md), [0049](adr/0049-the-number-of-a-process-is-text.md), [0083](adr/0083-a-column-can-hold-identifiers.md), [0088](adr/0088-the-process-list-names-its-memory-column-memb-and-states-no-unit.md);
 - prometheus: [0033](adr/0033-no-text-writes-the-password-of-an-address.md), [0064](adr/0064-plain-http-needs-no-ca-file.md);
 - more than one data source on one dashboard: [0034](adr/0034-a-dashboard-reads-more-than-one-data-source.md).
 
@@ -318,7 +318,7 @@ documents of each feature that exists.
 | one width for a stack of charts | [how-to](../user/how-to/start-each-chart-of-a-stack-at-the-same-cell.md) | 0039 |
 | the marker | [how-to](../user/how-to/change-the-glyph-of-a-chart.md) | 0009 |
 | a terminal that is too small | [how-to](../user/how-to/read-a-dashboard-on-a-small-terminal.md), [explanation](../user/explanation/panels-that-the-terminal-cannot-hold.md) | 0024, 0027, 0031, 0060 |
-| the data source sysinfo | [reference](../user/reference/data-sources/sysinfo.md) | 0038, 0047, 0048 |
+| the data source sysinfo | [reference](../user/reference/data-sources/sysinfo.md) | 0038, 0047, 0048, 0088 |
 | the data source prometheus | [tutorial](../user/tutorials/read-a-prometheus-server.md), [how-to](../user/how-to/give-the-prometheus-source-a-ca-file.md), [reference](../user/reference/data-sources/prometheus.md) | 0009, 0033, 0064, 0073 |
 | the data source testdata | [reference](../user/reference/data-sources/testdata.md) | 0010 |
 | more than one data source | [how-to](../user/how-to/show-two-data-sources-on-one-dashboard.md) | 0034 |
