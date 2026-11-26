@@ -63,6 +63,28 @@ The thresholds and the field `unit` of a top panel describe the column of the
 field `sort` alone. [The top panel](../reference/panels/top.md) states the
 rules of the order and of each column.
 
+## Keep the number of the process at the left
+
+A top panel stands the column `pid` at the right, as it stands each column of
+numbers. To keep that column at the left, add the field `left` to the panel:
+
+```toml
+[[panel]]
+title = "the busiest processes"
+kind = "top"
+sort = "cpu"
+left = ["pid"]
+grid = { x = 0, y = 0, w = 24, h = 12 }
+
+[[panel.target]]
+source = "machine"
+expr = "processes"
+```
+
+The field `left` holds the header of each column that stands at the left. A name
+that matches no header has no effect. [The top panel](../reference/panels/top.md)
+states the rule.
+
 ## Show a list that is not of this machine
 
 1. Declare the data source `testdata`:

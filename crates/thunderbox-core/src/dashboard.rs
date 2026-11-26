@@ -108,6 +108,9 @@ impl Dashboard {
     /// - a panel sets a `min` that is not smaller than its `max`;
     /// - a panel that is not a top panel states a `sort` column;
     /// - a top panel states a `sort` column that has an empty name;
+    /// - a panel that is not a table panel or a top panel states the field
+    ///   `left`;
+    /// - a panel states a `left` column that has an empty name;
     /// - a row panel does not span the whole width of the grid with one row;
     /// - a row panel holds a target;
     /// - a panel that is not a row panel states the field `collapsed`;
@@ -198,6 +201,24 @@ impl Dashboard {
                 if sort.trim().is_empty() {
                     return Err(Error::Dashboard(format!(
                         "panel {:?} states a sort column with an empty name",
+                        panel.title
+                    )));
+                }
+            }
+            if !panel.left.is_empty() {
+                // A panel of another kind draws no column of numbers. A person
+                // who writes the field on such a panel expects a change that
+                // the panel never draws.
+                if !matches!(panel.kind, PanelKind::Table | PanelKind::Top) {
+                    return Err(Error::Dashboard(format!(
+                        "panel {:?} states the field left. Only a panel of the kind table \
+                         or top reads that field",
+                        panel.title
+                    )));
+                }
+                if panel.left.iter().any(|name| name.trim().is_empty()) {
+                    return Err(Error::Dashboard(format!(
+                        "panel {:?} states a left column with an empty name",
                         panel.title
                     )));
                 }
@@ -432,6 +453,18 @@ pub struct Panel {
     /// [`Dashboard::validate`] rejects the field on every other kind of panel.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sort: Option<String>,
+    /// The headers of the columns that stand at the left of their cells.
+    ///
+    /// A table panel and a top panel stand a column of numbers at the right,
+    /// header and cells. Each name in this list is the text that the header of
+    /// a column shows. The panel stands that column at the left, even when the
+    /// column holds numbers. A name that no header shows has no effect.
+    ///
+    /// Only a panel of the kind [`PanelKind::Table`] or [`PanelKind::Top`]
+    /// reads this field. [`Dashboard::validate`] rejects the field on every
+    /// other kind of panel.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub left: Vec<String>,
     /// States whether a row panel starts collapsed.
     ///
     /// A collapsed row panel hides the panels that it holds, and the panels
@@ -834,6 +867,58 @@ grid = {{ x = 0, y = 0, w = 12, h = 8 }}
             .unwrap_err()
             .to_string();
         assert!(err.contains("empty name"), "The message is wrong. {err}");
+    }
+
+    #[test]
+    fn a_table_panel_and_a_top_panel_read_the_columns_that_stand_at_the_left() {
+        for kind in ["table", "top"] {
+            let dash = Dashboard::from_toml(&one_panel(kind, r#"left = ["pid", "name"]"#))
+                .expect("The reader must accept a panel that names its left columns.");
+            assert_eq!(dash.panels[0].left, vec!["pid", "name"]);
+            let round = Dashboard::from_toml(&dash.to_toml().unwrap()).unwrap();
+            assert_eq!(round, dash, "The columns must survive a round trip.");
+        }
+    }
+
+    #[test]
+    fn a_panel_that_states_no_left_column_writes_no_field() {
+        let dash = Dashboard::from_toml(&one_panel("table", "")).unwrap();
+        assert!(dash.panels[0].left.is_empty());
+        let written = dash.to_toml().unwrap();
+        assert!(
+            !written.contains("left"),
+            "The writer leaves out a field that the panel does not state. {written}"
+        );
+    }
+
+    #[test]
+    fn validate_returns_an_error_for_a_left_column_on_a_panel_that_is_not_a_table_or_a_top() {
+        for kind in ["timeseries", "stat", "gauge", "bargauge"] {
+            let err = Dashboard::from_toml(&one_panel(kind, r#"left = ["pid"]"#))
+                .unwrap_err()
+                .to_string();
+            assert_eq!(
+                err,
+                "The dashboard is not correct. panel \"processes\" states the field left. \
+                 Only a panel of the kind table or top reads that field",
+                "{kind}"
+            );
+        }
+    }
+
+    #[test]
+    fn validate_returns_an_error_for_a_left_column_with_an_empty_name() {
+        for names in [r#"[""]"#, r#"["pid", "  "]"#] {
+            let err = Dashboard::from_toml(&one_panel("top", &format!("left = {names}")))
+                .unwrap_err()
+                .to_string();
+            assert_eq!(
+                err,
+                "The dashboard is not correct. panel \"processes\" states a left column \
+                 with an empty name",
+                "{names}"
+            );
+        }
     }
 
     /// A dashboard of two row panels. The first one holds the chart, and the
