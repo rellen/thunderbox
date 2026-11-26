@@ -65,6 +65,26 @@ each column holds one value for each row.
   takes no threshold. Every other value
   is grey, and the symbol `—` is dark grey.
 
+## Place of the numbers
+
+A column of numbers stands at the right of its column, header and cells. The
+field `left` keeps chosen columns at the left. The field holds a list of
+headers, and each header is the text that the panel shows. A header of a column
+of a frame that has a name includes that name and the full stop, as in
+`"cpu.usage"`. A name that matches no header has no effect.
+
+```toml
+[[panel]]
+title = "the most recent rows for each core"
+kind = "table"
+left = ["core"]
+grid = { x = 0, y = 13, w = 12, h = 6 }
+```
+
+A number in a column of the field `left` stands at the left, and the panel
+still never cuts that number. The panel shows `—` in the place of a number that
+does not fit.
+
 ## Width of the columns
 
 Each column takes an equal share of the width inside the border. The width of a
@@ -98,6 +118,7 @@ therefore keep their places when the data refreshes.
 |---|---|
 | `unit` | The panel writes each number in this unit. |
 | `decimals` | The panel writes each number with this number of decimal places. |
+| `left` | The panel keeps the columns of these headers at the left. |
 | `[[panel.threshold]]` | The panel colours each number with the colour of the threshold that the number reaches. |
 | `[[panel.target]]` | The panel shows the columns of the answer of each target. |
 

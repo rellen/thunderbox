@@ -83,11 +83,31 @@ The panel shares the layout of the [table panel](table.md):
 - The panel writes each cell in the same form as the table panel.
 - A number stands at the right of its column, and so does an identifier. Every
   other value stands at the left.
+- The field `left` keeps chosen columns at the left, header and cells, even
+  when they hold numbers. The field holds a list of headers, as in
+  `left = ["pid"]`. A name that matches no header has no effect. The panel
+  still never cuts a number in such a column.
 - A cell shows `—` for a hole in the data, and for a value that is not finite.
 - Each column takes an equal share of the width inside the border, as in the
   table panel. The text of a cell never changes the width of a column. The
   section "Width of the columns" of the [table panel](table.md) states the
   rule.
+- The example below keeps the column `pid` at the left. The example is a part
+  of a dashboard file, and it does not load alone.
+
+  ```toml
+  [[panel]]
+  title = "processes"
+  kind = "top"
+  sort = "cpu"
+  left = ["pid"]
+  grid = { x = 12, y = 13, w = 12, h = 6 }
+
+  [[panel.target]]
+  source = "machine"
+  expr = "processes"
+  ```
+
 - The panel drops the columns at the right that have no room. The note `+N` at
   the right of the header row counts them.
 - The panel can drop the column that gives the order in a narrow panel.
@@ -99,13 +119,15 @@ The panel shares the layout of the [table panel](table.md):
 | field | what the panel does with it |
 |---|---|
 | `sort` | The panel puts the rows in order by the column of this header. |
+| `left` | The panel keeps the columns of these headers at the left. |
 | `unit` | The panel writes the column that gives the order in this unit. |
 | `decimals` | The panel writes the column that gives the order with this number of decimal places. |
 | `[[panel.threshold]]` | The panel colours each number of the column that gives the order with the colour of the threshold that it reaches. |
 | `[[panel.target]]` | The panel puts the rows of the answer of each target into the list. |
 
 The panel ignores the fields `min`, `max`, and `reduce`. The program rejects
-the field `sort` on a panel of every other kind.
+the field `sort` on a panel of every other kind. It rejects the field `left` on
+a panel of every kind except `table` and `top`.
 
 ## Texts that the panel can draw
 

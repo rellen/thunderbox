@@ -413,3 +413,71 @@ fn a_top_panel_of_a_dashboard_reads_the_column_that_the_dashboard_names() {
         "A panel that names no column takes its first column of numbers."
     );
 }
+
+/// Draws one panel of this kind over a list of two processes, and returns the
+/// header row and the row of the first process.
+///
+/// The dashboard writes the line `left` as it is. The column `pid` is an
+/// identifier, so a panel stands it at the right unless the dashboard names it.
+fn pid_rows(kind: &str, left: &str) -> (String, String) {
+    let file = format!(
+        r#"
+title = "one panel"
+
+[[panel]]
+title = "processes"
+kind = "{kind}"
+{left}
+grid = {{ x = 0, y = 0, w = 24, h = 10 }}
+"#
+    );
+    let dashboard = Dashboard::from_toml(&file).expect("The test dashboard must be correct.");
+    let pid = Field::f64("pid", vec![Some(1234.0), Some(5.0)]).with_config(FieldConfig {
+        identifier: true,
+        ..Default::default()
+    });
+    let name = Field {
+        name: "name".into(),
+        values: thunderbox_core::Values::Str(vec![Some("editor".into()), Some("init".into())]),
+        ..Default::default()
+    };
+    let frames = vec![Frame::new(vec![pid, name])];
+    let mut snapshot = Snapshot::loading(1, TimeRange::default());
+    snapshot.panels[0] = PanelState::Ready(Arc::new(frames));
+    let area = Rect::new(0, 0, 40, 8);
+    let mut buf = Buffer::empty(area);
+    DashboardView::new().render(&dashboard, &snapshot, area, &mut buf);
+    let out = text(&buf);
+    let mut lines = out.lines().skip(1);
+    let header = lines.next().unwrap_or_default().to_string();
+    let first = lines.next().unwrap_or_default().to_string();
+    (header, first)
+}
+
+/// The field `left` of a dashboard must reach the table panel and the top
+/// panel. A view that dropped the field would stand every column of numbers at
+/// the right, and each test of `thunderbox-widgets` would still pass.
+#[test]
+fn a_table_panel_and_a_top_panel_of_a_dashboard_keep_the_columns_that_the_dashboard_names_at_the_left()
+ {
+    for kind in ["table", "top"] {
+        let (header, row) = pid_rows(kind, "");
+        assert!(
+            header.contains(" pid") && !header.starts_with("\u{2502}pid"),
+            "No field left. The header must stand at the right. {kind} {header}"
+        );
+        assert!(
+            row.contains("1234") && !row.starts_with("\u{2502}1234"),
+            "No field left. The cell must stand at the right. {kind} {row}"
+        );
+        let (header, row) = pid_rows(kind, r#"left = ["pid"]"#);
+        assert!(
+            header.starts_with("\u{2502}pid "),
+            "The dashboard names the column pid. {kind} {header}"
+        );
+        assert!(
+            row.starts_with("\u{2502}1234 "),
+            "The cell must stand at the left. {kind} {row}"
+        );
+    }
+}

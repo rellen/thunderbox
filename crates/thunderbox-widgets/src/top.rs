@@ -80,6 +80,8 @@ pub struct TopPanel<'a> {
     /// The header of the column that gives the order. The panel takes its
     /// first column of numbers when this field holds `None`.
     sort: Option<&'a str>,
+    /// The headers of the columns that stand at the left.
+    left: &'a [String],
     /// The border changes colour when a person selects the panel.
     focused: bool,
 }
@@ -94,6 +96,7 @@ impl<'a> TopPanel<'a> {
             theme,
             options: PanelOptions::default(),
             sort: None,
+            left: &[],
             focused: false,
         }
     }
@@ -109,6 +112,17 @@ impl<'a> TopPanel<'a> {
     /// shows this header.
     pub fn sort_by(mut self, column: &'a str) -> Self {
         self.sort = Some(column);
+        self
+    }
+
+    /// Keeps the columns of these headers at the left.
+    ///
+    /// The panel stands a column of numbers at the right, header and cells.
+    /// Each name is the text that the header of a column shows. The panel
+    /// stands such a column at the left, even when it holds numbers. A name
+    /// that matches no header has no effect.
+    pub fn left(mut self, headers: &'a [String]) -> Self {
+        self.left = headers;
         self
     }
 
@@ -276,6 +290,7 @@ fn rank(
                     })
                     .collect(),
                 right,
+                left: false,
                 sorted,
             }
         })
@@ -318,7 +333,9 @@ impl Widget for &TopPanel<'_> {
             Ok(None) => return render_message(block, NO_DATA, self.theme.muted, area, buf),
             Err(text) => return render_message(block, &text, self.theme.error, area, buf),
         };
-        draw_sheet(&ranked.sheet, block, self.theme, area, buf);
+        let mut sheet = ranked.sheet;
+        sheet.keep_left(self.left);
+        draw_sheet(&sheet, block, self.theme, area, buf);
 
         if ranked.dropped > 0 {
             // The note sits at the right of the bottom border. It leaves the
@@ -976,5 +993,79 @@ mod tests {
                 "The header memory ends at the last inner cell. {header:?}"
             );
         }
+    }
+
+    #[test]
+    fn the_panel_keeps_a_column_of_numbers_at_the_left_when_the_dashboard_names_it() {
+        let theme = Theme::default();
+        let f = processes();
+        let names = vec!["cpu".to_string()];
+        let plain_panel = TopPanel::new("top", PanelData::Frames(&f), &theme).sort_by("cpu");
+        let named = TopPanel::new("top", PanelData::Frames(&f), &theme)
+            .sort_by("cpu")
+            .left(&names);
+        let right = render(&plain_panel, 40, 8);
+        let left = render(&named, 40, 8);
+        // The 38 inner cells hold four columns of 9, 9, 9, and 8 cells and
+        // three gaps. The column `cpu` takes the third place, from the cell 21.
+        assert_eq!(
+            line(&right, 1).chars().nth(21 + 6),
+            Some('c'),
+            "{}",
+            line(&right, 1)
+        );
+        assert_eq!(
+            line(&left, 1).chars().nth(21),
+            Some('c'),
+            "{}",
+            line(&left, 1)
+        );
+        assert_eq!(
+            line(&left, 2).chars().skip(21).take(5).collect::<String>(),
+            "97%  ",
+            "The cell of the column must stand at the left. {}",
+            line(&left, 2)
+        );
+        assert_eq!(
+            line(&right, 2).chars().skip(21).take(9).collect::<String>(),
+            "      97%",
+            "{}",
+            line(&right, 2)
+        );
+    }
+
+    #[test]
+    fn the_column_pid_of_a_panel_that_names_no_left_column_stands_at_the_right() {
+        let theme = Theme::default();
+        let f = processes_with_identifiers();
+        let named = vec!["name".to_string()];
+        let p = TopPanel::new("processes", PanelData::Frames(&f), &theme).left(&named);
+        let out = text(&render(&p, 40, 8));
+        let header: Vec<char> = out.lines().nth(1).unwrap().chars().collect();
+        // The 38 inner cells hold three columns of 12 cells. The first column
+        // runs from the cell 1 to the cell 12. The header ends at the cell 12,
+        // and so does the number 1234.
+        assert_eq!(header[10..13].iter().collect::<String>(), "pid", "{out}");
+        assert!(
+            out.lines()
+                .any(|l| l.chars().skip(9).take(4).collect::<String>() == "1234"),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn the_panel_keeps_the_column_pid_at_the_left_when_the_dashboard_names_it() {
+        let theme = Theme::default();
+        let f = processes_with_identifiers();
+        let names = vec!["pid".to_string()];
+        let p = TopPanel::new("processes", PanelData::Frames(&f), &theme).left(&names);
+        let out = text(&render(&p, 40, 8));
+        let header = out.lines().nth(1).unwrap();
+        assert!(header.starts_with("\u{2502}pid "), "{out}");
+        assert!(
+            out.lines().any(|l| l.starts_with("\u{2502}1234 ")),
+            "The cell must stand at the left. {out}"
+        );
+        assert!(out.lines().any(|l| l.starts_with("\u{2502}1    ")), "{out}");
     }
 }

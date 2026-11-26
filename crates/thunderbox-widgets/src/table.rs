@@ -52,6 +52,8 @@ pub struct TablePanel<'a> {
     theme: &'a Theme,
     /// The settings that the panel uses to show a number.
     options: PanelOptions<'a>,
+    /// The headers of the columns that stand at the left.
+    left: &'a [String],
     /// The border changes colour when a person selects the panel.
     focused: bool,
 }
@@ -64,8 +66,21 @@ impl<'a> TablePanel<'a> {
             data,
             theme,
             options: PanelOptions::default(),
+            left: &[],
             focused: false,
         }
+    }
+
+    /// Keeps the columns of these headers at the left.
+    ///
+    /// The panel stands a column of numbers at the right, header and cells.
+    /// Each name is the text that the header of a column shows. That text
+    /// starts with the name of the frame and a full stop when more than one
+    /// frame holds a column. The panel stands such a column at the left, even
+    /// when it holds numbers. A name that matches no header has no effect.
+    pub fn left(mut self, headers: &'a [String]) -> Self {
+        self.left = headers;
+        self
     }
 
     /// Sets the unit, the number of decimal places, and the thresholds.
@@ -101,9 +116,13 @@ pub(crate) struct Column {
     pub(crate) header: String,
     /// One entry for each row that the panel shows.
     pub(crate) entries: Vec<Entry>,
-    /// The panel puts a number at the right of its column. This field is `true`
-    /// for a column of numbers.
+    /// This field is `true` for a column of numbers. The panel puts such a
+    /// column at the right, and it never cuts a number of such a column.
     pub(crate) right: bool,
+    /// This field is `true` for a column that the dashboard file keeps at the
+    /// left. The panel then puts a column of numbers at the left, and it still
+    /// never cuts a number.
+    pub(crate) left: bool,
     /// This field is `true` for the column that puts the rows in order.
     ///
     /// The top panel sets this field, and [`draw_sheet`] then draws a line
@@ -169,6 +188,19 @@ pub(crate) struct Sheet {
     /// The number of rows that the panel shows. Every column holds this number
     /// of entries.
     pub(crate) rows: usize,
+}
+
+impl Sheet {
+    /// Keeps each column at the left when its header is one of `headers`.
+    ///
+    /// A name that matches no header has no effect. The panel compares each
+    /// name with the text that the header shows. That text can include the name
+    /// of the frame and a full stop.
+    pub(crate) fn keep_left(&mut self, headers: &[String]) {
+        for column in &mut self.columns {
+            column.left = headers.contains(&column.header);
+        }
+    }
 }
 
 /// Returns the text without a control character.
@@ -287,6 +319,7 @@ fn collect(
                     })
                     .collect(),
                 right: matches!(field.values, Values::F64(_)),
+                left: false,
                 sorted: false,
             });
         }
@@ -448,9 +481,10 @@ impl Widget for &TablePanel<'_> {
         let inner = block.inner(area);
         // The header takes one row. The data takes every other row.
         let limit = usize::from(inner.height).saturating_sub(1);
-        let Some(sheet) = collect(frames, &self.options, self.theme, limit) else {
+        let Some(mut sheet) = collect(frames, &self.options, self.theme, limit) else {
             return render_message(block, NO_DATA, self.theme.muted, area, buf);
         };
+        sheet.keep_left(self.left);
 
         draw_sheet(&sheet, block, self.theme, area, buf);
     }
@@ -480,6 +514,9 @@ pub(crate) fn draw_sheet(
         return block.render(area, buf);
     }
     let columns = || widths.iter().zip(&sheet.columns);
+    // A number stands at the right, unless the dashboard file keeps its column
+    // at the left.
+    let at_right = |column: &Column| column.right && !column.left;
 
     let header = Row::new(
         columns()
@@ -490,7 +527,7 @@ pub(crate) fn draw_sheet(
                 } else {
                     theme.title
                 };
-                cell(text, style, column.right)
+                cell(text, style, at_right(column))
             })
             .collect::<Vec<Cell<'_>>>(),
     )
@@ -502,13 +539,15 @@ pub(crate) fn draw_sheet(
                 columns()
                     .map(|(width, column)| {
                         let Some(found) = column.entries.get(row) else {
-                            return cell(String::new(), theme.text, column.right);
+                            return cell(String::new(), theme.text, at_right(column));
                         };
                         match cell_text(&found.text, *width, column.right) {
-                            Some(text) => cell(text, found.style, column.right),
+                            Some(text) => cell(text, found.style, at_right(column)),
                             // The number does not fit. The panel draws the
                             // symbol of a value that it cannot show.
-                            None => cell(clip_cells(MISSING, *width), theme.muted, column.right),
+                            None => {
+                                cell(clip_cells(MISSING, *width), theme.muted, at_right(column))
+                            }
                         }
                     })
                     .collect::<Vec<Cell<'_>>>(),
@@ -1463,5 +1502,92 @@ mod tests {
             out.lines().any(|line| line.contains("   5")),
             "The cell must stand at the right. {out}"
         );
+    }
+
+    /// Returns one frame of two columns of numbers, `a` and `b`.
+    fn two_number_columns() -> Vec<Frame> {
+        vec![Frame::new(vec![
+            Field::f64("a", vec![Some(1234.0), Some(5.0)]),
+            Field::f64("b", vec![Some(12.0), Some(7.0)]),
+        ])]
+    }
+
+    #[test]
+    fn the_panel_keeps_a_column_of_numbers_at_the_left_when_the_dashboard_names_it() {
+        let theme = Theme::default();
+        let f = two_number_columns();
+        let names = vec!["a".to_string()];
+        let p = TablePanel::new("T", PanelData::Frames(&f), &theme).left(&names);
+        // The 10 inner cells hold a column of 5 cells, a gap, and a column of 4
+        // cells. The column `a` stands at the left, and the column `b` stands
+        // at the right.
+        let out = text(&render(&p, 12, 5));
+        let lines: Vec<&str> = out.lines().collect();
+        assert_eq!(lines[1], "\u{2502}a        b\u{2502}", "{out}");
+        assert_eq!(lines[2], "\u{2502}1.2K    12\u{2502}", "{out}");
+        assert_eq!(lines[3], "\u{2502}5        7\u{2502}", "{out}");
+    }
+
+    #[test]
+    fn the_panel_stands_every_column_of_numbers_at_the_right_when_no_name_matches() {
+        let theme = Theme::default();
+        let f = two_number_columns();
+        let names = vec!["c".to_string()];
+        let plain_panel = TablePanel::new("T", PanelData::Frames(&f), &theme);
+        let named = TablePanel::new("T", PanelData::Frames(&f), &theme).left(&names);
+        let out = text(&render(&plain_panel, 12, 5));
+        assert_eq!(
+            out.lines().nth(1),
+            Some("\u{2502}    a    b\u{2502}"),
+            "{out}"
+        );
+        assert_eq!(
+            out,
+            text(&render(&named, 12, 5)),
+            "A name that matches no header has no effect."
+        );
+    }
+
+    #[test]
+    fn the_panel_matches_a_left_name_with_the_header_that_includes_the_name_of_the_frame() {
+        let theme = Theme::default();
+        let f = vec![
+            Frame::named("x", vec![Field::f64("v", vec![Some(5.0)])]),
+            Frame::named("y", vec![Field::f64("v", vec![Some(6.0)])]),
+        ];
+        let short = vec!["v".to_string()];
+        let long = vec!["x.v".to_string()];
+        let none = TablePanel::new("T", PanelData::Frames(&f), &theme);
+        let by_short = TablePanel::new("T", PanelData::Frames(&f), &theme).left(&short);
+        let by_long = TablePanel::new("T", PanelData::Frames(&f), &theme).left(&long);
+        assert_eq!(
+            text(&render(&none, 14, 4)),
+            text(&render(&by_short, 14, 4)),
+            "The header is `x.v`, so the name `v` matches nothing."
+        );
+        let out = text(&render(&by_long, 14, 4));
+        assert_eq!(
+            out.lines().nth(1),
+            Some("\u{2502}x.v      y.v\u{2502}"),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn the_panel_never_cuts_a_number_in_a_column_that_stands_at_the_left() {
+        let theme = Theme::default();
+        let f = vec![Frame::new(vec![Field::f64("a", vec![Some(98_765.0)])])];
+        let names = vec!["a".to_string()];
+        let options = PanelOptions {
+            unit: Some("percent"),
+            decimals: Some(0),
+            ..Default::default()
+        };
+        let p = TablePanel::new("T", PanelData::Frames(&f), &theme)
+            .options(options)
+            .left(&names);
+        let out = text(&render(&p, 6, 4));
+        assert!(!out.contains("987"), "{out}");
+        assert!(out.contains(MISSING), "{out}");
     }
 }
