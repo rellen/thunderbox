@@ -58,8 +58,8 @@ counts that part:
 
 - A stat panel, a gauge panel, or a bar gauge panel writes
   `2 series do not fit.` or, in a small space, `+2`.
-- A table panel writes `2 columns do not fit.` or `+2`.
-- A top panel writes `74 rows do not fit.` in its bottom border.
+- A table panel or a top panel writes `+2` at the right of its header row.
+- A top panel also writes `74 rows do not fit.` in its bottom border.
 
 The status row also drops the list of the keys first when a sentence needs the
 room.

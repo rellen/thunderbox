@@ -84,8 +84,12 @@ The panel shares the layout of the [table panel](table.md):
 - A number stands at the right of its column, and so does an identifier. Every
   other value stands at the left.
 - A cell shows `—` for a hole in the data, and for a value that is not finite.
-- The panel drops the columns at the right that have no room. A note at the
-  right of the header row counts them.
+- Each column takes an equal share of the width inside the border, as in the
+  table panel. The text of a cell never changes the width of a column. The
+  section "Width of the columns" of the [table panel](table.md) states the
+  rule.
+- The panel drops the columns at the right that have no room. The note `+N` at
+  the right of the header row counts them.
 - The panel can drop the column that gives the order in a narrow panel.
   [Architecture decision record 0063](../../../contributor/adr/0063-a-narrow-top-panel-drops-the-sort-column.md)
   records that fault.
@@ -113,8 +117,8 @@ the field `sort` on a panel of every other kind.
 | `no data` | Every frame holds no row. |
 | `—` | A cell holds a hole, a value that is not finite, or a number that does not fit. |
 | `1 row does not fit.` or `N rows do not fit.` | The panel shows fewer rows than the list holds, and the sentence fits the bottom border. |
-| `1 column does not fit.` or `N columns do not fit.` | The panel drops columns at the right, and the sentence fits the free cells of the header row. |
-| `+N` | The sentence about the rows or about the columns does not fit. |
+| `+N` in the header row | The panel drops columns at the right. `N` is the number of columns that the panel dropped. |
+| `+N` in the bottom border | The sentence about the rows does not fit. |
 
 The panel writes the text `No column of numbers shows the header "NAME".` in
 red, as it writes every error.
@@ -125,6 +129,8 @@ red, as it writes every error.
   which is the part of thunderbox that draws the panels, drops it.
 - A shorter panel shows fewer rows. It keeps the rows with the largest numbers.
 - A narrower panel drops the columns at the right first.
+- A panel that is too narrow for one column and its note draws the first
+  column and no note. That column takes the whole width.
 
 ## Pages that give the reason
 

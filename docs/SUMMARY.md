@@ -149,6 +149,7 @@
   - [ADR 0080: A dashboard states a refresh above 0 and a known unit](contributor/adr/0080-a-dashboard-states-a-refresh-above-0-and-a-known-unit.md)
   - [ADR 0081: The runtime returns an error for a frame of two lengths](contributor/adr/0081-the-runtime-returns-an-error-for-a-frame-of-two-lengths.md)
   - [ADR 0083: A column can hold identifiers](contributor/adr/0083-a-column-can-hold-identifiers.md)
+  - [ADR 0084: Each column of a table takes an equal share of the panel](contributor/adr/0084-each-column-of-a-table-takes-an-equal-share-of-the-panel.md)
   - [ADR NNNN: The decision, as one sentence](contributor/adr/0000-template.md)
 - [Make the pictures again](contributor/pictures.md)
 - [Libraries that this project examined](contributor/research.md)

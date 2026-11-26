@@ -39,6 +39,8 @@ of this machine, and the busiest process comes first.
 
 The panel shows one row for each process. The column `cpu` gives the order, and
 a share of 85 or more is red. The bottom border counts the rows that do not fit.
+Each column takes an equal share of the width of the panel, so the columns stay
+where they are when the list refreshes.
 
 The data source `sysinfo` keeps no list from the past. The panel therefore shows
 `no data` while the window stands still in the past.

@@ -67,19 +67,30 @@ each column holds one value for each row.
 
 ## Width of the columns
 
+Each column takes an equal share of the width inside the border. The width of a
+column never depends on the text of a cell or of a header. The columns
+therefore keep their places when the data refreshes.
+
 - One empty cell stands between two columns.
-- Each column takes the width of its widest cell, the header included, when
-  every column fits.
-- A narrow panel gives each column 4 cells, or fewer cells for a column that
-  needs fewer. It then shares the rest of the width between the columns, in
-  proportion to the cells that each column still needs.
-- The panel drops the columns at the right that have no room. A note at the
-  right of the header row counts them.
-- The panel cuts a text that is too long. A full stop marks the cut.
+- The panel draws every column when each column can have 4 cells. The columns
+  share the width inside the border in equal parts. The columns and the empty
+  cells fill that width.
+- A share can leave a few cells over. The columns from the left take one more
+  cell each, until no cell remains.
+- Otherwise the panel drops the columns at the right. It draws the largest
+  number of columns that leaves room for one empty cell and for the note `+N`.
+  Those columns share the rest of the width in equal parts. The note stands at
+  the right of the header row, and `N` is the number of columns that the panel
+  dropped.
+- A short column can hold empty cells, and a long text takes a share that is
+  too small. The panel cuts a text that is too long. A full stop marks the cut.
+- The panel cuts a header that is too long in the same way.
 - The panel never cuts a number. It shows `—` in the place of a number that does
   not fit its column.
-- A panel that is too narrow for one column draws the border and the title
-  alone.
+- A panel that is too narrow for one column and its note draws the first
+  column and no note. That column takes the whole width.
+- A panel that is narrower than 4 cells inside the border draws the border and
+  the title alone.
 
 ## Fields that the panel reads
 
@@ -100,8 +111,7 @@ The panel ignores the fields `min`, `max`, and `reduce`.
 | the text of the error | The data source returned an error. |
 | `no data` | Every frame holds no row. |
 | `—` | A cell holds a hole, a value that is not finite, or a number that does not fit. |
-| `1 column does not fit.` or `N columns do not fit.` | The panel drops columns at the right, and the sentence fits the free cells of the header row. |
-| `+N` | The panel drops columns at the right, and the sentence does not fit the free cells of the header row. |
+| `+N` | The panel drops columns at the right. `N` is the number of columns that the panel dropped. |
 
 ## The panel at a small size
 
