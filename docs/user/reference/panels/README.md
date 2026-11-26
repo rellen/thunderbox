@@ -95,9 +95,12 @@ not fit.
 | kinds | the complete sentence | the short form |
 |---|---|---|
 | `stat`, `gauge`, `bargauge` | `1 series does not fit.` or `N series do not fit.` | `+N` |
-| `table`, `top` | `1 column does not fit.` or `N columns do not fit.` | `+N` |
 | `top` | `1 row does not fit.` or `N rows do not fit.` | `+N` |
 | `row` | `The row hides 1 panel.` or `The row hides N panels.` | `+N` |
+
+A table panel and a top panel write no complete sentence about the columns that
+they drop. They write the short form `+N` at the right of the header row. The
+columns then share the rest of the width in equal parts.
 
 A panel cuts the short form when the free cells hold less. A full stop then
 marks the cut.

@@ -26,13 +26,12 @@ use thunderbox_core::{Field, Frame, Values};
 use crate::panel::{NO_DATA, clip, frames_or_message, panel_block, render_message};
 use crate::{MISSING, PanelData, PanelOptions, Theme, draws_a_panel, format_time};
 
-/// The smallest width that the panel gives to a column that needs more.
+/// The smallest width that the panel gives to a column.
 ///
 /// A reader can read almost nothing in a narrower column, because the panel
 /// adds one full stop to a text that it cut. Four cells hold a short number
 /// such as `1.5K`, or three letters of a name. The panel therefore drops a
-/// column on the right before it makes such a column narrower than this width.
-/// A column that needs fewer cells keeps the width that it needs.
+/// column on the right before it makes a column narrower than this width.
 const MIN_COLUMN: usize = 4;
 
 /// The number of cells that the panel leaves between two columns.
@@ -112,22 +111,6 @@ pub(crate) struct Column {
     /// gives the order. The table panel keeps the order of the data, so it
     /// sets the field on no column.
     pub(crate) sorted: bool,
-}
-
-impl Column {
-    /// Returns the width that the widest cell of the column needs.
-    ///
-    /// The method reads the header, and it reads the cells that the panel
-    /// shows. It does not read a row that the panel drops.
-    fn natural_width(&self) -> usize {
-        let widest = self
-            .entries
-            .iter()
-            .map(|e| display_width(&e.text))
-            .max()
-            .unwrap_or(0);
-        widest.max(display_width(&self.header))
-    }
 }
 
 /// Returns the number of cells that a text needs on a terminal.
@@ -311,80 +294,32 @@ fn collect(
     Some(Sheet { columns, rows })
 }
 
-/// Returns the width of each column that the panel draws.
+/// Returns the width of each of `count` columns that share `room` cells.
 ///
-/// The rule has four parts:
+/// Every column takes the same share of the room. The function takes one gap
+/// of [`COLUMN_GAP`] cells out of the room for each pair of columns, and it
+/// divides the rest by `count`. The division can leave a few cells over. The
+/// columns from the left take one more cell each, until no cell remains. The
+/// widths and the gaps therefore fill the room exactly.
 ///
-/// - the function gives every column the width that it needs, when the panel is
-///   wide enough for every column;
-/// - the function shares the width in proportion when the panel is not wide
-///   enough, and it gives each column [`MIN_COLUMN`] cells;
-/// - the function gives a column that needs fewer cells the width that it
-///   needs;
-/// - the function drops the columns on the right that have no room.
-///
-/// The number of widths that the function returns is therefore the number of
-/// columns that the panel draws. The list is empty when the panel is too narrow
-/// for one column. The caller cuts each cell to the width that this function
-/// returns.
-fn share_widths(natural: &[usize], available: usize) -> Vec<usize> {
-    if natural.is_empty() || available == 0 {
+/// The function reads the number of columns and the room alone. It never reads
+/// the text of a cell or of a header. The list is empty when `count` is 0.
+fn equal_widths(count: usize, room: usize) -> Vec<usize> {
+    if count == 0 {
         return Vec::new();
     }
-    let gaps = |count: usize| count.saturating_sub(1) * COLUMN_GAP;
-    if natural.iter().sum::<usize>() + gaps(natural.len()) <= available {
-        return natural.to_vec();
-    }
-    // The smallest width of a column is MIN_COLUMN, or the width that the
-    // column needs when the column needs fewer cells. The panel keeps a column
-    // while that smallest width and one gap still fit.
-    let floor = |want: usize| want.min(MIN_COLUMN);
-    let mut keep = 0;
-    let mut used = 0;
-    for want in natural {
-        let cost = if keep == 0 {
-            floor(*want)
-        } else {
-            COLUMN_GAP + floor(*want)
-        };
-        if used + cost > available {
-            break;
-        }
-        used += cost;
-        keep += 1;
-    }
-    if keep == 0 {
-        return Vec::new();
-    }
-    let kept = &natural[..keep];
-    let budget = available.saturating_sub(gaps(keep));
-    let mut widths: Vec<usize> = kept.iter().map(|w| floor(*w)).collect();
-    let spare = budget.saturating_sub(widths.iter().sum::<usize>());
-    let extra: Vec<usize> = kept
-        .iter()
-        .zip(&widths)
-        .map(|(want, small)| want.saturating_sub(*small))
-        .collect();
-    let total_extra: usize = extra.iter().sum();
-    if total_extra == 0 {
-        return widths;
-    }
-    for ((width, want), full) in widths.iter_mut().zip(&extra).zip(kept) {
-        // No column grows past the width that it needs.
-        *width = (*width + want * spare / total_extra).min(*full);
-    }
-    // The division above leaves a few cells over. The columns on the left take
-    // them, and no column grows past the width that it needs.
-    let mut left = budget.saturating_sub(widths.iter().sum::<usize>());
-    for (width, want) in widths.iter_mut().zip(kept) {
-        if left == 0 {
-            break;
-        }
-        let give = want.saturating_sub(*width).min(left);
-        *width += give;
-        left -= give;
-    }
-    widths
+    let cells = room.saturating_sub((count - 1) * COLUMN_GAP);
+    let share = cells / count;
+    let extra = cells % count;
+    (0..count).map(|i| share + usize::from(i < extra)).collect()
+}
+
+/// Returns the number of cells that `count` columns need at the least.
+///
+/// Each column needs [`MIN_COLUMN`] cells, and each pair of columns needs one
+/// gap.
+fn least_room(count: usize) -> usize {
+    count * MIN_COLUMN + count.saturating_sub(1) * COLUMN_GAP
 }
 
 /// Returns one cell of the table.
@@ -451,24 +386,42 @@ pub(crate) fn dropped_text(dropped: usize, width: usize, counted: Counted) -> St
 /// Returns the width of each column, and the note about the columns that the
 /// panel dropped.
 ///
-/// The function takes the width of the note back from the widths that
-/// [`share_widths`] returns. The note therefore has room. The function keeps
-/// the columns when the note leaves room for none of them. A column of values
-/// helps a reader more than the note does.
-fn plan_widths(natural: &[usize], available: usize) -> (Vec<usize>, String) {
-    let mut widths = share_widths(natural, available);
-    if widths.len() >= natural.len() {
-        return (widths, String::new());
+/// The widths depend on `count` and on `available` alone. The text of a cell
+/// never changes a width, so a column stays where it is when the data
+/// refreshes. The rule has three parts:
+///
+/// - The panel draws all `count` columns when each column can hold
+///   [`MIN_COLUMN`] cells. The columns share `available` in equal parts.
+/// - Otherwise the panel drops columns at the right. It draws the largest
+///   number of columns that still leave room for one gap and for the short
+///   note, such as `+3`. Those columns share the rest of `available` in equal
+///   parts.
+/// - Otherwise the panel draws one column with no note, when one column fits
+///   in [`MIN_COLUMN`] cells. That column takes the whole of `available`.
+/// - The list of widths is empty when `available` is smaller than
+///   [`MIN_COLUMN`]. The panel then draws the border and the title alone.
+///
+/// The caller cuts each cell to the width that this function returns.
+fn plan_widths(count: usize, available: usize) -> (Vec<usize>, String) {
+    if count == 0 || available == 0 {
+        return (Vec::new(), String::new());
     }
-    let short = display_width(&format!("+{}", natural.len() - widths.len()));
-    let narrow = share_widths(natural, available.saturating_sub(short + COLUMN_GAP));
-    if !narrow.is_empty() {
-        widths = narrow;
+    if least_room(count) <= available {
+        return (equal_widths(count, available), String::new());
     }
-    let used = widths.iter().sum::<usize>() + widths.len().saturating_sub(1) * COLUMN_GAP;
-    let room = available.saturating_sub(used + COLUMN_GAP);
-    let note = dropped_text(natural.len() - widths.len(), room, Counted::Column);
-    (widths, note)
+    for keep in (1..count).rev() {
+        let note = format!("+{}", count - keep);
+        let short = display_width(&note);
+        if least_room(keep) + COLUMN_GAP + short <= available {
+            let room = available - COLUMN_GAP - short;
+            let note = dropped_text(count - keep, short, Counted::Column);
+            return (equal_widths(keep, room), note);
+        }
+    }
+    if least_room(1) <= available {
+        return (vec![available], String::new());
+    }
+    (Vec::new(), String::new())
 }
 
 impl Widget for TablePanel<'_> {
@@ -510,7 +463,8 @@ impl Widget for &TablePanel<'_> {
 /// about the columns that it dropped. The table panel and the top panel both
 /// call this function, so the two panels share one layout.
 ///
-/// The function draws the border and the title alone when no column fits.
+/// The function draws the border and the title alone when the width is smaller
+/// than one column.
 pub(crate) fn draw_sheet(
     sheet: &Sheet,
     block: Block<'_>,
@@ -519,10 +473,9 @@ pub(crate) fn draw_sheet(
     buf: &mut Buffer,
 ) {
     let inner = block.inner(area);
-    let natural: Vec<usize> = sheet.columns.iter().map(Column::natural_width).collect();
-    let (widths, note) = plan_widths(&natural, usize::from(inner.width));
+    let (widths, note) = plan_widths(sheet.columns.len(), usize::from(inner.width));
     if widths.is_empty() {
-        // The panel is too narrow for one column. It draws the border and the
+        // The panel is narrower than one column. It draws the border and the
         // title, and it draws no column.
         return block.render(area, buf);
     }
@@ -958,7 +911,7 @@ mod tests {
     }
 
     #[test]
-    fn the_panel_keeps_a_narrow_column_that_still_fits() {
+    fn the_panel_cuts_a_text_that_is_longer_than_the_share_of_its_column() {
         let theme = Theme::default();
         let column = |name: &str, value: &str| Field {
             name: name.into(),
@@ -971,17 +924,15 @@ mod tests {
             column("c", "hello world"),
         ])];
         let p = TablePanel::new("CPU", PanelData::Frames(&f), &theme);
-        // The panel holds nine cells inside its border. The three columns need
-        // one, one, and four cells, and the two gaps need two cells.
-        let out = text(&render(&p, 11, 5));
+        // The panel holds 14 cells inside its border. The three columns and
+        // the two gaps leave 12 cells, and each column takes 4 of them. The
+        // short columns hold empty cells, and the third column loses its end.
+        let out = text(&render(&p, 16, 5));
         assert!(
-            out.contains('c'),
-            "The third column needs four cells, and it fits. {out}"
+            out.contains("hel."),
+            "The third column holds four cells, and the panel cuts its text. {out}"
         );
-        assert!(
-            out.contains("hell"),
-            "The panel must draw the value of the third column. {out}"
-        );
+        assert!(!out.contains("hello"), "{out}");
     }
 
     #[test]
@@ -1083,6 +1034,25 @@ mod tests {
         assert!(
             !out.contains("0"),
             "No column fits, so the panel draws no value. {out}"
+        );
+    }
+
+    #[test]
+    fn the_panel_draws_the_header_of_the_first_column_when_only_one_column_fits() {
+        let theme = Theme::default();
+        let f = three_text_columns("a", "b", "c");
+        let p = TablePanel::new("T", PanelData::Frames(&f), &theme);
+        // The 6 inner cells hold one column of 4 cells. They hold no second
+        // column, and they hold no room for the note.
+        let out = text(&render(&p, 8, 5));
+        let header = out.lines().nth(1).unwrap_or_default();
+        assert!(
+            header.contains("one"),
+            "The panel draws the first header. {out}"
+        );
+        assert!(
+            !header.contains("two") && !header.contains('+'),
+            "The panel draws no second column and no note. {out}"
         );
     }
 
@@ -1195,138 +1165,211 @@ mod tests {
         let f = frames(vec![Some(1.0)]);
         let sheet = collect(&f, &options, &theme, 0).expect("The frames hold rows.");
         assert_eq!(sheet.rows, 0);
-        assert_eq!(
-            sheet.columns[0].natural_width(),
-            4,
-            "The header is four cells wide."
-        );
+        assert_eq!(sheet.columns[0].entries.len(), 0);
     }
 
     #[test]
-    fn natural_width_reads_the_header_and_the_widest_cell() {
-        let theme = Theme::default();
-        let options = PanelOptions::default();
-        let f = vec![Frame::new(vec![Field::f64("x", vec![Some(1500.0)])])];
-        let sheet = collect(&f, &options, &theme, 4).expect("The frames hold rows.");
-        assert_eq!(sheet.columns[0].natural_width(), 4, "The cell is 1.5K.");
+    fn equal_widths_gives_each_column_an_equal_share_of_the_room() {
+        // Four columns and three gaps share 40 cells. The 37 cells of the
+        // columns divide into 9 for each column, and 1 cell remains.
+        assert_eq!(equal_widths(4, 40), vec![10, 9, 9, 9]);
+        // Three columns and two gaps share 40 cells. The 38 cells of the
+        // columns divide into 12 for each column, and 2 cells remain.
+        assert_eq!(equal_widths(3, 40), vec![13, 13, 12]);
+        assert_eq!(equal_widths(2, 21), vec![10, 10]);
     }
 
     #[test]
-    fn share_widths_gives_each_column_the_width_that_it_needs() {
-        assert_eq!(share_widths(&[4, 6, 5], 40), vec![4, 6, 5]);
-        // The three columns and the two gaps need 17 cells.
-        assert_eq!(share_widths(&[4, 6, 5], 17), vec![4, 6, 5]);
-    }
-
-    #[test]
-    fn share_widths_shares_the_width_in_proportion() {
-        let out = share_widths(&[10, 20], 15);
-        assert_eq!(out.len(), 2);
-        assert_eq!(
-            out.iter().sum::<usize>(),
-            14,
-            "One cell is the gap. {out:?}"
-        );
-        assert!(
-            out[1] > out[0],
-            "The wider column keeps more cells. {out:?}"
-        );
-    }
-
-    #[test]
-    fn share_widths_gives_each_column_that_it_keeps_the_smallest_width() {
-        let out = share_widths(&[20, 20, 20, 20], 14);
-        assert!(
-            out.iter().all(|w| *w >= MIN_COLUMN),
-            "No column is narrower than the smallest width. {out:?}"
-        );
-        assert_eq!(out.len(), 3, "Three columns fit in fourteen cells. {out:?}");
-    }
-
-    #[test]
-    fn share_widths_drops_the_columns_on_the_right() {
-        // One column takes four cells. Two columns take nine cells, because one
-        // cell is the gap between them.
-        assert_eq!(share_widths(&[8, 8, 8], 4), vec![4]);
-        assert_eq!(share_widths(&[8, 8, 8], 8), vec![8]);
-        assert_eq!(share_widths(&[8, 8, 8], 9), vec![4, 4]);
-        assert_eq!(share_widths(&[8, 8, 8], 14).len(), 3);
-    }
-
-    #[test]
-    fn share_widths_returns_nothing_for_a_panel_that_is_too_narrow() {
-        assert!(share_widths(&[8, 8], 3).is_empty());
-        assert!(share_widths(&[8, 8], 0).is_empty());
-        assert!(share_widths(&[], 40).is_empty());
-    }
-
-    #[test]
-    fn share_widths_keeps_a_narrow_column_that_costs_less_than_the_smallest_width() {
-        // The three columns need one, one, and eight cells. The two narrow
-        // columns cost one cell each, so the third column has room.
-        let out = share_widths(&[1, 1, 8], 9);
-        assert_eq!(out.len(), 3, "Every column fits. {out:?}");
-        assert_eq!(out[0], 1, "A column grows no wider than it needs. {out:?}");
-        let used = out.iter().sum::<usize>() + out.len().saturating_sub(1) * COLUMN_GAP;
-        assert!(used <= 9, "The columns must fit. {out:?}");
-    }
-
-    #[test]
-    fn share_widths_gives_no_column_more_than_it_needs() {
-        // The first column needs five cells, and the second needs twenty. Only
-        // the first column fits, and it keeps five of the seven cells.
-        assert_eq!(share_widths(&[5, 20], 7), vec![5]);
-    }
-
-    #[test]
-    fn share_widths_never_returns_more_than_the_width_of_the_panel() {
-        for available in 0..60_usize {
-            for count in 1..8_usize {
-                for width in [1_usize, 3, 7, 30] {
-                    let natural = vec![width; count];
-                    let out = share_widths(&natural, available);
-                    let used = out.iter().sum::<usize>() + out.len().saturating_sub(1) * COLUMN_GAP;
-                    assert!(
-                        used <= available,
-                        "The columns must fit. {out:?} {available} {count} {width}"
-                    );
-                    assert!(
-                        out.iter().zip(&natural).all(|(got, want)| got <= want),
-                        "No column grows past the width that it needs. {out:?}"
-                    );
+    fn equal_widths_fills_the_room_exactly() {
+        for room in 0..80_usize {
+            for count in 1..9_usize {
+                if least_room(count) > room {
+                    continue;
                 }
+                let out = equal_widths(count, room);
+                assert_eq!(out.len(), count);
+                assert_eq!(
+                    out.iter().sum::<usize>() + (count - 1) * COLUMN_GAP,
+                    room,
+                    "The widths and the gaps must fill the room. {out:?}"
+                );
+                let widest = out.iter().max().copied().unwrap_or(0);
+                let narrowest = out.iter().min().copied().unwrap_or(0);
+                assert!(widest - narrowest <= 1, "The shares are equal. {out:?}");
+                assert!(
+                    out.windows(2).all(|pair| pair[0] >= pair[1]),
+                    "The columns from the left take the remainder. {out:?}"
+                );
+            }
+        }
+        assert!(equal_widths(0, 40).is_empty());
+    }
+
+    #[test]
+    fn plan_widths_draws_every_column_in_the_whole_width() {
+        let (widths, note) = plan_widths(4, 40);
+        assert_eq!(widths, vec![10, 9, 9, 9]);
+        assert!(note.is_empty(), "No column is missing. {note}");
+        // Two columns need nine cells at the least. One cell is the gap.
+        assert_eq!(plan_widths(2, 9), (vec![4, 4], String::new()));
+        assert_eq!(plan_widths(1, 4), (vec![4], String::new()));
+    }
+
+    #[test]
+    fn plan_widths_drops_the_columns_at_the_right_and_leaves_room_for_the_note() {
+        // Eight columns need 39 cells. Three columns, one gap, and the note
+        // `+5` need 14 + 1 + 2 = 17 cells. Four columns need 22 cells.
+        let (widths, note) = plan_widths(8, 20);
+        assert_eq!(widths, vec![5, 5, 5]);
+        assert_eq!(note, "+5");
+        // The columns and the gaps fill the room that the note leaves.
+        assert_eq!(widths.iter().sum::<usize>() + 2 * COLUMN_GAP, 20 - 1 - 2);
+        // The remainder goes to the columns from the left.
+        let (widths, note) = plan_widths(8, 23);
+        assert_eq!(widths, vec![5, 4, 4, 4]);
+        assert_eq!(note, "+4");
+    }
+
+    #[test]
+    fn plan_widths_keeps_one_column_without_a_note_when_no_column_fits_with_its_note() {
+        // One column, one gap, and the note `+1` need 4 + 1 + 2 = 7 cells.
+        // One column alone needs 4 cells, so the column takes the whole width.
+        assert_eq!(plan_widths(2, 6), (vec![6], String::new()));
+        assert_eq!(plan_widths(2, 4), (vec![4], String::new()));
+        assert_eq!(plan_widths(5, 5), (vec![5], String::new()));
+        assert_eq!(plan_widths(2, 7), (vec![4], "+1".to_string()));
+    }
+
+    #[test]
+    fn plan_widths_returns_no_width_when_the_width_is_smaller_than_one_column() {
+        assert_eq!(plan_widths(2, 3), (Vec::new(), String::new()));
+        assert_eq!(plan_widths(2, 0), (Vec::new(), String::new()));
+        assert_eq!(plan_widths(0, 40), (Vec::new(), String::new()));
+    }
+
+    #[test]
+    fn plan_widths_never_returns_more_than_the_width_of_the_panel() {
+        for available in 0..60_usize {
+            for count in 1..30_usize {
+                let (widths, note) = plan_widths(count, available);
+                if widths.is_empty() {
+                    continue;
+                }
+                let used = widths.iter().sum::<usize>() + (widths.len() - 1) * COLUMN_GAP;
+                let noted = if note.is_empty() {
+                    0
+                } else {
+                    COLUMN_GAP + display_width(&note)
+                };
+                assert_eq!(
+                    used + noted,
+                    available,
+                    "The columns and the note fill the panel. {widths:?} {note} {count}"
+                );
+                if widths.len() == 1 && note.is_empty() {
+                    continue;
+                }
+                assert!(
+                    widths.iter().all(|w| *w >= MIN_COLUMN),
+                    "No column is narrower than the smallest width. {widths:?}"
+                );
+                assert_eq!(
+                    note.is_empty(),
+                    widths.len() == count,
+                    "The note appears when the panel drops a column. {widths:?} {note}"
+                );
             }
         }
     }
 
+    /// Returns the x position of the first cell of each header word in a row
+    /// of text.
+    fn starts_of(line: &str) -> Vec<usize> {
+        let cells: Vec<char> = line.chars().collect();
+        (0..cells.len())
+            .filter(|i| cells[*i] != ' ' && (*i == 0 || cells[*i - 1] == ' '))
+            .collect()
+    }
+
+    /// Returns one frame of three text columns, with the same text in each cell.
+    fn three_text_columns(first: &str, second: &str, third: &str) -> Vec<Frame> {
+        let column = |name: &str, value: &str| Field {
+            name: name.into(),
+            values: Values::Str(vec![Some(value.into()); 2]),
+            ..Default::default()
+        };
+        vec![Frame::new(vec![
+            column("one", first),
+            column("two", second),
+            column("three", third),
+        ])]
+    }
+
     #[test]
-    fn plan_widths_leaves_room_for_the_note() {
-        let natural = vec![7; 8];
-        let (widths, note) = plan_widths(&natural, 20);
-        assert!(!note.is_empty(), "The panel drops a column. {widths:?}");
-        let used = widths.iter().sum::<usize>() + widths.len().saturating_sub(1) * COLUMN_GAP;
-        assert!(
-            used + COLUMN_GAP + display_width(&note) <= 20,
-            "The note must not cover a column. {widths:?} {note}"
+    fn the_columns_start_at_the_same_cells_when_the_text_of_the_cells_changes() {
+        let theme = Theme::default();
+        let short = three_text_columns("a", "b", "c");
+        let long = three_text_columns("alpha beta", "gamma delta", "epsilon zeta");
+        let header_of = |frames: &[Frame]| {
+            let p = TablePanel::new("T", PanelData::Frames(frames), &theme);
+            let out = text(&render(&p, 32, 5));
+            out.lines().nth(1).unwrap_or_default().to_string()
+        };
+        let with_short = header_of(&short);
+        let with_long = header_of(&long);
+        // The 30 inner cells hold three columns of 10, 9, and 9 cells and two
+        // gaps. The remainder of 28 / 3 goes to the first column. The border
+        // stands in the cell 0, and the first header follows it without a
+        // space. The last start is the border at the right.
+        assert_eq!(starts_of(&with_short), vec![0, 12, 22, 31], "{with_short}");
+        assert_eq!(
+            starts_of(&with_short),
+            starts_of(&with_long),
+            "The text of a cell must not move a column. {with_short} {with_long}"
         );
     }
 
     #[test]
-    fn plan_widths_writes_no_note_when_every_column_fits() {
-        let (widths, note) = plan_widths(&[4, 5], 20);
-        assert_eq!(widths, vec![4, 5]);
-        assert!(note.is_empty(), "No column is missing. {note}");
+    fn the_table_fills_the_width_of_the_panel() {
+        let theme = Theme::default();
+        let f = vec![Frame::new(vec![
+            Field::f64("aa", vec![Some(1.0)]),
+            Field::f64("bb", vec![Some(2.0)]),
+            Field::f64("cc", vec![Some(3.0)]),
+        ])];
+        let p = TablePanel::new("T", PanelData::Frames(&f), &theme);
+        for w in [16_u16, 17, 31, 40] {
+            let out = text(&render(&p, w, 4));
+            let header: Vec<char> = out.lines().nth(1).unwrap_or_default().chars().collect();
+            assert_eq!(
+                header[usize::from(w) - 2],
+                'c',
+                "The last column must end at the last inner cell. {out}"
+            );
+            assert_eq!(header[usize::from(w) - 1], '\u{2502}', "{out}");
+        }
     }
 
     #[test]
-    fn plan_widths_keeps_a_column_when_the_note_leaves_no_room() {
-        // The one column needs four cells, and the panel holds five. The note
-        // would leave no room for the column, so the column stays.
-        let (widths, _) = plan_widths(&[4, 4], 5);
-        assert_eq!(
-            widths,
-            vec![4],
-            "The column helps a reader more. {widths:?}"
+    fn the_panel_draws_the_columns_that_fit_and_the_note_of_the_columns_that_it_dropped() {
+        let theme = Theme::default();
+        let fields: Vec<Field> = (0..8)
+            .map(|i| Field::f64(format!("col{i}"), vec![Some(f64::from(i))]))
+            .collect();
+        let f = vec![Frame::new(fields)];
+        let p = TablePanel::new("T", PanelData::Frames(&f), &theme);
+        // The panel holds 22 inner cells. Four columns, one gap, and the note
+        // `+4` need 19 + 1 + 2 = 22 cells.
+        let out = text(&render(&p, 24, 4));
+        let header = out.lines().nth(1).unwrap_or_default().to_string();
+        assert!(header.contains("col3"), "Four columns fit. {out}");
+        assert!(!header.contains("col4"), "The fifth column drops. {out}");
+        assert!(
+            header
+                .trim_end_matches('\u{2502}')
+                .trim_end()
+                .ends_with("+4"),
+            "The note stands at the right of the header row. {out}"
         );
     }
 

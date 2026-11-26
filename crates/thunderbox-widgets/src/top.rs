@@ -937,4 +937,44 @@ mod tests {
             "{out}"
         );
     }
+
+    #[test]
+    fn the_columns_of_the_panel_start_at_the_same_cells_when_the_text_of_the_cells_changes() {
+        let theme = Theme::default();
+        let build = |pid: &str, name: &str| {
+            vec![Frame::new(vec![
+                text_field("pid", &[pid, pid]),
+                text_field("name", &[name, name]),
+                number_field("cpu", "percent", vec![Some(5.0), Some(50.0)]),
+            ])]
+        };
+        let header_of = |frames: &[Frame]| {
+            let p = TopPanel::new("top", PanelData::Frames(frames), &theme);
+            line(&render(&p, 32, 6), 1)
+        };
+        let short = header_of(&build("1", "sh"));
+        let long = header_of(&build("1234567", "a very long process name"));
+        // The 30 inner cells hold three columns of 10, 9, and 9 cells.
+        let at = short.chars().take_while(|c| *c != 'n').count();
+        assert_eq!(at, 12, "{short}");
+        assert_eq!(
+            short, long,
+            "The text of a cell must not move a header. {short} {long}"
+        );
+    }
+
+    #[test]
+    fn the_columns_of_the_panel_fill_the_width_of_the_panel() {
+        let theme = Theme::default();
+        let f = processes();
+        let p = TopPanel::new("top", PanelData::Frames(&f), &theme);
+        for w in [31_u16, 40, 50] {
+            let header: Vec<char> = line(&render(&p, w, 8), 1).chars().collect();
+            assert_eq!(
+                header[usize::from(w) - 2],
+                'y',
+                "The header memory ends at the last inner cell. {header:?}"
+            );
+        }
+    }
 }
