@@ -270,12 +270,12 @@ SCENES = {
             (1.0, "\t"),  # Select the second time series panel.
             (1.0, "\t"),  # Select the table panel.
             (1.0, "\t"),  # Select the top panel, which lists the processes.
-            (1.6, "\t"),  # Return to the first panel.
+            (1.2, "\t"),  # Return to the first panel.
             (1.6, "-"),  # Make the time range twice as wide.
             # Move the range back by half of its width. The status row names the
             # window in the past.
-            (2.5, "\x1b[D"),
-            (2.0, "0"),  # Return to the range that the dashboard states.
+            (2.0, "\x1b[D"),
+            (1.5, "0"),  # Return to the range that the dashboard states.
             # Stop the program. The pause shows the range that the key returned.
             (1.0, "q"),
         ],
