@@ -148,6 +148,7 @@
   - [ADR 0079: A key that clamps an end changes the width](contributor/adr/0079-a-key-that-clamps-an-end-changes-the-width.md)
   - [ADR 0080: A dashboard states a refresh above 0 and a known unit](contributor/adr/0080-a-dashboard-states-a-refresh-above-0-and-a-known-unit.md)
   - [ADR 0081: The runtime returns an error for a frame of two lengths](contributor/adr/0081-the-runtime-returns-an-error-for-a-frame-of-two-lengths.md)
+  - [ADR 0082: A filled chart draws each line over every fill](contributor/adr/0082-a-filled-chart-draws-each-line-over-every-fill.md)
   - [ADR 0083: A column can hold identifiers](contributor/adr/0083-a-column-can-hold-identifiers.md)
   - [ADR 0084: Each column of a table takes an equal share of the panel](contributor/adr/0084-each-column-of-a-table-takes-an-equal-share-of-the-panel.md)
   - [ADR 0085: A panel can keep a column of numbers at the left](contributor/adr/0085-a-panel-can-keep-a-column-of-numbers-at-the-left.md)
