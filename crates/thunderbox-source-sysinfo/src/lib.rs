@@ -47,7 +47,9 @@
 //! - `name`, the short name of the program that the process runs;
 //! - `cpu`, the share of the processor since the sample before. A value of 100
 //!   is one whole core, as in the program `top`;
-//! - `memory`, the memory that the process holds in physical memory, in bytes.
+//! - `MemB`, the memory that the process holds in physical memory, in bytes. The
+//!   column states no unit, so a panel writes the letter of the scale alone, as
+//!   in `855M`.
 //!
 //! The rows come in the order of the number of each process. A top panel puts
 //! them in another order. The frame holds no time column, because a row

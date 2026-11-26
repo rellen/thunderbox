@@ -82,12 +82,12 @@ The page [Legend patterns](../legend-patterns.md) states the rule.
 The query `processes` returns one frame, named `processes`. The frame has the
 shape of the list of the data source `sysinfo`, so a top panel can draw it.
 
-| column | what it holds | the type of the column | unit |
-|---|---|---|---|
-| `pid` | An invented number of the process. | numbers, and an identifier | none |
-| `name` | The name of the process. | text | none |
-| `cpu` | A share of the processor that moves slowly. | numbers | `percent` |
-| `memory` | An amount of memory that moves slowly. | numbers | `bytes` |
+| column | what it holds | the type of the column | unit | width |
+|---|---|---|---|---|
+| `pid` | An invented number of the process. | numbers, and an identifier | none | 6 cells |
+| `name` | The name of the process. | text | none | none |
+| `cpu` | A share of the processor that moves slowly. | numbers | `percent` | 4 cells |
+| `MemB` | An amount of memory that moves slowly, in bytes. | numbers | none | 4 cells |
 
 The list holds these processes, in this order:
 
@@ -108,6 +108,8 @@ The list holds these processes, in this order:
 
 - A share of 100 is one whole core. The process `compiler` therefore reaches
   almost two cores.
+- The column `MemB` holds bytes and states no unit, as in the list of the data
+  source `sysinfo`. A panel writes the letter of the scale alone, as in `855M`.
 - The memory of each process moves between 0.8 and 1.2 times its mean.
 - Each value depends on the seed and on the end of the window alone. A window
   in the past therefore shows the list of that moment.
