@@ -256,7 +256,7 @@ impl TestData {
     /// Returns the list of invented processes at one moment.
     ///
     /// The frame holds one row for each process, and the four columns of the
-    /// list of the sysinfo data source: `pid` as text, `name`, `cpu` as a
+    /// list of the sysinfo data source: `pid` as an identifier, `name`, `cpu` as a
     /// share, and `memory` in bytes. The rows come in the order of the number
     /// of each process, as the rows of that list do.
     ///
@@ -270,7 +270,7 @@ impl TestData {
         let mut cpu = Vec::with_capacity(count);
         let mut memory = Vec::with_capacity(count);
         for (index, (name, peak, megabytes)) in PROCESS_TABLE.iter().enumerate() {
-            pids.push(Some((1 + 211 * index).to_string()));
+            pids.push(Some((1 + 211 * index) as f64));
             names.push(Some((*name).to_string()));
             cpu.push(Some(peak * drift(self.seed, index, at)));
             // The memory reads a series of its own, so its value does not
@@ -290,10 +290,14 @@ impl TestData {
                 ..Default::default()
             })
         };
+        let identifier = Field::f64("pid", pids).with_config(FieldConfig {
+            identifier: true,
+            ..Default::default()
+        });
         Frame::named(
             PROCESSES,
             vec![
-                text("pid", pids),
+                identifier,
                 text("name", names),
                 number("cpu", "percent", cpu),
                 number("memory", "bytes", memory),
@@ -676,13 +680,12 @@ mod tests {
         assert!(frame.time_field().is_none(), "A row describes a process.");
         assert_eq!(frame.fields[2].config.unit.as_deref(), Some("percent"));
         assert_eq!(frame.fields[3].config.unit.as_deref(), Some("bytes"));
-        let Values::Str(pids) = &frame.fields[0].values else {
-            panic!("The number of a process is text.");
-        };
-        let pids: Vec<usize> = pids
-            .iter()
-            .map(|p| p.as_deref().and_then(|t| t.parse().ok()).unwrap())
-            .collect();
+        assert!(frame.fields[0].config.identifier);
+        let pids = frame.fields[0]
+            .values
+            .as_f64()
+            .expect("The number of a process is a number.");
+        let pids: Vec<f64> = pids.iter().map(|p| p.unwrap()).collect();
         assert!(
             pids.windows(2).all(|pair| pair[0] < pair[1]),
             "The rows come in the order of the number of each process. {pids:?}"

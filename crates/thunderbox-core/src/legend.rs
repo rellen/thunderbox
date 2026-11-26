@@ -325,4 +325,22 @@ mod tests {
         assert_eq!(frames[1].fields[0].display_name(), "s b");
         assert_eq!(frames[1].fields[1].display_name(), "s c");
     }
+
+    #[test]
+    fn apply_leaves_the_display_name_of_an_identifier_as_it_was() {
+        let mut frames = vec![Frame::new(vec![
+            Field::f64("pid", vec![Some(1234.0)])
+                .with_label("job", "api")
+                .with_config(FieldConfig {
+                    identifier: true,
+                    ..Default::default()
+                }),
+        ])];
+        apply(Some("{{job}}"), &mut frames);
+        assert_eq!(
+            frames[0].fields[0].display_name(),
+            r#"pid{job="api"}"#,
+            "An identifier is not a series, so a pattern never renames it."
+        );
+    }
 }

@@ -27,7 +27,7 @@ use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::{Alignment, Rect};
 use ratatui_core::text::{Line, Span};
 use ratatui_core::widgets::Widget;
-use thunderbox_core::{Field, Frame};
+use thunderbox_core::{Field, Frame, Values};
 
 use crate::panel::{NO_DATA, frames_or_message, panel_block, render_message};
 use crate::table::{Column, Counted, Sheet, draw_sheet, dropped_text, entry, missing_entry, plain};
@@ -198,9 +198,11 @@ fn rank(
         return Ok(None);
     }
 
-    // The header of each column, and whether a field of that column holds
-    // numbers.
-    let mut headers: Vec<(String, bool)> = Vec::new();
+    // The header of each column, whether a field of that column holds numbers,
+    // and whether a field of that column is a series. An identifier holds
+    // numbers, so it stands at the right. It is not a series, so it never
+    // gives the order.
+    let mut headers: Vec<(String, bool, bool)> = Vec::new();
     // For each frame, the field of each column. A frame that holds no such
     // field holds `None`, and the first field of a header wins.
     let mut lookup: Vec<Vec<Option<&Field>>> = Vec::with_capacity(frames.len());
@@ -208,15 +210,16 @@ fn rank(
         let mut fields: Vec<Option<&Field>> = vec![None; headers.len()];
         for field in &frame.fields {
             let header = plain(&field.display_name());
-            let index = match headers.iter().position(|(h, _)| *h == header) {
+            let index = match headers.iter().position(|(h, _, _)| *h == header) {
                 Some(index) => index,
                 None => {
-                    headers.push((header, false));
+                    headers.push((header, false, false));
                     fields.push(None);
                     headers.len() - 1
                 }
             };
-            headers[index].1 |= field.is_numeric();
+            headers[index].1 |= matches!(field.values, Values::F64(_));
+            headers[index].2 |= field.is_numeric();
             if fields[index].is_none() {
                 fields[index] = Some(field);
             }
@@ -232,13 +235,13 @@ fn rank(
         Some(name) => {
             let found = headers
                 .iter()
-                .position(|(header, numeric)| *numeric && header == name);
+                .position(|(header, _, series)| *series && header == name);
             match found {
                 Some(index) => Some(index),
                 None => return Err(format!("No column of numbers shows the header {name:?}.")),
             }
         }
-        None => headers.iter().position(|(_, numeric)| *numeric),
+        None => headers.iter().position(|(_, _, series)| *series),
     };
 
     // One place for each row: the index of the frame, and the row inside it.
@@ -258,7 +261,7 @@ fn rank(
     let columns = headers
         .into_iter()
         .enumerate()
-        .map(|(column, (header, right))| {
+        .map(|(column, (header, right, _))| {
             let sorted = key == Some(column);
             // The settings of the panel describe the column that gives the
             // order. Every other column keeps the settings of its data source.
@@ -854,6 +857,84 @@ mod tests {
         assert!(
             ranked.sheet.columns.iter().all(|c| c.entries.len() == 3),
             "Each column holds one entry for each row that the panel shows."
+        );
+    }
+
+    /// Returns one frame that holds four processes, with the number of each
+    /// process as an identifier in the first column.
+    fn processes_with_identifiers() -> Vec<Frame> {
+        vec![Frame::named(
+            "processes",
+            vec![
+                Field::f64("pid", vec![Some(1.0), Some(2.0), Some(3.0), Some(1234.0)]).with_config(
+                    FieldConfig {
+                        identifier: true,
+                        ..Default::default()
+                    },
+                ),
+                text_field("name", &["init", "shell", "cargo", "editor"]),
+                number_field(
+                    "cpu",
+                    "percent",
+                    vec![Some(0.5), Some(2.0), Some(97.0), Some(12.0)],
+                ),
+            ],
+        )]
+    }
+
+    #[test]
+    fn the_panel_puts_an_identifier_at_the_right_of_its_column() {
+        let theme = Theme::default();
+        let f = processes_with_identifiers();
+        let p = TopPanel::new("processes", PanelData::Frames(&f), &theme);
+        let buf = render(&p, 40, 8);
+        let out = text(&buf);
+        assert!(out.contains("1234"), "No letter of the scale. {out}");
+        let row_of = |name: &str| {
+            out.lines()
+                .find(|l| l.contains(name))
+                .unwrap_or_else(|| panic!("The row of {name} is missing. {out}"))
+                .chars()
+                .collect::<Vec<_>>()
+        };
+        let long = row_of("editor");
+        let short = row_of("init");
+        let start = long.iter().position(|c| *c == '1').unwrap();
+        assert_eq!(&long[start..start + 4].iter().collect::<String>(), "1234");
+        assert_eq!(
+            short[start + 3],
+            '1',
+            "The short number must end where the long number ends. {out}"
+        );
+        let header: Vec<char> = out.lines().nth(1).unwrap().chars().collect();
+        assert_eq!(
+            &header[start + 1..start + 4].iter().collect::<String>(),
+            "pid",
+            "The header must end where the long number ends. {out}"
+        );
+    }
+
+    #[test]
+    fn a_panel_that_names_no_column_skips_an_identifier() {
+        let theme = Theme::default();
+        let f = processes_with_identifiers();
+        let p = TopPanel::new("processes", PanelData::Frames(&f), &theme);
+        assert_eq!(
+            names_in_order(&render(&p, 40, 8)),
+            vec!["cargo", "editor", "shell", "init"],
+            "The first column of numbers that is not an identifier is cpu."
+        );
+    }
+
+    #[test]
+    fn the_panel_returns_an_error_for_a_sort_column_that_is_an_identifier() {
+        let theme = Theme::default();
+        let f = processes_with_identifiers();
+        let p = TopPanel::new("processes", PanelData::Frames(&f), &theme).sort_by("pid");
+        let out = text(&render(&p, 70, 8));
+        assert!(
+            out.contains("No column of numbers shows the header"),
+            "{out}"
         );
     }
 }

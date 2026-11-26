@@ -154,13 +154,16 @@ impl Field {
         self.len() == 0
     }
 
-    /// Returns `true` if the column holds numbers.
+    /// Returns `true` if the column is a series.
     ///
-    /// A series is a column of numbers. [`Frame::numeric_fields`] and
-    /// [`crate::legend::apply`] both call this method, so one method decides
-    /// what a series is.
+    /// A series is a column of numbers that is not an identifier. An
+    /// identifier names a thing, so the method returns `false` for a column
+    /// whose configuration sets [`FieldConfig::identifier`]. To read the type
+    /// of the values, match on [`Field::values`]. [`Frame::numeric_fields`]
+    /// and [`crate::legend::apply`] both call this method, so one method
+    /// decides what a series is.
     pub fn is_numeric(&self) -> bool {
-        matches!(self.values, Values::F64(_))
+        matches!(self.values, Values::F64(_)) && !self.config.identifier
     }
 
     /// Returns the name that a legend shows.
@@ -231,6 +234,21 @@ pub struct FieldConfig {
     /// The thresholds that change the colour of a value.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub thresholds: Vec<Threshold>,
+    /// Whether the column is an identifier.
+    ///
+    /// An identifier is a column of numbers that names a thing and does not
+    /// measure it. The number of a process is an example. These rules apply to
+    /// an identifier:
+    ///
+    /// - The column is not a series. [`Field::is_numeric`] returns `false`
+    ///   for it, so a legend pattern, a reduction, and a chart skip it.
+    /// - A panel writes every digit of each number. It writes no letter of the
+    ///   scale, such as `K`, and it writes no unit.
+    /// - The `unit`, the `decimals`, and the thresholds of a panel never apply
+    ///   to it. The `decimals` of this configuration applies when the data
+    ///   source states it.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub identifier: bool,
 }
 
 impl FieldConfig {
@@ -427,5 +445,41 @@ mod tests {
         assert!(cfg.threshold_at(10.0).is_none());
         assert_eq!(cfg.threshold_at(60.0).unwrap().color, "warning");
         assert_eq!(cfg.threshold_at(90.0).unwrap().color, "critical");
+    }
+
+    #[test]
+    fn is_numeric_is_false_for_an_identifier() {
+        let ordinary = Field::f64("cpu", vec![Some(1.0)]);
+        let identifier = Field::f64("pid", vec![Some(1234.0)]).with_config(FieldConfig {
+            identifier: true,
+            ..Default::default()
+        });
+        assert!(ordinary.is_numeric());
+        assert!(
+            !identifier.is_numeric(),
+            "An identifier names a thing, so it is not a series."
+        );
+        let frame = Frame::new(vec![ordinary, identifier]);
+        assert_eq!(frame.numeric_fields().count(), 1);
+    }
+
+    #[test]
+    fn an_ordinary_configuration_writes_no_identifier_key() {
+        let text = toml::to_string(&FieldConfig::default()).unwrap();
+        assert!(!text.contains("identifier"), "The form changed. {text}");
+        let back: FieldConfig = toml::from_str(&text).unwrap();
+        assert!(!back.identifier);
+    }
+
+    #[test]
+    fn an_identifier_survives_a_round_trip_through_toml() {
+        let config = FieldConfig {
+            identifier: true,
+            ..Default::default()
+        };
+        let text = toml::to_string(&config).unwrap();
+        assert!(text.contains("identifier = true"), "{text}");
+        let back: FieldConfig = toml::from_str(&text).unwrap();
+        assert_eq!(back, config);
     }
 }

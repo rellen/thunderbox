@@ -203,7 +203,7 @@ records the step that thunderbox does not take.
 [The research](research.md) records the evidence for each library. These
 records govern the data sources that exist:
 
-- sysinfo: [0038](adr/0038-a-sysinfo-sample-carries-the-moment-of-the-machine.md), [0047](adr/0047-the-process-list-of-sysinfo-keeps-no-past.md), [0048](adr/0048-the-process-list-reads-the-machine-through-its-own-system.md), [0049](adr/0049-the-number-of-a-process-is-text.md);
+- sysinfo: [0038](adr/0038-a-sysinfo-sample-carries-the-moment-of-the-machine.md), [0047](adr/0047-the-process-list-of-sysinfo-keeps-no-past.md), [0048](adr/0048-the-process-list-reads-the-machine-through-its-own-system.md), [0049](adr/0049-the-number-of-a-process-is-text.md), [0083](adr/0083-a-column-can-hold-identifiers.md);
 - prometheus: [0033](adr/0033-no-text-writes-the-password-of-an-address.md), [0064](adr/0064-plain-http-needs-no-ca-file.md);
 - more than one data source on one dashboard: [0034](adr/0034-a-dashboard-reads-more-than-one-data-source.md).
 
@@ -306,7 +306,7 @@ documents of each feature that exists.
 | the time series panel | [reference](../user/reference/panels/timeseries.md) | 0007, 0008, 0036, 0069 |
 | the stat panel, the gauge panel, the bar gauge panel | [stat](../user/reference/panels/stat.md), [gauge](../user/reference/panels/gauge.md), [bar gauge](../user/reference/panels/bargauge.md) | 0007, 0065 |
 | the table panel | [reference](../user/reference/panels/table.md) | 0007, 0065 |
-| the top panel | [how-to](../user/how-to/show-the-busiest-processes.md), [reference](../user/reference/panels/top.md) | 0046, 0047, 0048, 0049, 0063, 0065 |
+| the top panel | [how-to](../user/how-to/show-the-busiest-processes.md), [reference](../user/reference/panels/top.md) | 0046, 0047, 0048, 0049, 0063, 0065, 0083 |
 | the row panels | [how-to](../user/how-to/group-panels-under-row-panels.md), [reference](../user/reference/panels/row.md), [explanation](../user/explanation/row-panels-and-the-place-of-a-panel.md) | 0050, 0051, 0052, 0053, 0054 |
 | the time range | [how-to](../user/how-to/show-an-earlier-window.md), [reference](../user/reference/time-ranges.md), [explanation](../user/explanation/the-time-range-and-the-window.md) | 0035, 0036, 0037, 0038, 0073, 0074, 0075, 0076, 0077 |
 | the variables | [how-to](../user/how-to/let-a-person-select-a-value.md), [reference](../user/reference/variables.md) | 0040, 0041, 0042, 0043, 0044 |

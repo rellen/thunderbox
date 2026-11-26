@@ -84,7 +84,7 @@ shape of the list of the data source `sysinfo`, so a top panel can draw it.
 
 | column | what it holds | the type of the column | unit |
 |---|---|---|---|
-| `pid` | An invented number of the process. | text | none |
+| `pid` | An invented number of the process. | numbers, and an identifier | none |
 | `name` | The name of the process. | text | none |
 | `cpu` | A share of the processor that moves slowly. | numbers | `percent` |
 | `memory` | An amount of memory that moves slowly. | numbers | `bytes` |

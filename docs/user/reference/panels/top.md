@@ -47,7 +47,10 @@ each column holds one value for each row.
 
 - The field `sort` names the column that gives the order. The name is the text
   of the header of that column.
-- A panel that states no `sort` field takes its first column of numbers.
+- A panel that states no `sort` field takes its first column of numbers that is
+  not an identifier. An identifier cannot give the order, because it names a
+  thing and does not measure it. The column `pid` of the data source `sysinfo`
+  is an identifier.
 - The row that holds the largest number comes first.
 - Two rows that hold the same number keep the order of the data. Such rows
   therefore stay in their places on each refresh.
@@ -58,7 +61,8 @@ each column holds one value for each row.
 
 The panel shows an error in place of the rows when no column of numbers shows
 the header that `sort` names. The error reads
-`No column of numbers shows the header "NAME".`
+`No column of numbers shows the header "NAME".` A `sort` field that names an
+identifier returns the same error.
 
 The header holds the name after the pattern of the `legend` field. The field
 `sort` names that header. The page [Legend patterns](../legend-patterns.md)
@@ -77,8 +81,8 @@ states the pattern.
 The panel shares the layout of the [table panel](table.md):
 
 - The panel writes each cell in the same form as the table panel.
-- A number stands at the right of its column. Every other value stands at the
-  left.
+- A number stands at the right of its column, and so does an identifier. Every
+  other value stands at the left.
 - A cell shows `—` for a hole in the data, and for a value that is not finite.
 - The panel drops the columns at the right that have no room. A note at the
   right of the header row counts them.

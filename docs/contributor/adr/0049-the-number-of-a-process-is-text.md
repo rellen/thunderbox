@@ -2,7 +2,7 @@
 
 | field | value |
 |---|---|
-| Status | Accepted |
+| Status | Superseded by [ADR 0083](0083-a-column-can-hold-identifiers.md) |
 | Recorded | 2026-11-20 |
 | Source | `docs/ARCHITECTURE.md` section 12 |
 | Code | `crates/thunderbox-source-sysinfo/src/process.rs` |

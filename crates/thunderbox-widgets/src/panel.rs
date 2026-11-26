@@ -138,7 +138,21 @@ impl<'a> PanelOptions<'a> {
     }
 
     /// Returns the text of one value.
+    ///
+    /// A column that is an identifier is an exception to the rule that the
+    /// panel wins over the column. The method writes every digit of the
+    /// number, with no letter of the scale and with no unit. It ignores the
+    /// `unit` and the `decimals` of the panel, and it ignores the `unit` of
+    /// the column. It applies the `decimals` of the column when the column
+    /// states them. A whole number holds no decimal point when the column
+    /// states no `decimals`.
     pub fn text(&self, value: f64, config: &FieldConfig) -> String {
+        if config.identifier {
+            return match config.decimals {
+                Some(places) => format!("{value:.*}", usize::from(places)),
+                None => format!("{value}"),
+            };
+        }
         format_value(value, self.unit_for(config), self.decimals_for(config))
     }
 
@@ -175,7 +189,9 @@ impl<'a> PanelOptions<'a> {
     ///
     /// The method returns the colour of the threshold that the value reaches.
     /// It returns `fallback` when the value reaches no threshold, and when the
-    /// theme does not define the colour of the threshold.
+    /// theme does not define the colour of the threshold. It also returns
+    /// `fallback` for an identifier, because a threshold means nothing for a
+    /// name.
     pub fn color_for(
         &self,
         value: f64,
@@ -183,6 +199,9 @@ impl<'a> PanelOptions<'a> {
         theme: &Theme,
         fallback: Color,
     ) -> Color {
+        if config.identifier {
+            return fallback;
+        }
         Threshold::at(self.thresholds_for(config), value)
             .and_then(|t| theme.threshold_color(&t.color))
             .unwrap_or(fallback)
@@ -609,5 +628,74 @@ mod tests {
             !draws_a_panel(Size::new(0, 0)),
             "A panel of no cell holds no cell for its data."
         );
+    }
+
+    /// Returns the configuration of a column of identifiers.
+    fn identifier_config() -> FieldConfig {
+        FieldConfig {
+            decimals: None,
+            identifier: true,
+            ..config()
+        }
+    }
+
+    #[test]
+    fn text_writes_every_digit_of_an_identifier_under_a_panel_that_states_a_unit() {
+        let options = PanelOptions {
+            unit: Some("bytes"),
+            decimals: Some(2),
+            ..Default::default()
+        };
+        assert_eq!(options.text(1234.0, &identifier_config()), "1234");
+        assert_eq!(options.text(1_234_567.0, &identifier_config()), "1234567");
+    }
+
+    #[test]
+    fn text_applies_the_decimals_of_the_column_to_an_identifier_and_not_those_of_the_panel() {
+        let options = PanelOptions {
+            decimals: Some(0),
+            ..Default::default()
+        };
+        let stated = FieldConfig {
+            decimals: Some(2),
+            ..identifier_config()
+        };
+        assert_eq!(options.text(1234.0, &stated), "1234.00");
+        assert_eq!(options.text(1234.0, &identifier_config()), "1234");
+    }
+
+    #[test]
+    fn color_for_returns_the_fallback_for_an_identifier_that_reaches_a_threshold() {
+        let theme = Theme::default();
+        let fallback = Color::Rgb(1, 2, 3);
+        let list = [Threshold {
+            value: 5.0,
+            color: "critical".into(),
+        }];
+        let options = PanelOptions {
+            thresholds: &list,
+            ..Default::default()
+        };
+        assert_eq!(
+            options.color_for(9.0, &config(), &theme, fallback),
+            theme.critical,
+            "A measure that reaches the threshold takes its colour."
+        );
+        assert_eq!(
+            options.color_for(9.0, &identifier_config(), &theme, fallback),
+            fallback,
+            "An identifier takes no threshold."
+        );
+    }
+
+    #[test]
+    fn reduce_frames_never_reduces_an_identifier() {
+        let frames = vec![Frame::new(vec![
+            Field::f64("pid", vec![Some(7.0)]).with_config(identifier_config()),
+            Field::f64("cpu", vec![Some(3.0)]),
+        ])];
+        let out = reduce_frames(&frames, Reduce::default());
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].name, "cpu");
     }
 }
