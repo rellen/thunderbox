@@ -361,6 +361,15 @@ citation and a measurement. Read an item as a hypothesis until you check the
 code. An item leaves that file when a change repairs it, or when a record of
 the status Proposed takes it.
 
+The GitHub issues with the label `code-review` hold the findings of a review of
+the whole code at commit `a0177fc`. Issue #209 is the index of those issues. It
+states the rules of the two ratings that each issue holds: the severity of the
+fault, and the confidence that the fault is real. Read each issue as a
+hypothesis until you check the code. An issue names the item of
+`open-findings.md` that records the same fault, when such an item exists.
+Write `Fixes #N` in the description of the pull request that repairs the fault
+of issue N.
+
 ## 4. The commands that check the code
 
 Run all of these before you commit:
