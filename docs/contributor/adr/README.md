@@ -128,3 +128,4 @@ git show 4d8c223a0e7ea3bd62b85e7819be8c4ee10cb451:docs/ARCHITECTURE.md
 | [0083](0083-a-column-can-hold-identifiers.md) | A column can hold identifiers | Accepted | [ADR 0049](0049-the-number-of-a-process-is-text.md) |
 | [0084](0084-each-column-of-a-table-takes-an-equal-share-of-the-panel.md) | Each column of a table takes an equal share of the panel | Accepted | new |
 | [0085](0085-a-panel-can-keep-a-column-of-numbers-at-the-left.md) | A panel can keep a column of numbers at the left | Accepted | new |
+| [0086](0086-a-table-rounds-a-number-to-fit-its-column.md) | A table rounds a number to fit its column | Accepted | new |
