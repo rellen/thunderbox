@@ -500,11 +500,18 @@ impl Widget for &TimeSeriesPanel<'_> {
         // replaces the glyph and the colour of each cell that it paints. The
         // fill of a later series would therefore hide an earlier series that
         // lies below it. A filled chart draws every fill first. It then draws
-        // every line over the fills (ADR 0082 in docs/contributor/adr).
+        // the line of each series but the last over the fills (ADR 0082 in
+        // docs/contributor/adr).
+        //
+        // A line layer also replaces the dots of the fill in each cell that
+        // the line crosses. The last fill already holds the line of its own
+        // series, so no layer of a line covers it. A chart of one series
+        // therefore keeps every dot of its fill (ADR 0090).
         let floor = plot.y_bounds[0];
-        let runs = |fill: bool| {
+        let runs = |fill: bool, count: usize| {
             plot.series
                 .iter()
+                .take(count)
                 .enumerate()
                 .flat_map(move |(i, s)| {
                     let color = self.theme.series_color(i);
@@ -531,9 +538,10 @@ impl Widget for &TimeSeriesPanel<'_> {
                 })
                 .collect::<Vec<Dataset<'_>>>()
         };
-        let mut datasets = runs(self.filled);
+        let all = plot.series.len();
+        let mut datasets = runs(self.filled, all);
         if self.filled {
-            datasets.extend(runs(false));
+            datasets.extend(runs(false, all.saturating_sub(1)));
         }
 
         let mut value_labels = y_labels(
@@ -884,6 +892,136 @@ mod tests {
         let (first, second) = cells_of_two_colours(false);
         assert!(first > 0, "The chart shows no cell of the first colour.");
         assert!(second > 0, "The chart shows no cell of the second colour.");
+    }
+
+    /// Returns 60 values of one series. The values stay low, near 5. A bump of
+    /// 40 to 55 sits between the 30th value and the 40th value.
+    fn a_low_series_with_a_bump() -> Vec<Frame> {
+        let values: Vec<Option<f64>> = (0..60)
+            .map(|i| {
+                if (30..40).contains(&i) {
+                    Some(40.0 + (i - 30) as f64 * 1.5)
+                } else {
+                    Some(5.0 + (i % 3) as f64)
+                }
+            })
+            .collect();
+        frames(values)
+    }
+
+    /// Returns the number of dots that one cell draws. A braille character
+    /// holds one bit for each dot.
+    fn dots_of(cell: &ratatui_core::buffer::Cell) -> u32 {
+        cell.symbol()
+            .chars()
+            .next()
+            .filter(|c| ('\u{2801}'..='\u{28FF}').contains(c))
+            .map_or(0, |c| (c as u32 - 0x2800).count_ones())
+    }
+
+    fn dots_in(buf: &Buffer) -> u32 {
+        (0..buf.area.height)
+            .flat_map(|y| (0..buf.area.width).map(move |x| (x, y)))
+            .map(|(x, y)| dots_of(&buf[(x, y)]))
+            .sum()
+    }
+
+    /// Draws the datasets that a filled chart of one series needs and no more.
+    /// This function draws the `Area` datasets alone, with the axes of the
+    /// panel. It is the reference that ratatui draws without a line pass.
+    fn reference_of_the_fill(panel: &TimeSeriesPanel<'_>, w: u16, h: u16) -> Buffer {
+        let (plot, now) = panel.plot().expect("The frames hold a value.");
+        let floor = plot.y_bounds[0];
+        let data: Vec<&[(f64, f64)]> = plot
+            .series
+            .iter()
+            .flat_map(|s| s.runs.iter().map(move |run| &s.points[run.clone()]))
+            .collect();
+        let datasets: Vec<Dataset<'_>> = data
+            .into_iter()
+            .map(|points| {
+                Dataset::default()
+                    .data(points)
+                    .marker(panel.marker.into())
+                    .style(Style::default().fg(panel.theme.series_color(0)))
+                    .graph_type(GraphType::Area)
+                    .fill_to_y(floor)
+            })
+            .collect();
+        let chart = Chart::new(datasets)
+            .block(panel_block(panel.title, panel.theme, panel.focused))
+            .x_axis(
+                Axis::default()
+                    .style(panel.theme.axis)
+                    .bounds(plot.x_bounds)
+                    .labels(x_labels(plot.x_bounds, now, panel.theme.muted)),
+            )
+            .y_axis(
+                Axis::default()
+                    .style(panel.theme.axis)
+                    .bounds(plot.y_bounds)
+                    // The panel puts each label at the right by default
+                    // (ADR 0089), so the reference does the same.
+                    .labels_alignment(Alignment::Right)
+                    .labels(y_labels(
+                        plot.y_bounds,
+                        panel.options.unit.or(plot.unit.as_deref()),
+                        panel.options.decimals.or(plot.decimals),
+                        panel.theme.muted,
+                    )),
+            )
+            .hidden_legend_constraints((
+                ratatui_core::layout::Constraint::Ratio(0, 1),
+                ratatui_core::layout::Constraint::Ratio(0, 1),
+            ));
+        let area = Rect::new(0, 0, w, h);
+        let mut buf = Buffer::empty(area);
+        chart.render(area, &mut buf);
+        buf
+    }
+
+    #[test]
+    fn a_filled_chart_of_one_series_draws_a_fill_below_its_line_in_the_bottom_row() {
+        let f = a_low_series_with_a_bump();
+        let theme = Theme::default();
+        let p = TimeSeriesPanel::new("CPU", PanelData::Frames(&f), &theme).filled(true);
+        let buf = render(&p, 60, 10);
+        let (axis_x, axis_y) = corner(&buf);
+        let bottom = axis_y - 1;
+        let cells: Vec<u32> = (axis_x + 1..buf.area.width - 1)
+            .map(|x| dots_of(&buf[(x, bottom)]))
+            .filter(|&dots| dots > 0)
+            .collect();
+        assert!(
+            !cells.is_empty(),
+            "The bottom row of the plot holds no mark."
+        );
+        let thin = cells.iter().filter(|&&dots| dots < 4).count();
+        assert!(
+            thin <= 1,
+            "The bottom row holds {thin} cells that hold fewer than 4 dots. The dots of the cells: {cells:?}."
+        );
+    }
+
+    #[test]
+    fn a_filled_chart_of_one_series_draws_the_same_cells_as_its_fill_alone() {
+        let f = a_low_series_with_a_bump();
+        let theme = Theme::default();
+        let p = TimeSeriesPanel::new("CPU", PanelData::Frames(&f), &theme)
+            .filled(true)
+            .show_legend(false);
+        let buf = render(&p, 60, 10);
+        let reference = reference_of_the_fill(&p, 60, 10);
+        assert_eq!(
+            dots_in(&buf),
+            dots_in(&reference),
+            "The chart draws a different number of dots than its fill alone."
+        );
+        assert_eq!(
+            text(&buf),
+            text(&reference),
+            "The chart draws different cells than its fill alone."
+        );
     }
 
     /// A gap in time between two values is not a hole. The line therefore

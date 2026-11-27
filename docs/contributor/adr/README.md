@@ -124,7 +124,7 @@ git show 4d8c223a0e7ea3bd62b85e7819be8c4ee10cb451:docs/ARCHITECTURE.md
 | [0079](0079-a-key-that-clamps-an-end-changes-the-width.md) | A key that clamps an end changes the width | Rejected | new |
 | [0080](0080-a-dashboard-states-a-refresh-above-0-and-a-known-unit.md) | A dashboard states a refresh above 0 and a known unit | Accepted | `docs/contributor/open-findings.md` items 4.4 and 5.3 |
 | [0081](0081-the-runtime-returns-an-error-for-a-frame-of-two-lengths.md) | The runtime returns an error for a frame of two lengths | Accepted | `docs/contributor/open-findings.md` item 3.3 |
-| [0082](0082-a-filled-chart-draws-each-line-over-every-fill.md) | A filled chart draws each line over every fill | Accepted | GitHub issue #15 (code review finding 48) |
+| [0082](0082-a-filled-chart-draws-each-line-over-every-fill.md) | A filled chart draws each line over every fill | Superseded by [0090](0090-a-filled-chart-draws-no-line-over-the-fill-of-its-last-series.md) | GitHub issue #15 (code review finding 48) |
 | [0083](0083-a-column-can-hold-identifiers.md) | A column can hold identifiers | Accepted | [ADR 0049](0049-the-number-of-a-process-is-text.md) |
 | [0084](0084-each-column-of-a-table-takes-an-equal-share-of-the-panel.md) | Each column of a table takes an equal share of the panel | Superseded by [0087](0087-a-column-can-take-a-fixed-width-and-the-other-columns-share-the-rest.md) | new |
 | [0085](0085-a-panel-can-keep-a-column-of-numbers-at-the-left.md) | A panel can keep a column of numbers at the left | Accepted | new |
@@ -132,3 +132,4 @@ git show 4d8c223a0e7ea3bd62b85e7819be8c4ee10cb451:docs/ARCHITECTURE.md
 | [0087](0087-a-column-can-take-a-fixed-width-and-the-other-columns-share-the-rest.md) | A column can take a fixed width, and the other columns share the rest | Accepted | new |
 | [0088](0088-the-process-list-names-its-memory-column-memb-and-states-no-unit.md) | The process list names its memory column MemB and states no unit | Accepted | new |
 | [0089](0089-the-labels-of-the-axis-of-values-stand-at-the-right.md) | The labels of the axis of values stand at the right | Accepted | new |
+| [0090](0090-a-filled-chart-draws-no-line-over-the-fill-of-its-last-series.md) | A filled chart draws no line over the fill of its last series | Accepted | new |

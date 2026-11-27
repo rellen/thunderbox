@@ -2,7 +2,7 @@
 
 | field | value |
 |---|---|
-| Status | Accepted |
+| Status | Superseded by [0090](0090-a-filled-chart-draws-no-line-over-the-fill-of-its-last-series.md) |
 | Recorded | 2026-11-27 |
 | Source | GitHub issue #15 (code review finding 48) |
 | Code | `crates/thunderbox-widgets/src/timeseries.rs` |
