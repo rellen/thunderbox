@@ -5,6 +5,11 @@ members = ["crates/*"]
 [workspace.package]
 version = "0.0.0"
 edition = "2024"
+# The oldest release of Rust that compiles the code. The workspace uses edition
+# 2024, which needs release 1.85. The example panel_embed.rs holds a let chain,
+# which release 1.88 made stable. The workflow compiles and tests the workspace
+# with this release. A person raises this number on purpose, in a commit of its
+# own, together with a new ADR.
 rust-version = "1.88"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/rellen/thunderbox"

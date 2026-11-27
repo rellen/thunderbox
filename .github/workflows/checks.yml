@@ -1,17 +1,24 @@
-# The checks that this project runs. CLAUDE.md section 4 lists these commands,
-# and each job runs the same commands in the same order.
+# The checks that this project runs. CLAUDE.md section 4 lists the nine
+# commands of the newest job, and that job runs them in the same order.
 #
-# The matrix runs every check on Linux and on macOS. The tests read this machine
-# through the sysinfo crate, and that crate holds a separate implementation for
-# each operating system. macOS therefore needs a run of its own.
+# The matrix has two axes, so each run holds four jobs:
 #
-# Each operating system gets one job on purpose. GitHub rounds the time of each
-# job up to a whole minute, and each job installs the toolchain again. Several
-# small jobs therefore cost more minutes than one large job.
+# - The operating system is Linux or macOS. The tests read this machine through
+#   the sysinfo crate, and that crate holds a separate implementation for each
+#   operating system. macOS therefore needs a run of its own.
+# - The release of Rust is the newest release or the oldest release. The newest
+#   release is the release that rust-toolchain.toml names. The oldest release
+#   is the release that the field `rust-version` of Cargo.toml names.
 #
-# Watch the cost of the macOS job. A macOS minute costs about ten times as much
+# The newest job runs every check. The oldest job compiles the workspace and
+# runs the tests, and it runs nothing else. The output of clippy, of
+# `cargo fmt`, and of rustdoc changes with the release, so the newest job alone
+# holds those tools. ADR 0095 in docs/contributor/adr records this decision.
+#
+# Watch the cost of the macOS jobs. A macOS minute costs about ten times as much
 # as a Linux minute. The `fail-fast` default limits that cost, because a failure
-# on Linux cancels the macOS job.
+# on Linux cancels the macOS jobs. GitHub rounds the time of each job up to a
+# whole minute, and each job installs the toolchain again.
 #
 # The workflow also publishes the documentation site from main. CLAUDE.md
 # section 9 holds the rules of the site.
@@ -45,11 +52,12 @@ env:
 
 jobs:
   checks:
-    name: checks on ${{ matrix.os }}
+    name: checks on ${{ matrix.os }} with the ${{ matrix.rust }} release
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
+        rust: [newest, oldest]
     # The default limit is 360 minutes. A job that hangs would cost 6 hours.
     # macOS needs the larger part of this limit, because the `prometheus`
     # feature pulls in a dependency that builds C source.
@@ -57,50 +65,105 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # rust-toolchain.toml names the release, the profile, and the components.
-      # This command reads that file, and it installs what the file names.
-      # rustup then uses that release for every cargo command below.
+      # The newest job. rust-toolchain.toml names the release, the profile, and
+      # the components. This command reads that file, and it installs what the
+      # file names. rustup then uses that release for every cargo command below.
       #
       # `--no-self-update` stops rustup from an update of itself. Homebrew
       # installs rustup on the macOS runner, and an update there is wrong.
       - name: Install the toolchain that rust-toolchain.toml names
+        if: matrix.rust == 'newest'
         run: rustup toolchain install --no-self-update
+
+      # The oldest job. The workspace declares `rust-version = "1.88"`. Cargo
+      # checks nothing against that field, so the field is a statement and not a
+      # fact. This step installs that release, and the jobs below turn the
+      # statement into a fact.
+      #
+      # `RUSTUP_TOOLCHAIN` outranks rust-toolchain.toml, so the variable wins
+      # over the pin. The step writes the variable to `GITHUB_ENV`, and every
+      # later step of this job then uses the oldest release.
+      #
+      # The guard reads the number from Cargo.toml, and it compares that number
+      # against the compiler that the job holds. The guard fails when the two
+      # differ, and it fails when the pin takes the job over. Without the
+      # guard the job could pass on the newest release and prove nothing.
+      - name: Install the release that Cargo.toml declares
+        if: matrix.rust == 'oldest'
+        run: |
+          set -eu
+          declared=$(grep -m1 '^rust-version = ' Cargo.toml | cut -d'"' -f2)
+          rustup toolchain install "$declared" --profile minimal --no-self-update
+          echo "RUSTUP_TOOLCHAIN=$declared" >> "$GITHUB_ENV"
+          actual=$(RUSTUP_TOOLCHAIN="$declared" rustc --version | cut -d' ' -f2)
+          case "$actual" in
+            "$declared" | "$declared".*) ;;
+            *)
+              echo "This job runs $actual. Cargo.toml declares $declared."
+              exit 1
+              ;;
+          esac
 
       # The cache holds the Cargo home and the target directory. A run that
       # finds the cache does not compile the dependencies again. The action
-      # gives each operating system a key of its own. The action reads the
-      # release of the compiler for that key, so the step above comes first.
+      # gives each job a key of its own. The action reads the release of the
+      # compiler for that key, so the steps above come first.
       - uses: Swatinem/rust-cache@v2
 
-      # The steps below run in the order of their cost. A cheap step that fails
-      # stops the run, and the expensive steps never start.
+      # The three steps below belong to the oldest job. `cargo check` compiles
+      # each example and each test target, and it runs no test. The two test
+      # steps then run the tests. `--locked` makes Cargo return an error when
+      # Cargo.lock is not current.
+      - name: Check that the oldest release compiles the workspace
+        if: matrix.rust == 'oldest'
+        run: cargo check --locked --workspace --all-features --all-targets
+
+      - name: Run the tests with the oldest release
+        if: matrix.rust == 'oldest'
+        run: cargo test --locked
+
+      - name: Run the doc tests with the oldest release
+        if: matrix.rust == 'oldest'
+        run: cargo test --locked --doc
+
+      # The steps below belong to the newest job. They run in the order of their
+      # cost. A cheap step that fails stops the run, and the expensive steps
+      # never start.
       - name: Confirm that each check of the lint script works
+        if: matrix.rust == 'newest'
         run: python3 scripts/ste-lint.py --selftest
 
       - name: Find the common faults of Simplified Technical English
+        if: matrix.rust == 'newest'
         run: python3 scripts/ste-lint.py
 
       - name: Check the format
+        if: matrix.rust == 'newest'
         run: cargo fmt --check
 
       - name: Run clippy
+        if: matrix.rust == 'newest'
         run: cargo clippy --all-targets --all-features -- -D warnings
 
       - name: Run the tests
+        if: matrix.rust == 'newest'
         run: cargo test
 
       - name: Run the doc tests
+        if: matrix.rust == 'newest'
         run: cargo test --doc
 
       - name: Build the documentation
+        if: matrix.rust == 'newest'
         run: cargo doc --no-deps
 
       # The documentation site. CLAUDE.md section 9 holds its rules. The site
-      # does not depend on the operating system, so these steps run on Linux
-      # alone. They come after the step above, because the site build reads the
-      # output of `cargo doc --no-deps`.
+      # does not depend on the operating system or on the release, so these
+      # steps run for Linux with the newest release alone. They come after the
+      # step above, because the site build reads the output of
+      # `cargo doc --no-deps`.
       - name: Install mdBook
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && matrix.rust == 'newest'
         uses: taiki-e/install-action@v2
         with:
           # flake.lock pins the same release for the shell of the flake.
@@ -108,58 +171,26 @@ jobs:
           tool: mdbook@0.5.4
 
       - name: Confirm that the generated files of the site are current
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && matrix.rust == 'newest'
         run: cargo xtask site check
 
       - name: Build the site
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && matrix.rust == 'newest'
         run: cargo xtask site build
 
       # A pull request builds the site, so a fault reaches the reviewer. Only a
       # run on main uploads the site, and the job `deploy` publishes it.
       - name: Upload the site
-        if: runner.os == 'Linux' && github.ref == 'refs/heads/main'
+        if: >-
+          runner.os == 'Linux' && matrix.rust == 'newest'
+          && github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v5
         with:
           path: target/book
 
-      # The workspace declares `rust-version = "1.88"`. Cargo checks nothing
-      # against that field, so the field is a statement and not a fact. This
-      # step compiles the workspace with release 1.88.0, and it turns the
-      # statement into a fact.
-      #
-      # `RUSTUP_TOOLCHAIN` outranks rust-toolchain.toml, so the variable wins
-      # over the pin. The variable belongs to this step alone, and every other
-      # step keeps the pinned release.
-      #
-      # The guard reads the number from Cargo.toml, and it compares that number
-      # against the compiler that this step holds. The guard fails when the two
-      # drift apart, and it fails when the pin takes this step over. Without the
-      # guard this step could pass on the pinned release and prove nothing.
-      #
-      # `cargo check` compiles no doc test, so this step leaves the doc tests to
-      # the steps above. This step runs on Linux alone, because the release that
-      # a package needs does not depend on the operating system.
-      - name: Check that the oldest supported release compiles the workspace
-        if: runner.os == 'Linux'
-        env:
-          RUSTUP_TOOLCHAIN: "1.88.0"
-        run: |
-          set -eu
-          rustup toolchain install 1.88.0 --profile minimal --no-self-update
-          declared=$(grep -m1 '^rust-version = ' Cargo.toml | cut -d'"' -f2)
-          actual=$(rustc --version | cut -d' ' -f2)
-          case "$actual" in
-            "$declared" | "$declared".*) ;;
-            *)
-              echo "This step runs $actual. Cargo.toml declares $declared."
-              exit 1
-              ;;
-          esac
-          cargo check --locked --workspace --all-features --all-targets
-
-  # This job publishes the site that the Linux job uploaded. It waits for each
-  # job of the matrix, so a fault on macOS also stops the deployment.
+  # This job publishes the site that the Linux job with the newest release
+  # uploaded. It waits for each job of the matrix, so a fault on macOS or with
+  # the oldest release also stops the deployment.
   deploy:
     name: publish the site
     needs: checks

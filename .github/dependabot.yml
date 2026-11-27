@@ -8,7 +8,9 @@ version: 2
 updates:
   # The release of Rust. Dependabot reads the `channel` field of
   # rust-toolchain.toml, and it opens a pull request for a newer release. A
-  # release of Rust arrives about every 6 weeks.
+  # release of Rust arrives about every 6 weeks. This entry looks each week, so
+  # the pin reaches a new release within a week. The project keeps the pin at
+  # the newest stable release.
   #
   # Dependabot keeps the shape of the number. The field names three parts, so
   # each pull request names three parts as well. The word `stable` in that
@@ -23,7 +25,7 @@ updates:
   - package-ecosystem: "rust-toolchain"
     directory: "/"
     schedule:
-      interval: "monthly"
+      interval: "weekly"
     open-pull-requests-limit: 1
     # Dependabot rebases an open pull request when the default branch moves, and
     # each rebase starts the checks workflow again. A person rebases the pull

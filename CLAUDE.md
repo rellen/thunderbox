@@ -375,6 +375,20 @@ of issue N.
 
 ## 4. The commands that check the code
 
+Run every cargo command of this file with the newest release. The newest release
+is the release that `rust-toolchain.toml` names. The project keeps that pin at
+the newest stable release of Rust. Use one of these three ways:
+
+- Run the command inside the shell of the flake, for example
+  `nix develop -c cargo test`.
+- Run the command in a shell that direnv loaded from `.envrc`.
+- Install rustup, which reads `rust-toolchain.toml` by itself.
+
+A plain `cargo` of another package manager ignores `rust-toolchain.toml`, and it
+reports nothing. The measurement: on 2026-11-27, the `cargo` of Homebrew on one
+machine reported release 1.96.1, while the pin named release 1.100.0. Section
+4.4 holds a like measurement.
+
 Run all of these before you commit:
 
 ```
@@ -389,8 +403,8 @@ cargo xtask site check
 cargo xtask site build
 ```
 
-`.github/workflows/checks.yml` runs these nine checks, and it runs them in this
-order. The two commands of the script come first, so one fault in one Markdown
+`.github/workflows/checks.yml` runs these nine checks in the newest job, and it
+runs them in this order. Section 4.1 states the oldest job. The two commands of the script come first, so one fault in one Markdown
 file ends the run before the workflow compiles anything. The workflow sets
 `RUSTDOCFLAGS` for every step, so the command `cargo doc --no-deps` there
 carries no such prefix.
@@ -423,27 +437,54 @@ reports a crate that lost its last doctest as `0 passed`. Read the output of
 each crate yourself. `thunderbox-dashboard` is the crate that a program embeds,
 and one deletion takes it to zero.
 
-### 4.1 The checks that this machine does not run
+### 4.1 The checks that run with the oldest release
 
-The workflow holds one step that the nine commands above do not hold. That step
-compiles the workspace with release 1.88.0, which is the release that the field
-`rust-version` of `Cargo.toml` names. The step runs on Linux alone.
+The oldest release is the release that the field `rust-version` of `Cargo.toml`
+names. It is release 1.88 today. The newest release is the release of section 4.
+ADR 0095 in `docs/contributor/adr` records the decision.
 
-`rust-toolchain.toml` pins a release newer than 1.88.0 for every command that a
-person runs here. Dependabot raises that release, so this file names no number
-for it. Code that needs a release newer than 1.88.0 therefore passes on this
-machine, and it then fails in the workflow. Read the step `Check that the oldest
-supported release compiles the workspace` when that failure arrives.
+The workflow runs a matrix of the operating system and the release, so each run
+holds four jobs. Each operating system gets a newest job and an oldest job. The
+newest job runs the nine commands above. The oldest job installs the oldest
+release, and it runs these three commands and nothing else:
 
-That step also passes `--locked`, and it is the one place in this repository
-that passes it. Every command above lets Cargo write `Cargo.lock` again. Read
-`git status` after the checks, and commit a change to that file on purpose.
+```
+cargo check --locked --workspace --all-features --all-targets
+cargo test --locked
+cargo test --locked --doc
+```
 
-The workflow runs every check on Linux and on macOS, with three exceptions. The
-two commands `cargo xtask site check` and `cargo xtask site build` run on Linux
-alone, and so does the step of release 1.88.0. `thunderbox-source-sysinfo`
-reads this machine, and the crate `sysinfo` holds a separate implementation for
-each operating system.
+The oldest job runs no lint script, no `cargo fmt`, no clippy, no `cargo doc`,
+and no step of the site. The output of those tools changes with the release, so
+the newest job holds them. A guard in the oldest job compares `rustc --version`
+with the field of `Cargo.toml`, and it fails when the two differ.
+
+`rust-toolchain.toml` pins a release that is newer than the oldest release for
+every command that a person runs here. Code that needs a newer release
+therefore passes on this machine, and it then fails in an oldest job. Read the
+step `Run the tests with the oldest release` when that failure arrives.
+
+A machine that holds no rustup can run the same check with this command, and
+with the same command for `cargo check --locked --workspace --all-features
+--all-targets`:
+
+```
+nix shell --inputs-from . rust-overlay#rust_1_88_0 -c cargo test --locked
+```
+
+The name `rust_1_88_0` follows the number of `Cargo.toml`. Change the name when
+a person raises that number.
+
+The oldest job also passes `--locked`. No other job and no command of section 4
+passes it. Every command of section 4 lets Cargo write
+`Cargo.lock` again. Read `git status` after the checks, and commit a change to
+that file on purpose.
+
+The workflow runs every job on Linux and on macOS, with one exception. The two
+commands `cargo xtask site check` and `cargo xtask site build` run on Linux
+with the newest release alone. `thunderbox-source-sysinfo` reads this machine,
+and the crate `sysinfo` holds a separate implementation for each operating
+system. The oldest job therefore runs the tests on both systems.
 
 ### 4.2 The command that reads every target
 
@@ -497,7 +538,7 @@ program `mdbook` for the site of section 9.
 installs the program. ADR 0055 and ADR 0056 record the decisions of the flake.
 
 `nix develop` starts the shell. The flake reads the release of Rust from
-`rust-toolchain.toml`, so the nine commands above then run with the pinned
+`rust-toolchain.toml`, so the nine commands above then run with the newest
 release. A machine that holds no rustup otherwise runs them with another
 release, and it reports nothing.
 
@@ -1082,7 +1123,7 @@ The program `mdbook` comes from `nix develop`. The command
 - **A pull request builds the site, and only `main` publishes it.** The step
   that builds the site runs for every pull request, so a fault reaches the
   reviewer. Only a run on `main` uploads the site. The job `deploy` then
-  publishes it, after both jobs of the matrix pass. The environment
+  publishes it, after every job of the matrix passes. The environment
   `github-pages` accepts a deployment from `main` alone. The workflow never
   cancels a run on `main`, because a cancel could stop a deployment before it
   ends.

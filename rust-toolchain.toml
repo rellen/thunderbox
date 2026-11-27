@@ -9,8 +9,13 @@
 # - Cargo returns an error when the active release is older than the
 #   `rust-version` field of a package. This project sets that field to 1.88.
 #
-# A person raises the number here on purpose, in a commit of its own. That
-# person then reads every new fault in one place.
+# The project keeps this pin at the newest stable release of Rust. Dependabot
+# opens a pull request for each new release. A person raises the number here in
+# a commit of its own. That person then reads every new fault in one place.
+#
+# The checks also run with the oldest release, which is the release that the
+# `rust-version` field of Cargo.toml names. The workflow installs that release
+# in a job of its own, and that job ignores this file.
 #
 # Each change of this file costs one cold run of the checks on each operating
 # system, because the cache key names the release.

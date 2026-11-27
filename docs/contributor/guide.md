@@ -39,10 +39,24 @@ once to permit that.
 
 ### Release of Rust
 
-This project pins the release of Rust. The file `rust-toolchain.toml` names it.
-rustup reads that file, and it then uses that release for every cargo command
-inside this directory tree. The pin holds the output of clippy and of
-`cargo fmt` still, for a person and for the checks that GitHub runs.
+This project uses two releases of Rust. The newest release is the release that
+`rust-toolchain.toml` names. The project keeps that pin at the newest stable
+release, and Dependabot opens a pull request each week for a new release. The
+oldest release is the release that the field `rust-version` of `Cargo.toml`
+names.
+
+Run every cargo command with the newest release. rustup reads
+`rust-toolchain.toml`, and it then uses the newest release for every cargo
+command inside this directory tree. The pin holds the output of clippy and of
+`cargo fmt` still, for a person and for the checks that GitHub runs. A plain
+`cargo` of another package manager ignores the pin. Run `nix develop -c cargo
+test` instead, or use a shell that direnv loaded.
+
+The workflow `checks` runs two jobs for each operating system. The newest job
+runs the nine commands of section 4 of [CLAUDE.md](../../CLAUDE.md). The oldest
+job compiles the workspace and runs the tests with the oldest release. It runs
+nothing else. Section 4.1 of [CLAUDE.md](../../CLAUDE.md) gives the command that
+runs the oldest check on a machine that holds no rustup.
 
 rustup installs the release by itself when the machine does not hold it. A
 person who turned that behaviour off runs this command once:
@@ -56,7 +70,7 @@ and the components that the file names.
 
 rustup reads this file, and the flake of this project reads it also. A `rustc`
 that another package manager installed ignores the file, and it reports
-nothing. Install rustup from https://rustup.rs to get the pinned release, or
+nothing. Install rustup from https://rustup.rs to get the newest release, or
 use the shell of the flake.
 
 The flake takes each release of Rust from its input `rust-overlay`, and
@@ -101,8 +115,9 @@ Every page follows the style of section 1 of [CLAUDE.md](../../CLAUDE.md).
 ## Check a change
 
 Run the nine commands of section 4 of [CLAUDE.md](../../CLAUDE.md) before each
-commit. The workflow `checks` runs the same commands in the same order. It runs
-the last two commands on Linux alone.
+commit. The newest job of the workflow `checks` runs the same commands in the
+same order. It runs the last two commands on Linux alone. The oldest job runs
+the tests with the oldest release.
 
 A test that passes states nothing by itself. Take each rule that the change
 adds out of the code, run `cargo test --no-fail-fast`, and read which tests
