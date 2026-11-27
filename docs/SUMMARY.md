@@ -162,6 +162,7 @@
   - [ADR 0093: A person can follow the clock behind the present](contributor/adr/0093-a-person-can-follow-the-clock-behind-the-present.md)
   - [ADR 0094: The program draws a frame only when the screen can change](contributor/adr/0094-the-program-draws-a-frame-only-when-the-screen-can-change.md)
   - [ADR 0095: The checks run with the newest release and with the oldest release](contributor/adr/0095-the-checks-run-with-the-newest-release-and-with-the-oldest-release.md)
+  - [ADR 0096: A filled chart of several series chooses one series for each cell](contributor/adr/0096-a-filled-chart-of-several-series-chooses-one-series-for-each-cell.md)
   - [ADR NNNN: The decision, as one sentence](contributor/adr/0000-template.md)
 - [Make the pictures again](contributor/pictures.md)
 - [Libraries that this project examined](contributor/research.md)

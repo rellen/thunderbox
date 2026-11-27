@@ -3,11 +3,18 @@
 The kind `timeseries` draws one line for each series, against time. The panel
 fills the area below each line.
 
-The chart draws each fill first. It then draws the line of each series but the
-last over the fills. The last series draws its line with its own fill. A chart
-of one series therefore keeps every dot of its fill. A series that lies below a
-later series loses its fill, because the fill of the later series covers it.
-The line of that series still shows.
+A cell of the chart holds one colour. A chart of two series or more therefore
+chooses one series for each cell, and it follows these rules:
+
+- A cell that a line crosses shows that line together with the fill of the same
+  series in that cell. No line removes the dots of its own fill.
+- Each series shows its fill from its line down to the next line below it. The
+  lowest series shows its fill down to the bottom of the axis.
+- Where two lines share a cell, the later series shows. The later series is the
+  series that the legend lists later.
+- The legend, the axes, and the labels stay on top of the chart.
+
+A chart of one series keeps every dot of its fill.
 
 The example below is a part of a dashboard file, and it does not load alone.
 The file also needs a `title`, and a table `[source.machine]` of the kind

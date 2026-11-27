@@ -400,7 +400,7 @@ documents of each feature that exists.
 |---|---|---|
 | the dashboard file | [reference](../user/reference/dashboard-file.md), [tutorial](../user/tutorials/write-your-first-dashboard.md) | 0014, 0041, 0073, 0074, 0080 |
 | the program that runs alone | [tutorial](../user/tutorials/watch-this-machine.md), [reference](../user/reference/command-line.md) | 0010, 0071, 0072 |
-| the time series panel | [reference](../user/reference/panels/timeseries.md) | 0007, 0008, 0036, 0069, 0091 |
+| the time series panel | [reference](../user/reference/panels/timeseries.md) | 0007, 0008, 0036, 0069, 0091, 0096 |
 | the field `value_labels` of a time series panel | [reference of the dashboard file](../user/reference/dashboard-file.md), [time series panel](../user/reference/panels/timeseries.md) | 0039, 0089 |
 | the stat panel, the gauge panel, the bar gauge panel | [stat](../user/reference/panels/stat.md), [gauge](../user/reference/panels/gauge.md), [bar gauge](../user/reference/panels/bargauge.md) | 0007, 0065 |
 | the table panel | [reference](../user/reference/panels/table.md) | 0007, 0065, 0084, 0085, 0086, 0087 |

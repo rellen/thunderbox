@@ -2,7 +2,7 @@
 
 | field | value |
 |---|---|
-| Status | Accepted |
+| Status | Superseded by [0096](0096-a-filled-chart-of-several-series-chooses-one-series-for-each-cell.md) |
 | Recorded | 2026-11-27 |
 | Source | new |
 | Code | `crates/thunderbox-widgets/src/timeseries.rs` |

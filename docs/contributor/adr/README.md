@@ -132,9 +132,10 @@ git show 4d8c223a0e7ea3bd62b85e7819be8c4ee10cb451:docs/ARCHITECTURE.md
 | [0087](0087-a-column-can-take-a-fixed-width-and-the-other-columns-share-the-rest.md) | A column can take a fixed width, and the other columns share the rest | Accepted | new |
 | [0088](0088-the-process-list-names-its-memory-column-memb-and-states-no-unit.md) | The process list names its memory column MemB and states no unit | Accepted | new |
 | [0089](0089-the-labels-of-the-axis-of-values-stand-at-the-right.md) | The labels of the axis of values stand at the right | Accepted | new |
-| [0090](0090-a-filled-chart-draws-no-line-over-the-fill-of-its-last-series.md) | A filled chart draws no line over the fill of its last series | Accepted | new |
+| [0090](0090-a-filled-chart-draws-no-line-over-the-fill-of-its-last-series.md) | A filled chart draws no line over the fill of its last series | Superseded by [0096](0096-a-filled-chart-of-several-series-chooses-one-series-for-each-cell.md) | new |
 | [0091](0091-a-held-window-labels-its-time-axis-with-clock-times.md) | A held window labels its time axis with clock times | Accepted | new |
 | [0092](0092-the-status-row-names-a-held-window-by-its-clock-times.md) | The status row names a held window by its clock times | Superseded by [0093](0093-a-person-can-follow-the-clock-behind-the-present.md) | new |
 | [0093](0093-a-person-can-follow-the-clock-behind-the-present.md) | A person can follow the clock behind the present | Accepted | new |
 | [0094](0094-the-program-draws-a-frame-only-when-the-screen-can-change.md) | The program draws a frame only when the screen can change | Accepted | new |
 | [0095](0095-the-checks-run-with-the-newest-release-and-with-the-oldest-release.md) | The checks run with the newest release and with the oldest release | Accepted | new |
+| [0096](0096-a-filled-chart-of-several-series-chooses-one-series-for-each-cell.md) | A filled chart of several series chooses one series for each cell | Accepted | new |

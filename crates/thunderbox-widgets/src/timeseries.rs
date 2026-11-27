@@ -2,11 +2,12 @@
 
 use std::ops::Range;
 
-use ratatui_core::buffer::Buffer;
-use ratatui_core::layout::{Alignment, Rect};
-use ratatui_core::style::Style;
+use ratatui_core::buffer::{Buffer, Cell};
+use ratatui_core::layout::{Alignment, Constraint, Rect};
+use ratatui_core::style::{Color, Style};
 use ratatui_core::text::{Line, Span};
 use ratatui_core::widgets::Widget;
+use ratatui_widgets::block::Block;
 use ratatui_widgets::chart::{Axis, Chart, Dataset, GraphType};
 use thunderbox_core::{Frame, LabelAlign, TimeWindow, Timestamp};
 
@@ -206,6 +207,154 @@ impl<'a> TimeSeriesPanel<'a> {
             self.options.unit.or(plot.unit.as_deref()),
             self.options.decimals.or(plot.decimals),
         )
+    }
+
+    /// Returns the block, the axes, and the labels that every chart of the
+    /// panel shares.
+    fn chart_parts(&self, plot: &Plot, now: f64, area: Rect, block: Block<'a>) -> ChartParts<'a> {
+        let mut value_labels = y_labels(
+            plot.y_bounds,
+            self.options.unit.or(plot.unit.as_deref()),
+            self.options.decimals.or(plot.decimals),
+            self.theme.muted,
+        );
+        // A caller that draws a stack of panels states one width for the whole
+        // stack. Every chart of the stack then starts at the same cell.
+        if let Some(width) = self.label_width {
+            pad_labels(
+                &mut value_labels,
+                width.min(label_width_limit(area)),
+                self.theme.muted,
+                self.value_labels,
+            );
+        }
+        let alignment = match self.value_labels {
+            LabelAlign::Left => Alignment::Left,
+            LabelAlign::Right => Alignment::Right,
+        };
+        ChartParts {
+            block,
+            x_axis: Axis::default()
+                .style(self.theme.axis)
+                .bounds(plot.x_bounds)
+                .labels(axis_labels(
+                    self.time_labels,
+                    plot.x_bounds,
+                    now,
+                    self.theme.muted,
+                )),
+            y_axis: Axis::default()
+                .style(self.theme.axis)
+                .bounds(plot.y_bounds)
+                .labels_alignment(alignment)
+                .labels(value_labels),
+            // A legend takes width from the chart. Hide the legend when the chart
+            // holds one series only, or when the panel is too narrow.
+            hide_legend: !self.show_legend || plot.series.len() < 2 || area.width < 30,
+        }
+    }
+
+    /// Returns the datasets of the series that the range names.
+    ///
+    /// ratatui joins each point of a dataset to the next point. Each run of a
+    /// series therefore takes a dataset of its own, and no line crosses a
+    /// hole. A dataset of one point still draws that point.
+    ///
+    /// The legend lists each dataset that holds a name. Only the first run of a
+    /// series takes the name when `named` is true, so the legend lists each
+    /// series once.
+    ///
+    /// The layer [`Layer::Identified`] gives a series the colour that
+    /// [`series_id`] returns, and not the colour of the theme.
+    fn datasets<'p>(
+        &self,
+        plot: &'p Plot,
+        series: Range<usize>,
+        layer: Layer,
+        named: bool,
+    ) -> Vec<Dataset<'p>> {
+        let floor = plot.y_bounds[0];
+        plot.series
+            .iter()
+            .enumerate()
+            .skip(series.start)
+            .take(series.len())
+            .flat_map(|(i, s)| {
+                let color = match layer {
+                    Layer::Identified => series_id(i),
+                    Layer::Line | Layer::Area => self.theme.series_color(i),
+                };
+                let marker = self.marker.into();
+                s.runs.iter().enumerate().map(move |(r, run)| {
+                    let ds = Dataset::default()
+                        .data(&s.points[run.clone()])
+                        .marker(marker)
+                        .style(Style::default().fg(color));
+                    let ds = if named && r == 0 {
+                        ds.name(s.name.clone())
+                    } else {
+                        ds
+                    };
+                    match layer {
+                        // Fill the area down to the bottom of the axis.
+                        Layer::Area => ds.graph_type(GraphType::Area).fill_to_y(floor),
+                        Layer::Line | Layer::Identified => ds.graph_type(GraphType::Line),
+                    }
+                })
+            })
+            .collect()
+    }
+
+    /// Draws a filled chart of two series or more.
+    ///
+    /// ratatui draws each dataset as a layer, and a later layer replaces the
+    /// glyph and the colour of each cell that it paints. A cell holds one
+    /// colour, so no order of layers shows every series (ADR 0082 and ADR 0090
+    /// in docs/contributor/adr). The panel therefore draws the series into
+    /// scratch buffers through ratatui, and it then chooses one series for each
+    /// cell (ADR 0096). A scratch buffer is a buffer that the panel draws into
+    /// and does not show. Each scratch buffer starts blank, so the cells that
+    /// the real buffer held before the draw change no choice. The function
+    /// `owner` holds the choice.
+    ///
+    /// The draw holds `n + 4` charts for `n` series:
+    ///
+    /// - the reference;
+    /// - one area chart for each series;
+    /// - one chart of all the lines;
+    /// - the blank frame;
+    /// - the real frame.
+    fn render_composed(&self, parts: &ChartParts<'a>, plot: &Plot, area: Rect, buf: &mut Buffer) {
+        let draw = |datasets: Vec<Dataset<'_>>| {
+            let mut scratch = Buffer::empty(area);
+            parts.chart(datasets).render(area, &mut scratch);
+            scratch
+        };
+        let count = plot.series.len();
+        // The legend datasets hold the name and the colour of a series and no
+        // point. The frame chart then draws the border, the axes, the labels,
+        // and the legend.
+        let legend = || {
+            plot.series
+                .iter()
+                .enumerate()
+                .map(|(i, s)| {
+                    Dataset::default()
+                        .style(Style::default().fg(self.theme.series_color(i)))
+                        .name(s.name.clone())
+                })
+                .collect::<Vec<_>>()
+        };
+        let drawn = Drawn {
+            empty: draw(Vec::new()),
+            frame: draw(legend()),
+            areas: (0..count)
+                .map(|k| draw(self.datasets(plot, k..k + 1, Layer::Area, false)))
+                .collect(),
+            lines: draw(self.datasets(plot, 0..count, Layer::Identified, false)),
+        };
+        parts.chart(legend()).render(area, buf);
+        drawn.paint_owners(buf, area);
     }
 
     /// Returns the points to draw, and the present moment.
@@ -560,111 +709,199 @@ impl Widget for &TimeSeriesPanel<'_> {
             return render_message(block, NO_DATA, self.theme.muted, area, buf);
         };
 
-        // ratatui joins each point of a dataset to the next point. Each run of a
-        // series therefore takes a dataset of its own, and no line crosses a
-        // hole. A dataset of one point still draws that point.
-        //
-        // ratatui draws each dataset as one layer, in order. A later layer
-        // replaces the glyph and the colour of each cell that it paints. The
-        // fill of a later series would therefore hide an earlier series that
-        // lies below it. A filled chart draws every fill first. It then draws
-        // the line of each series but the last over the fills (ADR 0082 in
-        // docs/contributor/adr).
-        //
-        // A line layer also replaces the dots of the fill in each cell that
-        // the line crosses. The last fill already holds the line of its own
-        // series, so no layer of a line covers it. A chart of one series
-        // therefore keeps every dot of its fill (ADR 0090).
-        let floor = plot.y_bounds[0];
-        let runs = |fill: bool, count: usize| {
-            plot.series
-                .iter()
-                .take(count)
-                .enumerate()
-                .flat_map(move |(i, s)| {
-                    let color = self.theme.series_color(i);
-                    s.runs.iter().enumerate().map(move |(r, run)| {
-                        let ds = Dataset::default()
-                            .data(&s.points[run.clone()])
-                            .marker(self.marker.into())
-                            .style(Style::default().fg(color));
-                        // The legend lists each dataset that holds a name. Only
-                        // the first run of a series in the first pass takes the
-                        // name, so the legend lists each series once.
-                        let ds = if r == 0 && (fill || !self.filled) {
-                            ds.name(s.name.clone())
-                        } else {
-                            ds
-                        };
-                        if fill {
-                            // Fill the area down to the bottom of the axis.
-                            ds.graph_type(GraphType::Area).fill_to_y(floor)
-                        } else {
-                            ds.graph_type(GraphType::Line)
-                        }
-                    })
-                })
-                .collect::<Vec<Dataset<'_>>>()
-        };
-        let all = plot.series.len();
-        let mut datasets = runs(self.filled, all);
-        if self.filled {
-            datasets.extend(runs(false, all.saturating_sub(1)));
+        let parts = self.chart_parts(&plot, now, area, block);
+        let several = plot.series.len() >= 2;
+        if self.filled && several {
+            self.render_composed(&parts, &plot, area, buf);
+        } else {
+            let layer = if self.filled {
+                Layer::Area
+            } else {
+                Layer::Line
+            };
+            let datasets = self.datasets(&plot, 0..plot.series.len(), layer, true);
+            parts.chart(datasets).render(area, buf);
         }
-
-        let mut value_labels = y_labels(
-            plot.y_bounds,
-            self.options.unit.or(plot.unit.as_deref()),
-            self.options.decimals.or(plot.decimals),
-            self.theme.muted,
-        );
-        // A caller that draws a stack of panels states one width for the whole
-        // stack. Every chart of the stack then starts at the same cell.
-        if let Some(width) = self.label_width {
-            pad_labels(
-                &mut value_labels,
-                width.min(label_width_limit(area)),
-                self.theme.muted,
-                self.value_labels,
-            );
-        }
-        let alignment = match self.value_labels {
-            LabelAlign::Left => Alignment::Left,
-            LabelAlign::Right => Alignment::Right,
-        };
-
-        let mut chart = Chart::new(datasets)
-            .block(block)
-            .x_axis(
-                Axis::default()
-                    .style(self.theme.axis)
-                    .bounds(plot.x_bounds)
-                    .labels(axis_labels(
-                        self.time_labels,
-                        plot.x_bounds,
-                        now,
-                        self.theme.muted,
-                    )),
-            )
-            .y_axis(
-                Axis::default()
-                    .style(self.theme.axis)
-                    .bounds(plot.y_bounds)
-                    .labels_alignment(alignment)
-                    .labels(value_labels),
-            );
-
-        // A legend takes width from the chart. Hide the legend when the chart
-        // holds one series only, or when the panel is too narrow.
-        if !self.show_legend || plot.series.len() < 2 || area.width < 30 {
-            chart = chart.hidden_legend_constraints((
-                ratatui_core::layout::Constraint::Ratio(0, 1),
-                ratatui_core::layout::Constraint::Ratio(0, 1),
-            ));
-        }
-
-        chart.render(area, buf);
     }
+}
+
+/// The layer that a dataset draws.
+#[derive(Clone, Copy)]
+enum Layer {
+    /// The points of a series and the line between them.
+    Line,
+    /// The points, the line, and the fill below the line.
+    Area,
+    /// The points and the line, in a colour that names the series. The panel
+    /// draws the lines of every series into one buffer, and it reads the
+    /// series of a cell from the colour of that cell.
+    Identified,
+}
+
+/// The block, the axes, and the labels that every chart of a panel shares.
+///
+/// All charts of a panel share one block, one set of axes, and one area.
+/// ratatui therefore puts the plot of each chart in the same cells.
+struct ChartParts<'a> {
+    block: Block<'a>,
+    x_axis: Axis<'static>,
+    y_axis: Axis<'static>,
+    hide_legend: bool,
+}
+
+impl<'a> ChartParts<'a> {
+    /// Returns a chart that draws the datasets with the shared parts.
+    fn chart<'d>(&self, datasets: Vec<Dataset<'d>>) -> Chart<'d>
+    where
+        'a: 'd,
+    {
+        let chart = Chart::new(datasets)
+            .block(self.block.clone())
+            .x_axis(self.x_axis.clone())
+            .y_axis(self.y_axis.clone());
+        if self.hide_legend {
+            chart.hidden_legend_constraints((Constraint::Ratio(0, 1), Constraint::Ratio(0, 1)))
+        } else {
+            chart
+        }
+    }
+}
+
+/// The number of series that a colour of [`series_id`] can name.
+///
+/// The colour holds one byte for red, one for green, and one for blue. A
+/// dashboard cannot hold so many series, because the panel keeps one buffer
+/// for each series.
+const SERIES_IDS: usize = 1 << 24;
+
+/// Returns the colour that names series `k` in the buffer of the lines.
+///
+/// The palette of a theme repeats after a few series, so the palette cannot
+/// name a series. This colour holds the number `k` in its three bytes. The
+/// function gives series `SERIES_IDS - 1` and each later series the same colour.
+fn series_id(k: usize) -> Color {
+    let k = k.min(SERIES_IDS - 1);
+    Color::Rgb((k >> 16) as u8, (k >> 8) as u8, k as u8)
+}
+
+/// Returns the series that a colour names, or `None` for a colour that
+/// [`series_id`] cannot return.
+fn series_of(color: Color) -> Option<usize> {
+    match color {
+        Color::Rgb(r, g, b) => {
+            Some((usize::from(r) << 16) | (usize::from(g) << 8) | usize::from(b))
+        }
+        _ => None,
+    }
+}
+
+/// Returns the series that owns a cell of the buffer of the lines, or `None`
+/// when the cell holds no line.
+///
+/// The cell holds a line when it differs from the same cell of `empty`. The
+/// colour of the cell names the owner. A marker of half blocks can put two
+/// series in one cell. The foreground holds the upper half, and the background
+/// holds the lower half. The later series owns such a cell. A colour that
+/// equals the colour of `empty` names no series. The cells of the plot in
+/// `empty` hold no colour of [`series_id`].
+fn line_owner(cell: &Cell, empty: &Cell) -> Option<usize> {
+    [(cell.fg, empty.fg), (cell.bg, empty.bg)]
+        .into_iter()
+        .filter(|(colour, plain)| colour != plain)
+        .filter_map(|(colour, _)| series_of(colour))
+        .max()
+}
+
+/// The scratch buffers of a filled chart of several series.
+///
+/// Each buffer holds the area of one chart, starts blank, and holds no cell of
+/// the real buffer. All charts draw the same block, axes, labels, and area.
+struct Drawn {
+    /// The chart with no dataset. A cell that differs from `empty` holds data,
+    /// or it belongs to the legend.
+    empty: Buffer,
+    /// The chart with the name of each series and no point. A cell that
+    /// differs from `empty` belongs to the legend.
+    frame: Buffer,
+    /// The `Area` datasets of each series, in the order of the series.
+    areas: Vec<Buffer>,
+    /// The `Line` datasets of all series. The colour of a cell names the
+    /// series that owns the cell (`series_id`).
+    lines: Buffer,
+}
+
+impl Drawn {
+    /// Writes into `buf` the cell of the series that owns each cell.
+    ///
+    /// The function replaces the whole cell that `buf` held, and it keeps no
+    /// part of it. A cell that belongs to the legend stays as it is.
+    fn paint_owners(&self, buf: &mut Buffer, area: Rect) {
+        let area_cells: Vec<Vec<bool>> = self
+            .areas
+            .iter()
+            .map(|layer| {
+                layer
+                    .content()
+                    .iter()
+                    .zip(self.empty.content())
+                    .map(|(a, b)| a != b)
+                    .collect()
+            })
+            .collect();
+        let count = self.areas.len();
+        let mut has_area = vec![false; count];
+        let mut area_top = vec![None; count];
+        for x in area.left()..area.right() {
+            for (k, top) in area_top.iter_mut().enumerate() {
+                *top =
+                    (area.top()..area.bottom()).find(|&y| area_cells[k][self.empty.index_of(x, y)]);
+            }
+            for y in area.top()..area.bottom() {
+                let at = self.empty.index_of(x, y);
+                if self.frame.content()[at] != self.empty.content()[at] {
+                    continue;
+                }
+                let line = line_owner(&self.lines.content()[at], &self.empty.content()[at]);
+                for (k, has) in has_area.iter_mut().enumerate() {
+                    *has = area_cells[k][at];
+                }
+                if let Some(k) = owner(line, &has_area, &area_top) {
+                    buf[(x, y)] = self.areas[k].content()[at].clone();
+                }
+            }
+        }
+    }
+}
+
+/// Returns the series that owns one cell of a filled chart of several series.
+///
+/// The argument `line` holds the last series that has a line in the cell, or
+/// `None`. The list `areas` holds one entry for each series, in the order of
+/// the series. It tells whether the area buffer of the series holds a data cell
+/// in this cell. The list `area_top` holds, for the column of this cell, the
+/// smallest row that holds a data cell of the area buffer of the series. A row
+/// with a smaller number is higher on the screen.
+///
+/// The function applies these rules in order:
+///
+/// 1. A series that has a line in the cell owns the cell. `line` already names
+///    the later series when two series or more have a line there.
+/// 2. Otherwise, a series that has a fill in the cell owns the cell. The
+///    series whose area starts lowest in the column has the nearest line above
+///    the cell, so its fill is in front. When two series start at the same
+///    row, the later series owns the cell.
+/// 3. Otherwise the cell has no owner, and the function returns `None`.
+fn owner(line: Option<usize>, areas: &[bool], area_top: &[Option<u16>]) -> Option<usize> {
+    if line.is_some() {
+        return line;
+    }
+    // The series with the largest top row starts lowest. The comparison of a
+    // tuple puts the later series after the earlier series on a tie.
+    (0..areas.len())
+        .filter(|&k| areas[k])
+        .filter_map(|k| Some((area_top.get(k).copied().flatten()?, k)))
+        .max()
+        .map(|(_, k)| k)
 }
 
 /// Returns the most recent value in the frames, and its time.
@@ -700,6 +937,7 @@ pub fn last_value(frames: &[Frame]) -> Option<(Timestamp, f64)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ratatui_core::style::Modifier;
     use thunderbox_core::{Field, Frame};
 
     fn frames(values: Vec<Option<f64>>) -> Vec<Frame> {
@@ -1094,6 +1332,1093 @@ mod tests {
             text(&buf),
             text(&reference),
             "The chart draws different cells than its fill alone."
+        );
+    }
+
+    // The tests below hold the rule of ADR 0096 in docs/contributor/adr. A
+    // filled chart of several series chooses one series for each cell.
+
+    #[test]
+    fn the_owner_of_a_cell_is_the_series_whose_line_crosses_it_before_any_fill() {
+        let areas = [true, true];
+        let tops = [Some(8), Some(2)];
+        assert_eq!(
+            owner(Some(1), &areas, &tops),
+            Some(1),
+            "A line must win over a fill, even over a fill that starts lower."
+        );
+        assert_eq!(
+            owner(Some(0), &areas, &tops),
+            Some(0),
+            "A line must win over the fill of a later series."
+        );
+    }
+
+    #[test]
+    fn the_owner_of_a_cell_with_no_line_is_the_series_whose_area_starts_lowest() {
+        let areas = [true; 3];
+        let tops = [Some(3), Some(7), Some(5)];
+        assert_eq!(
+            owner(None, &areas, &tops),
+            Some(1),
+            "The series with the largest top row must win."
+        );
+    }
+
+    #[test]
+    fn the_owner_of_a_cell_goes_to_the_later_series_when_two_areas_start_at_one_row() {
+        let areas = [true; 3];
+        let tops = [Some(4), Some(4), Some(2)];
+        assert_eq!(
+            owner(None, &areas, &tops),
+            Some(1),
+            "The later series must win a tie."
+        );
+    }
+
+    #[test]
+    fn a_series_with_no_area_in_a_cell_cannot_own_the_cell() {
+        let areas = [true, false];
+        let tops = [Some(3), Some(9)];
+        assert_eq!(
+            owner(None, &areas, &tops),
+            Some(0),
+            "A series whose area does not reach the cell must not win."
+        );
+    }
+
+    #[test]
+    fn a_cell_that_holds_no_data_has_no_owner() {
+        assert_eq!(owner(None, &[false; 2], &[None, None]), None);
+        assert_eq!(owner(None, &[], &[]), None);
+    }
+
+    /// Returns a cell that holds a mark in the given colours.
+    fn marked_cell(fg: Color, bg: Color) -> Cell {
+        let mut cell = Cell::default();
+        cell.set_symbol("\u{28FF}").set_fg(fg).set_bg(bg);
+        cell
+    }
+
+    #[test]
+    fn the_colour_that_names_a_series_returns_the_series() {
+        // The numbers cross the limit of one byte and the limit of two bytes.
+        for k in [0, 1, 7, 255, 256, 257, 65_535, 65_536, SERIES_IDS - 1] {
+            assert_eq!(
+                series_of(series_id(k)),
+                Some(k),
+                "Series {k} lost its name."
+            );
+        }
+        assert_ne!(
+            series_id(255),
+            series_id(256),
+            "The colour of series 256 must differ from the colour of series 255."
+        );
+        assert_ne!(series_id(65_535), series_id(65_536));
+        assert_eq!(series_of(Color::Red), None);
+        assert_eq!(series_of(Color::Indexed(4)), None);
+        assert_eq!(series_of(Color::Reset), None);
+    }
+
+    #[test]
+    fn the_owner_of_a_cell_that_two_lines_cross_is_the_later_series() {
+        let empty = Cell::default();
+        // A marker of half blocks puts the upper half in the foreground and
+        // the lower half in the background.
+        let upper_later = marked_cell(series_id(3), series_id(1));
+        let lower_later = marked_cell(series_id(1), series_id(3));
+        assert_eq!(
+            line_owner(&upper_later, &empty),
+            Some(3),
+            "The later series must win when it owns the upper half."
+        );
+        assert_eq!(
+            line_owner(&lower_later, &empty),
+            Some(3),
+            "The later series must win when it owns the lower half."
+        );
+        assert_eq!(
+            line_owner(&marked_cell(series_id(2), Color::Reset), &empty),
+            Some(2)
+        );
+    }
+
+    #[test]
+    fn a_cell_with_no_line_has_no_line_owner() {
+        let empty = Cell::default();
+        assert_eq!(line_owner(&empty, &empty), None);
+        let mut other = Cell::default();
+        other
+            .set_fg(Color::Rgb(0, 0, 5))
+            .set_bg(Color::Rgb(0, 0, 9));
+        assert_eq!(
+            line_owner(&other, &other),
+            None,
+            "A colour that `empty` holds names no series."
+        );
+        assert_eq!(
+            line_owner(&marked_cell(Color::Red, Color::Reset), &empty),
+            None,
+            "A colour that names no series gives no owner."
+        );
+    }
+
+    /// Returns one frame that holds one series for each entry. An entry holds
+    /// the name of the series and its values. A value of `None` is a hole.
+    fn frame_of(series: &[(&str, Vec<Option<f64>>)]) -> Vec<Frame> {
+        let stamps: Vec<i64> = (0..series[0].1.len() as i64).map(|i| i * 1000).collect();
+        let mut fields = vec![Field::time("time", stamps)];
+        for (name, values) in series {
+            fields.push(Field::f64(*name, values.clone()));
+        }
+        vec![Frame::named("net", fields)]
+    }
+
+    fn flat(value: f64, len: usize) -> Vec<Option<f64>> {
+        vec![Some(value); len]
+    }
+
+    /// Returns the colour of the mark in a cell, or `None` for a blank cell.
+    fn mark_colour(buf: &Buffer, x: u16, y: u16) -> Option<ratatui_core::style::Color> {
+        let cell = &buf[(x, y)];
+        (cell.symbol() != " ").then_some(cell.fg)
+    }
+
+    /// Returns the columns inside the axes, from the axis of values to the
+    /// right border.
+    fn plot_columns(buf: &Buffer) -> Range<u16> {
+        let (axis_x, _) = corner(buf);
+        axis_x + 1..buf.area.width - 1
+    }
+
+    /// Returns the colour of each cell of one column inside the axes, from the
+    /// top row down to the row above the axis of time.
+    fn column_colours(buf: &Buffer, x: u16) -> Vec<Option<ratatui_core::style::Color>> {
+        let (_, axis_y) = corner(buf);
+        (1..axis_y).map(|y| mark_colour(buf, x, y)).collect()
+    }
+
+    /// Returns the middle column inside the axes.
+    fn middle_column(buf: &Buffer) -> u16 {
+        let columns = plot_columns(buf);
+        columns.start + (columns.end - columns.start) / 2
+    }
+
+    /// Draws a filled chart of the frames, with no legend.
+    fn filled_chart(f: &[Frame], theme: &Theme, w: u16, h: u16) -> Buffer {
+        let p = TimeSeriesPanel::new("Net", PanelData::Frames(f), theme)
+            .filled(true)
+            .show_legend(false);
+        render(&p, w, h)
+    }
+
+    /// Returns two series that both lie in the bottom row of the chart. The
+    /// first series rises to 40 between the 26th value and the 34th value.
+    fn rx_and_tx() -> Vec<Frame> {
+        let rx = (0..60)
+            .map(|i| Some(if (26..34).contains(&i) { 40.0 } else { 1.0 }))
+            .collect();
+        frame_of(&[("rx", rx), ("tx", flat(1.0, 60))])
+    }
+
+    #[test]
+    fn a_filled_chart_shows_the_second_series_on_the_bottom_row_outside_the_burst_of_the_first() {
+        let f = rx_and_tx();
+        let theme = Theme::default();
+        let buf = filled_chart(&f, &theme, 70, 12);
+        let (_, axis_y) = corner(&buf);
+        let columns = plot_columns(&buf);
+        let outside =
+            (columns.start + 1..columns.start + 8).chain(columns.end - 8..columns.end - 1);
+        for x in outside {
+            assert_eq!(
+                mark_colour(&buf, x, axis_y - 1),
+                Some(theme.series_color(1)),
+                "The bottom row at column {x} must show the second series.\n{}",
+                text(&buf)
+            );
+        }
+    }
+
+    #[test]
+    fn a_filled_chart_shows_the_first_series_above_the_second_series_inside_the_burst() {
+        let f = rx_and_tx();
+        let theme = Theme::default();
+        let buf = filled_chart(&f, &theme, 70, 12);
+        let colours = column_colours(&buf, middle_column(&buf));
+        let (bottom, above) = colours.split_last().expect("The column holds a cell.");
+        assert_eq!(
+            *bottom,
+            Some(theme.series_color(1)),
+            "The bottom row must show the second series.\n{}",
+            text(&buf)
+        );
+        assert!(
+            above.contains(&Some(theme.series_color(0))),
+            "The cells above the bottom row must show the first series.\n{}",
+            text(&buf)
+        );
+        assert!(
+            !above.contains(&Some(theme.series_color(1))),
+            "The cells above the bottom row must not show the second series.\n{}",
+            text(&buf)
+        );
+    }
+
+    /// Returns two series that hold a constant value. The lower series holds
+    /// 14, and the higher series holds 40. The lower series starts at 0, so
+    /// the axis of values starts at 0 and the fill of the lower series has
+    /// room below its line.
+    fn a_lower_and_a_higher_series(lower_first: bool) -> Vec<Frame> {
+        let mut low = flat(14.0, 60);
+        low[0] = Some(0.0);
+        let lower = ("lower", low);
+        let higher = ("higher", flat(40.0, 60));
+        if lower_first {
+            frame_of(&[lower, higher])
+        } else {
+            frame_of(&[higher, lower])
+        }
+    }
+
+    #[test]
+    fn a_filled_chart_shows_the_fill_of_a_lower_series_below_its_line_and_the_higher_series_above()
+    {
+        let f = a_lower_and_a_higher_series(true);
+        let theme = Theme::default();
+        let buf = filled_chart(&f, &theme, 60, 12);
+        let colours = column_colours(&buf, middle_column(&buf));
+        let (lower, higher) = (theme.series_color(0), theme.series_color(1));
+        assert_eq!(
+            colours.last().copied().flatten(),
+            Some(lower),
+            "The bottom row must show the lower series.\n{}",
+            text(&buf)
+        );
+        assert_eq!(
+            colours.iter().flatten().next(),
+            Some(&higher),
+            "The top mark of the column must belong to the higher series.\n{}",
+            text(&buf)
+        );
+        let first_lower = colours.iter().position(|c| *c == Some(lower));
+        let last_higher = colours.iter().rposition(|c| *c == Some(higher));
+        assert!(
+            last_higher < first_lower,
+            "Every cell of the higher series must lie above every cell of the lower series.\n{}",
+            text(&buf)
+        );
+    }
+
+    /// Returns three blocks of rows: the symbols, the foreground colours, and
+    /// the background colours of a buffer. A series colour is a digit, the
+    /// reset colour is `_`, and each other colour is a letter in the order of
+    /// first appearance.
+    fn picture_of(buf: &Buffer, theme: &Theme, series: usize) -> String {
+        let mut others: Vec<Color> = Vec::new();
+        let mut code = |c: Color| -> char {
+            if c == Color::Reset {
+                return '_';
+            }
+            if let Some(k) = (0..series).find(|&k| theme.series_color(k) == c) {
+                return char::from(b'0' + k as u8);
+            }
+            let at = others.iter().position(|o| *o == c).unwrap_or_else(|| {
+                others.push(c);
+                others.len() - 1
+            });
+            char::from(b'a' + at as u8)
+        };
+        let rows = |pick: &mut dyn FnMut(&ratatui_core::buffer::Cell) -> String| {
+            (0..buf.area.height)
+                .map(|y| {
+                    (0..buf.area.width)
+                        .map(|x| pick(&buf[(x, y)]))
+                        .collect::<String>()
+                })
+                .collect::<Vec<_>>()
+                .join("\n")
+        };
+        let symbols = rows(&mut |c| c.symbol().to_string());
+        let fg = rows(&mut |c| code(c.fg).to_string());
+        let bg = rows(&mut |c| code(c.bg).to_string());
+        format!("{symbols}\n\n{fg}\n\n{bg}")
+    }
+
+    /// Returns three series that cross: a climb, a flat series, and a low series.
+    fn three_series_that_cross() -> Vec<Frame> {
+        let climb = (0..60)
+            .map(|i| Some(if i < 29 { 0.0 } else { 60.0 }))
+            .collect();
+        let wave = (0..60)
+            .map(|i| Some(20.0 + 15.0 * ((i as f64) / 6.0).sin()))
+            .collect();
+        frame_of(&[("climb", climb), ("flat", flat(30.0, 60)), ("wave", wave)])
+    }
+
+    // The three pictures below hold the cells that the first version of the
+    // rule of ADR 0096 drew on a blank buffer. Each picture holds the symbols,
+    // the foreground colours, and the background colours. Five pictures of
+    // docs/media depend on these cells.
+
+    const PICTURE_A: &str = r"╭network─────────────────────────────────────────────────────────────╮
+│ 42│                            ⣶⣶⣶⣶⣶⣶⣶⣶                            │
+│   │                            ⣿⣿⣿⣿⣿⣿⣿⣿                            │
+│   │                           ⢰⣿⣿⣿⣿⣿⣿⣿⣿⡆                           │
+│   │                           ⢸⣿⣿⣿⣿⣿⣿⣿⣿⡇                           │
+│ 21│                           ⢸⣿⣿⣿⣿⣿⣿⣿⣿⡇                           │
+│   │                           ⣸⣿⣿⣿⣿⣿⣿⣿⣿⣇                           │
+│   │                           ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿                           │
+│  0│⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤│
+│   └────────────────────────────────────────────────────────────────│
+│-59s                              -30s                           now│
+╰────────────────────────────────────────────────────────────────────╯
+
+abbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+a_aaa____________________________00000000____________________________a
+a___a____________________________00000000____________________________a
+a___a___________________________0000000000___________________________a
+a___a___________________________0000000000___________________________a
+a_aaa___________________________0000000000___________________________a
+a___a___________________________0000000000___________________________a
+a___a___________________________0000000000___________________________a
+a__aa1111111111111111111111111111111111111111111111111111111111111111a
+a___aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+aaaaa______________________________aaaa___________________________aaaa
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+
+______________________________________________________________________
+______________________________________________________________________
+______________________________________________________________________
+______________________________________________________________________
+______________________________________________________________________
+______________________________________________________________________
+______________________________________________________________________
+______________________________________________________________________
+______________________________________________________________________
+______________________________________________________________________
+______________________________________________________________________
+______________________________________________________________________";
+
+    const PICTURE_B: &str = r"╭mix───────────────────────────────────────────────────────╮
+│ 63│                          ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄│
+│   │                          ████████████████████████████│
+│   │                          ████████████████████████████│
+│   │                          ████████████████████████████│
+│   │                          ████████████████████████████│
+│   │     ▄▄████▄▄             █████████████▄▄████▄▄███████│
+│ 32│███▄██████████▄██████████████████████▄██████████▄▄████│
+│   │█▄██████████████▄█████████████████▄▄██████████████▄███│
+│   │██████████████████▄█████████████▄███████████████████▄█│
+│   │█████████████████████▄████████████████████████████████│
+│   │███████████████████████▄▄▄▄▄▄█████████████████████████│
+│  0│▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄█████████████████████████████│
+│   └──────────────────────────────────────────────────────│
+│-59s                         -30s                      now│
+╰──────────────────────────────────────────────────────────╯
+
+abbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+a_aaa__________________________0000000000000000000000000000a
+a___a__________________________0000000000000000000000000000a
+a___a__________________________0000000000000000000000000000a
+a___a__________________________0000000000000000000000000000a
+a___a__________________________0000000000000000000000000000a
+a___a_____22222222_____________0000000000000222222220000000a
+a_aaa111221111111122111111111111111111111122111111112221111a
+a___a122221111111122221111111101111111122222111111112222111a
+a___a222221111111122222211111101111112222222111111112222221a
+a___a222221111111122222222211101111122222222111111112222222a
+a___a222221111111122222222222222222222222222111111112222222a
+a__aa000000000000000000000000002222222222222111111112222222a
+a___aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+aaaaa_________________________aaaa______________________aaaa
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+
+____________________________________________________________
+____________________________________________________________
+_______________________________0000000000000000000000000000_
+_______________________________0000000000000000000000000000_
+_______________________________0000000000000000000000000000_
+_______________________________0000000000000000000000000000_
+____________2222_______________0000000000000__2222__0000000_
+_____111_2111111112_1111111111111111111111_2111111112__1111_
+_____1_22211111111222_11111111011111111__22211111111222_111_
+_____222221111111122222_1111110111111_2222221111111122222_1_
+_____222221111111122222222_11101111122222222111111112222222_
+_____22222111111112222222222______2222222222111111112222222_
+______________________________02222222222222111111112222222_
+____________________________________________________________
+____________________________________________________________
+____________________________________________________________";
+
+    const PICTURE_C: &str = r"╭mix───────────────────────────────────────────────────────────────────────────╮
+│ 63│                                                                   ┌─────┐│
+│   │                                    ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿│climb││
+│   │                                    ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿│flat ││
+│   │                                    ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿│wave ││
+│   │                                    ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿└─────┘│
+│   │                                    ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿│
+│   │                                   ⢰⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿│
+│   │                                   ⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿│
+│   │                                   ⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿│
+│   │         ⢀⣀⣀⣀⣀                     ⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣀⣀⣀⣀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿│
+│   │      ⢀⣠⣾⣿⣿⣿⣿⣿⣿⣶⣄⡀                 ⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⢀⣤⣶⣿⣿⣿⣿⣿⣿⣶⣄⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿│
+│ 32│⣤⣤⣤⣤⣤⣰⣿⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣿⣆⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣠⣿⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣿⣦⣤⣤⣤⣤⣤⣤⣤⣤│
+│   │⣿⣿⣿⣰⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣄⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⢠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣄⣿⣿⣿⣿⣿⣿│
+│   │⣿⢀⣴⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣦⡀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⢀⣴⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣧⡀⣿⣿⣿⣿│
+│   │⣰⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡄⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣠⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣆⣿⣿⣿│
+│   │⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣦⡀⣿⣿⣿⣿⣿⣿⣿⣿⣿⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⢀⣴⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣦⡀⣿│
+│   │⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⡀⣿⣿⣿⣿⣿⣿⣿⣿⣸⣿⣿⣿⣿⣿⣿⣿⣿⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡄│
+│   │⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣦⡀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⢀⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿│
+│   │⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣤⡀⣿⣿⣿⣿⣿⣿⣿⣿⣿⢀⣴⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿│
+│   │⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣦⣄⡀⣿⣿⣿⣀⣠⣶⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿│
+│   │⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿│
+│  0│⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿│
+│   └──────────────────────────────────────────────────────────────────────────│
+│-59s                                  -30s                                 now│
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+abbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+a_aaa___________________________________________________________________aaaaaaaa
+a___a____________________________________0000000000000000000000000000000a00000aa
+a___a____________________________________0000000000000000000000000000000a11111aa
+a___a____________________________________0000000000000000000000000000000a22222aa
+a___a____________________________________0000000000000000000000000000000aaaaaaaa
+a___a____________________________________00000000000000000000000000000000000000a
+a___a___________________________________000000000000000000000000000000000000000a
+a___a___________________________________000000000000000000000000000000000000000a
+a___a___________________________________000000000000000000000000000000000000000a
+a___a_________22222_____________________000000000000000000000022220000000000000a
+a___a______222222222222_________________000000000000000000222222222220000000000a
+a_aaa11111221111111111221111111111111111111111111111111112211111111112211111111a
+a___a11122211111111111122211111111111111011111111111111222111111111112222111111a
+a___a12222211111111111122222111111111111011111111111122222111111111112222221111a
+a___a22222211111111111122222211111111111011111111111222222111111111112222222111a
+a___a22222211111111111122222222111111111011111111122222222111111111112222222221a
+a___a22222211111111111122222222211111111011111111222222222111111111112222222222a
+a___a22222211111111111122222222222111111011111122222222222111111111112222222222a
+a___a22222211111111111122222222222221111011112222222222222111111111112222222222a
+a___a22222211111111111122222222222222221012222222222222222111111111112222222222a
+a___a22222211111111111122222222222222222222222222222222222111111111112222222222a
+a__aa00000000000000000000000000000000000022222222222222222111111111112222222222a
+a___aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+aaaaa__________________________________aaaa_________________________________aaaa
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+
+________________________________________________________________________________
+________________________________________________________________________________
+________________________________________________________________________________
+________________________________________________________________________________
+________________________________________________________________________________
+________________________________________________________________________________
+________________________________________________________________________________
+________________________________________________________________________________
+________________________________________________________________________________
+________________________________________________________________________________
+________________________________________________________________________________
+________________________________________________________________________________
+________________________________________________________________________________
+________________________________________________________________________________
+________________________________________________________________________________
+________________________________________________________________________________
+________________________________________________________________________________
+________________________________________________________________________________
+________________________________________________________________________________
+________________________________________________________________________________
+________________________________________________________________________________
+________________________________________________________________________________
+________________________________________________________________________________
+________________________________________________________________________________
+________________________________________________________________________________
+________________________________________________________________________________";
+
+    #[test]
+    fn a_composed_chart_of_the_shape_of_rx_and_tx_draws_the_cells_of_the_first_version() {
+        let theme = Theme::default();
+        let f = rx_and_tx();
+        let p = TimeSeriesPanel::new("network", PanelData::Frames(&f), &theme)
+            .filled(true)
+            .show_legend(false);
+        assert_eq!(picture_of(&render(&p, 70, 12), &theme, 2), PICTURE_A);
+    }
+
+    #[test]
+    fn a_composed_chart_of_three_series_with_the_marker_half_block_draws_the_cells_of_the_first_version()
+     {
+        let theme = Theme::default();
+        let f = three_series_that_cross();
+        let p = TimeSeriesPanel::new("mix", PanelData::Frames(&f), &theme)
+            .filled(true)
+            .marker(Marker::HalfBlock);
+        assert_eq!(picture_of(&render(&p, 60, 16), &theme, 3), PICTURE_B);
+    }
+
+    #[test]
+    fn a_composed_chart_of_three_series_with_a_legend_draws_the_cells_of_the_first_version() {
+        let theme = Theme::default();
+        let f = three_series_that_cross();
+        let p = TimeSeriesPanel::new("mix", PanelData::Frames(&f), &theme).filled(true);
+        assert_eq!(picture_of(&render(&p, 80, 26), &theme, 3), PICTURE_C);
+    }
+
+    /// Returns the symbol of each cell inside the axes, and the series that
+    /// the colour of the cell names. The function names a series by the
+    /// colour that the given order of the series gives it.
+    fn owners_of_cells(buf: &Buffer, lower: ratatui_core::style::Color) -> Vec<(String, bool)> {
+        let (_, axis_y) = corner(buf);
+        plot_columns(buf)
+            .flat_map(|x| (1..axis_y).map(move |y| (x, y)))
+            .map(|(x, y)| {
+                let cell = &buf[(x, y)];
+                (cell.symbol().to_string(), cell.fg == lower)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn the_order_of_two_series_does_not_change_a_cell_that_holds_no_line_of_both() {
+        let theme = Theme::default();
+        let first = filled_chart(&a_lower_and_a_higher_series(true), &theme, 60, 12);
+        let second = filled_chart(&a_lower_and_a_higher_series(false), &theme, 60, 12);
+        let one = owners_of_cells(&first, theme.series_color(0));
+        let other = owners_of_cells(&second, theme.series_color(1));
+        assert!(
+            one.iter().any(|(_, lower)| *lower) && one.iter().any(|(_, lower)| !*lower),
+            "The chart must show both series.\n{}",
+            text(&first)
+        );
+        assert!(
+            one == other,
+            "The two orders must draw the same cells.\n{}\n\n{}",
+            text(&first),
+            text(&second)
+        );
+    }
+
+    /// Returns a flat series at 30, and a series that jumps from 0 to 60
+    /// between two values. The line of the jump crosses the flat series.
+    fn a_flat_series_and_a_steep_climb() -> Vec<Frame> {
+        let climb = (0..60)
+            .map(|i| Some(if i < 29 { 0.0 } else { 60.0 }))
+            .collect();
+        frame_of(&[("climb", climb), ("flat", flat(30.0, 60))])
+    }
+
+    #[test]
+    fn a_line_shows_in_the_fill_of_another_series_that_starts_higher_in_the_column() {
+        let f = a_flat_series_and_a_steep_climb();
+        let theme = Theme::default();
+        let buf = filled_chart(&f, &theme, 70, 14);
+        let (climb, flat) = (theme.series_color(0), theme.series_color(1));
+        let found = plot_columns(&buf).any(|x| {
+            let colours = column_colours(&buf, x);
+            colours
+                .iter()
+                .position(|c| *c == Some(flat))
+                .is_some_and(|top| {
+                    colours[..top].contains(&Some(climb))
+                        && colours[top + 1..].contains(&Some(climb))
+                })
+        });
+        assert!(
+            found,
+            "No column shows the climb on both sides of the line of the flat series.\n{}",
+            text(&buf)
+        );
+    }
+
+    /// Draws a chart that holds the `Area` datasets of one series alone. The
+    /// chart uses the plot, the axes, and the labels of the panel.
+    fn reference_of_the_area_of(
+        panel: &TimeSeriesPanel<'_>,
+        series: usize,
+        w: u16,
+        h: u16,
+    ) -> Buffer {
+        let (plot, now) = panel.plot().expect("The frames hold a value.");
+        let floor = plot.y_bounds[0];
+        let s = &plot.series[series];
+        let datasets: Vec<Dataset<'_>> = s
+            .runs
+            .iter()
+            .map(|run| {
+                Dataset::default()
+                    .data(&s.points[run.clone()])
+                    .marker(panel.marker.into())
+                    .style(Style::default().fg(panel.theme.series_color(series)))
+                    .graph_type(GraphType::Area)
+                    .fill_to_y(floor)
+            })
+            .collect();
+        let chart = Chart::new(datasets)
+            .block(panel_block(panel.title, panel.theme, panel.focused))
+            .x_axis(
+                Axis::default()
+                    .style(panel.theme.axis)
+                    .bounds(plot.x_bounds)
+                    .labels(x_labels(plot.x_bounds, now, panel.theme.muted)),
+            )
+            .y_axis(
+                Axis::default()
+                    .style(panel.theme.axis)
+                    .bounds(plot.y_bounds)
+                    .labels_alignment(Alignment::Right)
+                    .labels(y_labels(
+                        plot.y_bounds,
+                        panel.options.unit.or(plot.unit.as_deref()),
+                        panel.options.decimals.or(plot.decimals),
+                        panel.theme.muted,
+                    )),
+            );
+        let area = Rect::new(0, 0, w, h);
+        let mut buf = Buffer::empty(area);
+        chart.render(area, &mut buf);
+        buf
+    }
+
+    #[test]
+    fn a_cell_that_the_line_of_a_series_crosses_equals_the_cell_of_its_area_alone() {
+        let f = a_lower_and_a_higher_series(true);
+        let theme = Theme::default();
+        let p = TimeSeriesPanel::new("Net", PanelData::Frames(&f), &theme)
+            .filled(true)
+            .show_legend(false);
+        let buf = render(&p, 60, 12);
+        let x = middle_column(&buf);
+        let (_, axis_y) = corner(&buf);
+        for series in 0..2 {
+            let reference = reference_of_the_area_of(&p, series, 60, 12);
+            // The top mark of the area alone is the cell that the line crosses.
+            let y = (1..axis_y)
+                .find(|&y| mark_colour(&reference, x, y).is_some())
+                .expect("The series must show a cell.");
+            assert_eq!(
+                buf[(x, y)],
+                reference[(x, y)],
+                "The line of series {series} lost a dot of its own fill in row {y}.\n{}\n\n{}",
+                text(&buf),
+                text(&reference)
+            );
+        }
+    }
+
+    #[test]
+    fn the_legend_lists_each_series_once_and_no_data_cell_replaces_a_cell_of_the_legend() {
+        let f = frame_of(&[
+            ("alpha", flat(90.0, 60)),
+            ("beta", flat(80.0, 60)),
+            ("gamma", flat(70.0, 60)),
+        ]);
+        let theme = Theme::default();
+        let p = TimeSeriesPanel::new("Net", PanelData::Frames(&f), &theme).filled(true);
+        let out = text(&render(&p, 80, 26));
+        for name in ["alpha", "beta", "gamma"] {
+            assert_eq!(
+                out.matches(name).count(),
+                1,
+                "The legend must list {name} once.\n{out}"
+            );
+        }
+        for corner in ["┌", "┐", "└", "┘"] {
+            assert!(
+                out.matches(corner).count() >= 1,
+                "The legend must keep its border.\n{out}"
+            );
+        }
+        assert_eq!(
+            out.matches('┌').count(),
+            1,
+            "The legend must keep its top left corner.\n{out}"
+        );
+        assert_eq!(
+            out.matches('┐').count(),
+            1,
+            "The legend must keep its top right corner.\n{out}"
+        );
+        assert_eq!(
+            out.matches('┘').count(),
+            1,
+            "The legend must keep its bottom right corner.\n{out}"
+        );
+    }
+
+    const MARKERS: [Marker; 4] = [
+        Marker::Braille,
+        Marker::Octant,
+        Marker::HalfBlock,
+        Marker::Block,
+    ];
+
+    /// Returns the same filled panel of three series that holds a legend.
+    fn three_series_with_a_legend() -> Vec<Frame> {
+        let wave = (0..60)
+            .map(|i| Some(50.0 + 30.0 * ((i as f64) / 5.0).sin()))
+            .collect();
+        frame_of(&[
+            ("alphabetical", flat(90.0, 60)),
+            ("beta", wave),
+            ("gamma", flat(20.0, 60)),
+        ])
+    }
+
+    #[test]
+    fn a_filled_panel_drawn_twice_into_one_buffer_draws_the_cells_of_one_draw() {
+        let f = three_series_with_a_legend();
+        let theme = Theme::default();
+        for marker in MARKERS {
+            let p = TimeSeriesPanel::new("Net", PanelData::Frames(&f), &theme)
+                .filled(true)
+                .marker(marker);
+            let once = render(&p, 90, 26);
+            let mut twice = once.clone();
+            p.render(Rect::new(0, 0, 90, 26), &mut twice);
+            assert_eq!(
+                once,
+                twice,
+                "The second draw changed the chart of the marker {marker:?}.\n{}\n\n{}",
+                text(&once),
+                text(&twice)
+            );
+        }
+    }
+
+    #[test]
+    fn a_buffer_that_held_other_cells_gives_the_cells_of_a_blank_buffer_where_the_chart_draws_data()
+    {
+        let f = three_series_with_a_legend();
+        let theme = Theme::default();
+        for marker in MARKERS {
+            let p = TimeSeriesPanel::new("Net", PanelData::Frames(&f), &theme)
+                .filled(true)
+                .show_legend(false)
+                .marker(marker);
+            let area = Rect::new(0, 0, 90, 26);
+            let blank = render(&p, 90, 26);
+            // Each old cell holds a full braille cell, a blue background, and
+            // a bold style. The colour of the old cell changes from one cell to
+            // the next, and it takes the colour of each series in turn. A data
+            // cell of a series therefore equals an old cell in the symbol and
+            // in the foreground at some places.
+            let mut dirty = Buffer::empty(area);
+            for y in 0..area.height {
+                for x in 0..area.width {
+                    dirty[(x, y)]
+                        .set_symbol("\u{28FF}")
+                        .set_fg(theme.series_color(usize::from(x + y) % 3))
+                        .set_bg(Color::Blue)
+                        .set_style(Style::default().add_modifier(Modifier::BOLD));
+                }
+            }
+            p.render(area, &mut dirty);
+            let (_, axis_y) = corner(&blank);
+            let mut data = 0;
+            for x in plot_columns(&blank) {
+                for y in 1..axis_y {
+                    if blank[(x, y)] == Cell::default() {
+                        continue;
+                    }
+                    data += 1;
+                    assert_eq!(
+                        dirty[(x, y)],
+                        blank[(x, y)],
+                        "The cell ({x}, {y}) of the marker {marker:?} depends on the old cell.\n{}\n\n{}",
+                        text(&blank),
+                        text(&dirty)
+                    );
+                }
+            }
+            assert!(data > 300, "The chart must draw data cells.");
+        }
+    }
+
+    /// Returns the place of the first cell of a text in a buffer.
+    fn find_text(buf: &Buffer, word: &str) -> (u16, u16) {
+        (0..buf.area.height)
+            .flat_map(|y| (0..buf.area.width).map(move |x| (x, y)))
+            .find(|&(x, y)| {
+                word.chars()
+                    .enumerate()
+                    .all(|(i, c)| buf[(x + i as u16, y)].symbol() == c.to_string())
+            })
+            .unwrap_or_else(|| panic!("The chart must hold the text {word}.\n{}", text(buf)))
+    }
+
+    #[test]
+    fn each_name_of_the_legend_has_the_colour_of_its_series() {
+        let f = three_series_with_a_legend();
+        let theme = Theme::default();
+        let p = TimeSeriesPanel::new("Net", PanelData::Frames(&f), &theme).filled(true);
+        let buf = render(&p, 90, 26);
+        for (k, name) in ["alphabetical", "beta", "gamma"].into_iter().enumerate() {
+            let (x, y) = find_text(&buf, name);
+            assert_eq!(
+                buf[(x, y)].fg,
+                theme.series_color(k),
+                "The name {name} must hold the colour of series {k}.\n{}",
+                text(&buf)
+            );
+        }
+    }
+
+    #[test]
+    fn a_legend_that_does_not_fit_leaves_no_legend_of_one_name_in_the_chart() {
+        // Six series make a legend that is too tall for the panel. The legend
+        // of one name is shorter, and it would fit.
+        let series: Vec<(String, Vec<Option<f64>>)> = (0..6)
+            .map(|k| (format!("series{k}"), flat(10.0 + 15.0 * k as f64, 60)))
+            .collect();
+        let named: Vec<(&str, Vec<Option<f64>>)> = series
+            .iter()
+            .map(|(n, v)| (n.as_str(), v.clone()))
+            .collect();
+        let f = frame_of(&named);
+        let theme = Theme::default();
+        let shown = TimeSeriesPanel::new("Net", PanelData::Frames(&f), &theme).filled(true);
+        let hidden = TimeSeriesPanel::new("Net", PanelData::Frames(&f), &theme)
+            .filled(true)
+            .show_legend(false);
+        let out = render(&shown, 80, 12);
+        assert!(
+            !text(&out).contains("series"),
+            "The legend of six names must not fit.\n{}",
+            text(&out)
+        );
+        assert_eq!(
+            out,
+            render(&hidden, 80, 12),
+            "A legend that does not fit must leave the chart as a chart with no legend."
+        );
+    }
+
+    #[test]
+    fn a_legend_that_fits_leaves_the_cells_outside_the_legend_as_a_chart_with_no_legend() {
+        let f = three_series_with_a_legend();
+        let theme = Theme::default();
+        let shown = TimeSeriesPanel::new("Net", PanelData::Frames(&f), &theme).filled(true);
+        let hidden = TimeSeriesPanel::new("Net", PanelData::Frames(&f), &theme)
+            .filled(true)
+            .show_legend(false);
+        let (with, without) = (render(&shown, 90, 26), render(&hidden, 90, 26));
+        let (x, y) = find_text(&with, "alphabetical");
+        // The legend has one column of border on each side of the names, and
+        // one row of border above the first name.
+        let legend = Rect::new(x - 1, y - 1, 14, 5);
+        for cy in 0..26 {
+            for cx in 0..90 {
+                if legend.contains((cx, cy).into()) {
+                    continue;
+                }
+                assert_eq!(
+                    with[(cx, cy)],
+                    without[(cx, cy)],
+                    "The legend changed the cell ({cx}, {cy}).\n{}\n\n{}",
+                    text(&with),
+                    text(&without)
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn each_marker_draws_the_glyphs_of_its_own_in_a_composed_chart() {
+        let f = a_lower_and_a_higher_series(true);
+        let theme = Theme::default();
+        let in_plot = |buf: &Buffer| -> Vec<String> {
+            let (_, axis_y) = corner(buf);
+            plot_columns(buf)
+                .flat_map(|x| (1..axis_y).map(move |y| (x, y)))
+                .map(|(x, y)| buf[(x, y)].symbol().to_string())
+                .filter(|symbol| symbol != " ")
+                .collect()
+        };
+        let is_braille = |symbol: &String| {
+            symbol
+                .chars()
+                .any(|c| ('\u{2800}'..='\u{28FF}').contains(&c))
+        };
+        for marker in MARKERS {
+            let p = TimeSeriesPanel::new("Net", PanelData::Frames(&f), &theme)
+                .filled(true)
+                .show_legend(false)
+                .marker(marker);
+            let buf = render(&p, 60, 12);
+            let symbols = in_plot(&buf);
+            assert!(!symbols.is_empty(), "The marker {marker:?} draws nothing.");
+            match marker {
+                Marker::Braille => assert!(
+                    symbols.iter().all(is_braille),
+                    "The marker Braille must draw braille characters only.\n{}",
+                    text(&buf)
+                ),
+                Marker::Octant => assert!(
+                    !symbols.iter().any(is_braille),
+                    "The marker Octant must draw no braille character.\n{}",
+                    text(&buf)
+                ),
+                Marker::HalfBlock => assert!(
+                    symbols
+                        .iter()
+                        .all(|s| ["\u{2580}", "\u{2584}", "\u{2588}"].contains(&s.as_str())),
+                    "The marker HalfBlock must draw half blocks only.\n{}",
+                    text(&buf)
+                ),
+                Marker::Block => assert!(
+                    symbols.iter().all(|s| s == "\u{2588}"),
+                    "The marker Block must draw full blocks only.\n{}",
+                    text(&buf)
+                ),
+            }
+        }
+    }
+
+    #[test]
+    fn a_chart_of_more_than_256_series_shows_the_last_series_where_all_lines_share_a_cell() {
+        let theme = Theme::default();
+        let (last, before) = (299, 255);
+        assert_ne!(
+            theme.series_color(last),
+            theme.series_color(before),
+            "The test needs two series that hold two colours."
+        );
+        let series: Vec<(String, Vec<Option<f64>>)> = (0..=last)
+            .map(|k| (format!("s{k}"), flat(5.0, 12)))
+            .collect();
+        let named: Vec<(&str, Vec<Option<f64>>)> = series
+            .iter()
+            .map(|(n, v)| (n.as_str(), v.clone()))
+            .collect();
+        let f = frame_of(&named);
+        let p = TimeSeriesPanel::new("Net", PanelData::Frames(&f), &theme)
+            .filled(true)
+            .show_legend(false);
+        let buf = render(&p, 30, 10);
+        let colours: Vec<_> = plot_columns(&buf)
+            .flat_map(|x| column_colours(&buf, x))
+            .flatten()
+            .collect();
+        assert!(!colours.is_empty(), "The chart must draw cells.");
+        assert!(
+            colours.iter().all(|c| *c == theme.series_color(last)),
+            "Every cell must show the last series.\n{}",
+            text(&buf)
+        );
+    }
+
+    #[test]
+    fn a_series_with_a_hole_draws_no_fill_in_the_columns_of_the_hole_in_a_chart_of_two_series() {
+        let mut high = flat(80.0, 60);
+        high[20..40].fill(None);
+        let f = frame_of(&[("high", high), ("low", flat(10.0, 60))]);
+        let theme = Theme::default();
+        let buf = filled_chart(&f, &theme, 70, 12);
+        let columns = plot_columns(&buf);
+        let width = columns.end - columns.start;
+        let hole = columns.start + width * 24 / 59..columns.start + width * 35 / 59;
+        for x in hole {
+            let colours = column_colours(&buf, x);
+            assert!(
+                !colours.contains(&Some(theme.series_color(0))),
+                "Column {x} shows the series that holds a hole.\n{}",
+                text(&buf)
+            );
+            assert!(
+                colours.contains(&Some(theme.series_color(1))),
+                "Column {x} must still show the other series.\n{}",
+                text(&buf)
+            );
+        }
+    }
+
+    #[test]
+    fn every_marker_composes_a_chart_of_two_series_and_shows_both_colours() {
+        let f = a_lower_and_a_higher_series(true);
+        let theme = Theme::default();
+        for marker in [
+            Marker::Braille,
+            Marker::Octant,
+            Marker::HalfBlock,
+            Marker::Block,
+        ] {
+            let p = TimeSeriesPanel::new("Net", PanelData::Frames(&f), &theme)
+                .filled(true)
+                .show_legend(false)
+                .marker(marker);
+            let buf = render(&p, 60, 12);
+            let colours = column_colours(&buf, middle_column(&buf));
+            for series in 0..2 {
+                assert!(
+                    colours.contains(&Some(theme.series_color(series))),
+                    "The marker {marker:?} shows no cell of series {series}.\n{}",
+                    text(&buf)
+                );
+            }
+        }
+    }
+
+    /// Draws the chart that commit b35320a drew for a chart that is not filled:
+    /// one `Line` dataset for each run of each series, and the name on the
+    /// first run of each series.
+    fn reference_of_the_lines(panel: &TimeSeriesPanel<'_>, w: u16, h: u16) -> Buffer {
+        let (plot, now) = panel.plot().expect("The frames hold a value.");
+        let mut datasets = Vec::new();
+        for (i, s) in plot.series.iter().enumerate() {
+            for (r, run) in s.runs.iter().enumerate() {
+                let ds = Dataset::default()
+                    .data(&s.points[run.clone()])
+                    .marker(panel.marker.into())
+                    .style(Style::default().fg(panel.theme.series_color(i)))
+                    .graph_type(GraphType::Line);
+                datasets.push(if r == 0 { ds.name(s.name.clone()) } else { ds });
+            }
+        }
+        let chart = Chart::new(datasets)
+            .block(panel_block(panel.title, panel.theme, panel.focused))
+            .x_axis(
+                Axis::default()
+                    .style(panel.theme.axis)
+                    .bounds(plot.x_bounds)
+                    .labels(x_labels(plot.x_bounds, now, panel.theme.muted)),
+            )
+            .y_axis(
+                Axis::default()
+                    .style(panel.theme.axis)
+                    .bounds(plot.y_bounds)
+                    .labels_alignment(Alignment::Right)
+                    .labels(y_labels(
+                        plot.y_bounds,
+                        panel.options.unit.or(plot.unit.as_deref()),
+                        panel.options.decimals.or(plot.decimals),
+                        panel.theme.muted,
+                    )),
+            );
+        let area = Rect::new(0, 0, w, h);
+        let mut buf = Buffer::empty(area);
+        chart.render(area, &mut buf);
+        buf
+    }
+
+    #[test]
+    fn a_chart_that_is_not_filled_draws_the_cells_that_one_chart_of_lines_draws() {
+        let mut middle = flat(50.0, 60);
+        middle[10..20].fill(None);
+        let f = frame_of(&[
+            ("alpha", flat(90.0, 60)),
+            ("beta", middle),
+            ("gamma", flat(20.0, 60)),
+        ]);
+        let theme = Theme::default();
+        let p = TimeSeriesPanel::new("Net", PanelData::Frames(&f), &theme).filled(false);
+        let buf = render(&p, 80, 26);
+        let reference = reference_of_the_lines(&p, 80, 26);
+        assert_eq!(
+            text(&buf),
+            text(&reference),
+            "The chart draws other symbols than one chart of lines."
+        );
+        assert_eq!(
+            buf, reference,
+            "The chart draws other styles than one chart of lines."
         );
     }
 
