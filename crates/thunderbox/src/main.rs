@@ -62,6 +62,7 @@ Keys:
     -         Make the time range twice as wide.
     +         Make the time range half as wide.
     0, =      Return to the time range that the dashboard states.
+    f         Hold a time range that follows the clock behind, or make a held one follow it.
     v         Select the next variable of the dashboard.
     ]         Take the choice that follows, on the variable that you selected.
     [         Take the choice before it, on the variable that you selected.
@@ -69,13 +70,18 @@ Keys:
     Space     Do what Enter does.
 ";
 
-/// The key hint that the status row keeps while the window stands still.
+/// The part of the sentence of a window that follows the clock behind, which
+/// names the two keys that change that window.
 ///
-/// The row drops the whole list of the keys when a sentence takes the room.
-/// A person who reads that the window stands still needs one key of that list.
-/// That key returns the range of the dashboard. The row therefore writes this
-/// one hint in place of the list.
-const RANGE_KEY: &str = "0 range";
+/// The key `f` holds the window, and the key `0` returns the range of the
+/// dashboard.
+const FOLLOWING_HINT: &str = "Press f to hold, or 0 to return.";
+
+/// The short form of [`FOLLOWING_HINT`].
+///
+/// The row draws this form only when the complete sentence does not fit.
+/// `CLAUDE.md` lists it in section 1.5.
+const FOLLOWING_HINT_SHORT: &str = "f holds, 0 returns.";
 
 /// The keys that the status row lists.
 ///
@@ -363,10 +369,8 @@ fn behind(range: &TimeRange, window: Option<TimeWindow>) -> Option<Behind> {
 /// `CLAUDE.md` states the rule for a text that does not fit, in the section
 /// `The rule for a short label inside a panel`.
 ///
-/// That rule has one exception. A row that names a window that follows the
-/// clock keeps [`RANGE_KEY`] after it drops the list. That key returns the
-/// range of the dashboard. The sentence of a held window names that key
-/// itself.
+/// A row that names a window in the past drops the list of the keys. It names
+/// the keys that change the window inside its own sentence instead.
 ///
 /// The function reports a refresh only when the caller states that the set of
 /// queries waits. A data source that answers at once therefore writes nothing,
@@ -375,12 +379,14 @@ fn behind(range: &TimeRange, window: Option<TimeWindow>) -> Option<Behind> {
 /// The `behind` parameter holds the window while that window ends before the
 /// present moment. A held range makes the row state the two moments of the
 /// window, and the sentence stays the same while the window stands still. A
-/// range that follows the clock makes the row state the width of the window and
-/// the distance back to it. The row writes the short form of the held sentence
-/// only when the complete sentence does not fit. It tries that form before it
-/// drops the sentence. A person who reads `no data` in every panel learns
-/// from that sentence why the panels are empty. A window that ends at the
-/// present moment writes no sentence, because nothing is out of the ordinary.
+/// range that follows the clock behind makes the row state the width of the
+/// window and the distance back to it. That distance stays the same too,
+/// because the window moves with the clock. Each sentence names the keys that
+/// change the window. The row writes the short form of a sentence only when
+/// the complete sentence does not fit. It tries that form before it drops the
+/// sentence. A person who reads `no data` in every panel learns from that
+/// sentence why the panels are empty. A window that ends at the present moment
+/// writes no sentence, because nothing is out of the ordinary.
 ///
 /// The `variable` parameter holds the sentence of a variable that has no
 /// choice. `Variables::error` writes that sentence. The row of the variables
@@ -417,45 +423,41 @@ fn status_text(
     if waits {
         parts.push("The dashboard waits for an answer.".to_string());
     }
-    let held_sentence = match behind {
-        Some(Behind::Held(window)) => Some(format_held_window(window)),
-        _ => None,
+    // The complete sentence of a window, and its short form. The row swaps the
+    // sentence for the short form when the sentence does not fit.
+    let window_forms = match behind {
+        Some(Behind::Held(window)) => {
+            Some((format_held_window(window), format_held_window_short(window)))
+        }
+        Some(Behind::Following(window)) => Some((
+            format!("{} {FOLLOWING_HINT}", format_window(window)),
+            format!("{} {FOLLOWING_HINT_SHORT}", format_window(window)),
+        )),
+        None => None,
     };
-    match behind {
-        Some(Behind::Held(_)) => parts.extend(held_sentence.clone()),
-        Some(Behind::Following(window)) => parts.push(format_window(window)),
-        None => {}
+    if let Some((sentence, _)) = &window_forms {
+        parts.push(sentence.clone());
     }
     if let Some(age) = age.filter(|age| *age >= OLD_NUMBERS) {
         parts.push(format!("The numbers are {} seconds old.", age.as_secs()));
     }
     parts.push(KEYS.to_string());
-    // The row drops the last part while it is too wide. First it swaps the
-    // sentence of a held window for the short form. A window that stands still
-    // then stays named beside another sentence.
+    // The row drops the last part while it is too wide. A part that names a
+    // window becomes the short form first. A person who reads that the window
+    // stands still, or that it moves on, needs the keys that change that. The
+    // short form names those keys too. The row drops the short form only when
+    // it does not fit either.
     while row_width(&parts) > usize::from(width) {
-        let is_sentence = parts.last().is_some() && parts.last() == held_sentence.as_ref();
-        match (behind, is_sentence) {
-            (Some(Behind::Held(window)), true) => {
+        match (&window_forms, parts.last()) {
+            (Some((sentence, short)), Some(last)) if last == sentence => {
+                let short = short.clone();
                 parts.pop();
-                parts.push(format_held_window_short(window));
+                parts.push(short);
             }
             _ if parts.len() > 1 => {
                 parts.pop();
             }
             _ => break,
-        }
-    }
-    // The row dropped the list of the keys. A person who reads that the window
-    // stands still needs the key that returns the range of the dashboard. The
-    // sentence of a held window names that key, and so does its short form.
-    // The row of a window that follows the clock takes the key here.
-    if matches!(behind, Some(Behind::Following(_))) && parts.last().is_some_and(|last| last != KEYS)
-    {
-        let mut with_key = parts.clone();
-        with_key.push(RANGE_KEY.to_string());
-        if row_width(&with_key) <= usize::from(width) {
-            parts = with_key;
         }
     }
     parts.join(GAP)
@@ -874,7 +876,7 @@ mod tests {
         );
         assert!(
             text.starts_with(
-                "The panels hold 14:00:00 to 14:02:00 UTC. Press 0 to follow the clock."
+                "The panels hold 14:00:00 to 14:02:00 UTC. Press f to follow the clock behind, or 0 to return."
             ),
             "A reader must learn that the window stands still. Text: {text}"
         );
@@ -912,7 +914,7 @@ mod tests {
             Some(Behind::Held(held_window())),
             40,
         );
-        assert_eq!(text, "Held 14:00:00 to 14:02:00. 0 follows.");
+        assert_eq!(text, "Held 14:00:00 to 14:02:00. f follows, 0 returns.");
         let wide = status_text(
             0,
             0,
@@ -920,12 +922,94 @@ mod tests {
             None,
             false,
             Some(Behind::Held(held_window())),
-            71,
+            93,
         );
         assert!(
             wide.starts_with("The panels hold"),
             "The complete sentence must stay while it fits. Text: {wide}"
         );
+        let narrow = status_text(
+            0,
+            0,
+            None,
+            None,
+            false,
+            Some(Behind::Held(held_window())),
+            92,
+        );
+        assert!(
+            narrow.starts_with("Held "),
+            "The short form must replace a sentence that does not fit. Text: {narrow}"
+        );
+    }
+
+    #[test]
+    fn the_status_row_names_the_keys_of_a_window_that_follows_the_clock() {
+        let text = status_text(
+            0,
+            0,
+            None,
+            None,
+            false,
+            Some(Behind::Following(held_window())),
+            120,
+        );
+        assert_eq!(
+            text,
+            "The panels show 2 minutes that ended 3 hours ago. Press f to hold, or 0 to return."
+        );
+    }
+
+    #[test]
+    fn the_status_row_writes_the_short_keys_when_the_following_sentence_does_not_fit() {
+        let text = status_text(
+            0,
+            0,
+            None,
+            None,
+            false,
+            Some(Behind::Following(held_window())),
+            81,
+        );
+        assert_eq!(
+            text,
+            "The panels show 2 minutes that ended 3 hours ago. f holds, 0 returns."
+        );
+        let fits = status_text(
+            0,
+            0,
+            None,
+            None,
+            false,
+            Some(Behind::Following(held_window())),
+            82,
+        );
+        assert!(
+            fits.ends_with("Press f to hold, or 0 to return."),
+            "The complete sentence must stay while it fits. Text: {fits}"
+        );
+    }
+
+    #[test]
+    fn the_following_sentence_does_not_change_when_only_the_present_moment_changes() {
+        let at = |now| {
+            // A range that follows the clock moves its window with `now`.
+            let window = TimeWindow {
+                from: now - 60_000_000 - 120_000,
+                to: now - 60_000_000,
+                now,
+            };
+            status_text(
+                0,
+                0,
+                None,
+                None,
+                false,
+                Some(Behind::Following(window)),
+                120,
+            )
+        };
+        assert_eq!(at(100_000_000), at(130_000_000));
     }
 
     #[test]
@@ -941,7 +1025,7 @@ mod tests {
         );
         assert_eq!(
             text,
-            format!("1 panel holds an error.{GAP}Held 14:00:00 to 14:02:00. 0 follows."),
+            format!("1 panel holds an error.{GAP}Held 14:00:00 to 14:02:00. f follows, 0 returns."),
             "The short form fits, so the row must name the window. Text: {text}"
         );
     }
@@ -955,11 +1039,34 @@ mod tests {
             None,
             true,
             Some(Behind::Held(held_window())),
-            80,
+            90,
         );
         assert_eq!(
             text,
-            format!("The dashboard waits for an answer.{GAP}Held 14:00:00 to 14:02:00. 0 follows."),
+            format!(
+                "The dashboard waits for an answer.{GAP}Held 14:00:00 to 14:02:00. f follows, 0 returns."
+            ),
+            "The short form fits, so the row must name the window. Text: {text}"
+        );
+    }
+
+    #[test]
+    fn the_status_row_writes_the_short_form_beside_the_sentence_of_an_error_for_a_following_window()
+    {
+        let text = status_text(
+            1,
+            0,
+            None,
+            None,
+            false,
+            Some(Behind::Following(held_window())),
+            100,
+        );
+        assert_eq!(
+            text,
+            format!(
+                "1 panel holds an error.{GAP}The panels show 2 minutes that ended 3 hours ago. f holds, 0 returns."
+            ),
             "The short form fits, so the row must name the window. Text: {text}"
         );
     }
@@ -973,10 +1080,10 @@ mod tests {
             None,
             false,
             Some(Behind::Held(held_window())),
-            100,
+            120,
         );
         assert!(
-            text.ends_with("UTC. Press 0 to follow the clock."),
+            text.ends_with("UTC. Press f to follow the clock behind, or 0 to return."),
             "The complete sentence fits, so the row must keep it. Text: {text}"
         );
     }
@@ -1033,10 +1140,10 @@ mod tests {
     }
 
     /// The list of the keys does not fit beside the sentence that names a
-    /// window. A person who reads that sentence needs the key that returns the
-    /// range of the dashboard, so the row keeps that one hint.
+    /// window. A person who reads that sentence needs the keys that change the
+    /// window, so the row keeps the short form of those keys.
     #[test]
-    fn the_status_row_keeps_the_key_of_the_range_beside_the_sentence() {
+    fn the_status_row_keeps_the_keys_of_the_window_beside_the_sentence() {
         let window = TimeWindow {
             from: 0,
             to: 300_000,
@@ -1048,8 +1155,8 @@ mod tests {
             "A reader must learn which window the panels show. Text: {text}"
         );
         assert!(
-            text.ends_with(RANGE_KEY),
-            "A reader must learn the key that brings the range back. Text: {text}"
+            text.ends_with(FOLLOWING_HINT_SHORT),
+            "A reader must learn the keys that change the window. Text: {text}"
         );
         assert!(
             text.chars().count() <= 80,
@@ -1058,19 +1165,13 @@ mod tests {
     }
 
     /// The whole list of the keys must fit a terminal of 80 columns. The row
-    /// would otherwise hold no key at all on such a terminal. The list ends
-    /// with the hint that the row keeps by itself, so a reader meets the same
-    /// words in both places.
+    /// would otherwise hold no key at all on such a terminal.
     #[test]
     fn the_list_of_the_keys_fits_a_terminal_of_eighty_columns() {
         assert!(
             KEYS.chars().count() <= 80,
             "The list holds {} characters.",
             KEYS.chars().count()
-        );
-        assert!(
-            KEYS.ends_with(RANGE_KEY),
-            "The two texts must name that key with the same words. {KEYS}"
         );
     }
 
@@ -1098,6 +1199,18 @@ mod tests {
 
         assert_eq!(press(KeyCode::Char('0'), &back), declared);
         assert_eq!(press(KeyCode::Char('='), &back), declared);
+
+        // The key `f` reaches `time_key`. It switches a held range to a range
+        // that follows the clock, and it holds that range again.
+        let following = press(KeyCode::Char('f'), &back);
+        assert!(following.moves_with_the_clock(), "{following:?}");
+        assert_eq!(following.resolve(NOW), back.resolve(NOW));
+        assert_eq!(press(KeyCode::Char('f'), &following), back);
+        assert_eq!(
+            time_key(translate(KeyCode::Char('f')), &declared, &declared, NOW),
+            None,
+            "A live range already follows the clock."
+        );
         assert!(
             press(KeyCode::Right, &back).moves_with_the_clock(),
             "One key must bring a person back to the present moment."
@@ -1255,6 +1368,7 @@ mod tests {
             "    -         Make the time range twice as wide.",
             "    +         Make the time range half as wide.",
             "    0, =      Return to the time range that the dashboard states.",
+            "    f         Hold a time range that follows the clock behind, or make a held one follow it.",
         ] {
             assert!(
                 HELP.contains(row),

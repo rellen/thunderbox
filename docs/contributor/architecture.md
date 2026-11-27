@@ -221,7 +221,7 @@ each group:
 
 | group | function | record |
 |---|---|---|
-| the time range | `time_key` | [0035](adr/0035-the-program-binds-each-key-of-the-time-range.md), [0076](adr/0076-a-key-that-would-pass-the-limit-leaves-the-range-as-it-was.md) |
+| the time range | `time_key` | [0035](adr/0035-the-program-binds-each-key-of-the-time-range.md), [0093](adr/0093-a-person-can-follow-the-clock-behind-the-present.md), [0076](adr/0076-a-key-that-would-pass-the-limit-leaves-the-range-as-it-was.md) |
 | a variable | `variable_key` | [0043](adr/0043-the-program-binds-each-key-of-a-variable.md) |
 | a row panel | `row_key` | [0054](adr/0054-the-program-binds-enter-and-space.md) |
 
@@ -312,7 +312,8 @@ documents of each feature that exists.
 | the field `left` of a table panel and a top panel | [reference of the dashboard file](../user/reference/dashboard-file.md), [how-to](../user/how-to/show-the-busiest-processes.md) | 0085 |
 | the field `widths` of a table panel and a top panel, and the hint `width` of a column | [reference of the dashboard file](../user/reference/dashboard-file.md), [table panel](../user/reference/panels/table.md) | 0087 |
 | the row panels | [how-to](../user/how-to/group-panels-under-row-panels.md), [reference](../user/reference/panels/row.md), [explanation](../user/explanation/row-panels-and-the-place-of-a-panel.md) | 0050, 0051, 0052, 0053, 0054 |
-| the time range | [how-to](../user/how-to/show-an-earlier-window.md), [reference](../user/reference/time-ranges.md), [explanation](../user/explanation/the-time-range-and-the-window.md) | 0035, 0036, 0037, 0038, 0091, 0073, 0074, 0075, 0076, 0077 |
+| the time range | [how-to](../user/how-to/show-an-earlier-window.md), [reference](../user/reference/time-ranges.md), [explanation](../user/explanation/the-time-range-and-the-window.md) | 0035, 0036, 0037, 0038, 0073, 0074, 0075, 0076, 0077, 0091, 0092 |
+| the key `f`, which makes a held window follow the clock behind the present moment | [how-to](../user/how-to/show-an-earlier-window.md), [reference](../user/reference/command-line.md), [explanation](../user/explanation/the-time-range-and-the-window.md) | 0093 |
 | the variables | [how-to](../user/how-to/let-a-person-select-a-value.md), [reference](../user/reference/variables.md) | 0040, 0041, 0042, 0043, 0044 |
 | the legend pattern | [how-to](../user/how-to/name-each-series.md), [reference](../user/reference/legend-patterns.md) | 0017 |
 | the thresholds and the units | [how-to](../user/how-to/colour-a-value-that-reaches-a-bound.md), [reference](../user/reference/numbers-and-units.md) | 0007, 0080 |

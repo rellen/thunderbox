@@ -123,6 +123,7 @@ three keys, and it uses them inside the dashboard.
 | `-` | Make the time range twice as wide. |
 | `+` | Make the time range half as wide. |
 | `0`, `=` | Return to the time range that the dashboard states. |
+| `f` | Hold a time range that follows the clock behind the present moment. On a held time range, the key makes the time range follow the clock behind. On a live time range, the key does nothing. |
 | `v` | Select the next variable of the dashboard. |
 | `]` | Take the choice that follows, on the variable that you selected. |
 | `[` | Take the choice before it, on the variable that you selected. |
@@ -151,16 +152,24 @@ describes each glyph.
 
 ### Rules of the keys of the time range
 
-- A move fixes a moment at each end of the time range. The window then stands
-  still, and the panels show that window.
-- A move forward that reaches the present moment returns a time range of the
-  same width. That time range follows the clock again.
+- A time range has one of three modes. A live range ends at the present
+  moment. A held range has a fixed moment at each end, so its window stands
+  still. A following range follows the clock, and it ends before the present
+  moment, so its window moves on with the clock.
+- A move back from a live range holds the window. A move from a held range
+  keeps it held. A move from a following range keeps that mode.
+- A move forward that reaches the present moment returns a live range of the
+  same width. That range follows the clock again.
+- The key `f` makes a held range follow the clock behind. It holds a following
+  range. It does nothing on a live range, because a live range already follows
+  the clock.
+- The keys `-` and `+` keep the mode of the range.
 - The keys `-` and `+` hold the later end of the time range still. They move
   the earlier end.
 - The keys `-` and `+` keep the width between 1 second and 3650 days. The page
   [Time ranges](time-ranges.md#limits-of-the-width) states these limits.
 - A key that asks for the time range that the dashboard already shows does
-  nothing. The key `Right` on a time range that follows the clock is an example.
+  nothing. The key `Right` on a live time range is an example.
 - A key that would carry an end past the largest or the smallest count of
   milliseconds leaves the time range as it was. It does nothing, in the same
   way.
@@ -226,7 +235,7 @@ It puts four spaces between two texts. The list of the keys comes last.
 | 2 | `The terminal is too small for 1 panel.` or `The terminal is too small for N panels.` | The renderer drops one panel or more. The count holds no panel that a collapsed row panel hides. |
 | 3 | `The variable "NAME" has no choice.` and the reason | The data source of a variable did not return the choices. The row names the first such variable. |
 | 4 | `The dashboard waits for an answer.` | A set of queries has waited for 1 second or more. |
-| 5 | `The panels hold START to END UTC. Press 0 to follow the clock.` or `The panels show WIDTH that ended DISTANCE ago.` | The window ends before the present moment. A held range gets the first text, and a range that follows the clock gets the second text. The text `The panels hold 14:00:00 to 14:02:00 UTC. Press 0 to follow the clock.` is an example of the first, and `The panels show 5 minutes that ended 1 hour ago.` is an example of the second. The row writes the short form `Held 14:00:00 to 14:02:00. 0 follows.` of the first text when that text does not fit. |
+| 5 | `The panels hold START to END UTC. Press f to follow the clock behind, or 0 to return.` or `The panels show WIDTH that ended DISTANCE ago. Press f to hold, or 0 to return.` | The window ends before the present moment. A held range gets the first text, and a following range gets the second text. The text `The panels hold 14:00:00 to 14:02:00 UTC. Press f to follow the clock behind, or 0 to return.` is an example of the first, and `The panels show 5 minutes that ended 1 hour ago. Press f to hold, or 0 to return.` is an example of the second. The row writes the short form `Held 14:00:00 to 14:02:00. f follows, 0 returns.` of the first text, and the short form `f holds, 0 returns.` of the last sentence of the second text, when the complete text does not fit. |
 | 6 | `The numbers are N seconds old.` | The answers on the screen come from a set of queries that started 5 seconds ago or more. |
 | 7 | `q quit  tab next panel  m marker  r refresh  arrows move  -+ width  0 range` | The row always writes this list of the keys. |
 
@@ -240,9 +249,9 @@ a fixed moment at each end is a held range. The row writes START and END as
 times of day. It writes each as `MM-DD HH:MM` when the window is one day wide or
 wider. The sentence of a held range stays the same on each refresh.
 
-The form of a range that follows the clock writes each length of time in one
-unit. The unit is seconds, minutes, hours, or days. The row selects the unit
-from the length, and it rounds the count to a whole number.
+The form of a following range writes each length of time in one unit. The unit
+is seconds, minutes, hours, or days. The row selects the unit from the length,
+and it rounds the count to a whole number.
 
 ### Rules of the width of the status row
 
@@ -250,12 +259,14 @@ from the length, and it rounds the count to a whole number.
   never drops the first text.
 - The list of the keys holds 75 characters, so it fits a terminal of 80
   columns.
-- A row that names a window of a range that follows the clock keeps the hint
-  `0 range` after it drops the list of the keys. It adds the hint only while
-  the hint fits.
-- The sentence of a held range holds the key `0` already. The row draws the
-  short form `Held 14:00:00 to 14:02:00. 0 follows.` only when the complete
-  sentence does not fit, and it adds no hint after the short form.
+- The sentence of a window in the past names the keys `f` and `0` already. The
+  row therefore keeps no list of the keys beside that sentence when the row is
+  too narrow for both.
+- The row draws the short form of a held sentence, `Held 14:00:00 to 14:02:00.
+  f follows, 0 returns.`, only when the complete sentence does not fit. It
+  adds no hint after the short form.
+- The row draws the short hint `f holds, 0 returns.` of a following sentence
+  only when the complete sentence does not fit.
 - For a dashboard that holds a row panel, the row adds the hint `enter fold`
   after the list of the keys. Two spaces stand before the hint.
 - The row adds the hint `enter fold` only while the row ends with the list of

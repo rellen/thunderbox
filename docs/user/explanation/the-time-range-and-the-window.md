@@ -4,6 +4,7 @@ Every panel of a dashboard shares one time range. This page answers these
 questions:
 
 - What does a time range name?
+- What are the three modes of a time range?
 - What does a label of the axis of time state, for each kind of range?
 - Why does a window in the past still refresh?
 
@@ -34,9 +35,10 @@ sections below explain why.
 ## A window that stands still
 
 The keys of the time range move the range back and forward. They also make the
-range wider or narrower. A move fixes a moment at each end of the range. The
-window then stands still, and every panel shows the same period on each refresh.
-A person who studies the past needs a picture that does not move.
+range wider or narrower. A move back from a live range fixes a moment at each
+end of the range. The window then stands still, and every panel shows the same
+period on each refresh. A person who studies the past needs a picture that does
+not move. The section on the three modes of a range states the other case.
 
 A move forward that reaches the present moment returns a range that follows the
 clock again. That range keeps the width that the person chose. No data source of
@@ -71,12 +73,44 @@ states the decision, and
 [Two ways into another program](two-ways-into-another-program.md) explains the
 reasons.
 
+## Three modes of a range: live, held, and following
+
+A time range is in one of three modes:
+
+- A live range ends at the present moment. Its end is `now`, or an offset of 0
+  or more. The window moves with the clock, and the right edge of every chart
+  is the present moment.
+- A held range has a fixed moment at each end. Its window stands still.
+- A following range follows the clock, but it ends before the present moment.
+  Each end is an offset before the present moment, such as `now-10m`. The
+  window moves with the clock and keeps the same distance from it.
+
+A move back from a live range holds the window. A person who studies an event
+needs the picture to stand still. A held window that a person moves stays held.
+A following window that a person moves keeps its mode. The keys `-` and `+`
+keep the mode as well.
+
+The key `f` changes the mode between a held range and a following range. A person who holds a
+window sees the same moments on each refresh. After the key `f`, the same
+window follows the clock. The person then sees a period of the same width move
+on, and the distance back to it stays the same. The key `f` again holds
+the window at the moments that it names at that time. A live range already
+follows the clock, so the key `f` does nothing there. The key `0` returns the
+range of the dashboard from every mode.
+
+A move forward that reaches the present moment returns a live range in each
+mode. The status row states the mode. A held window writes its two moments. A
+following window writes its width and its distance, and the sentence stays the
+same on each refresh because the distance stays the same.
+[ADR 0093](../../contributor/adr/0093-a-person-can-follow-the-clock-behind-the-present.md)
+states the decision.
+
 ## A live window states distances, and a held window states clock times
 
 A chart writes labels under its axis of time. A live range ends at the present
-moment. A `following` range follows the clock, but it ends before the present
+moment. A following range follows the clock, but it ends before the present
 moment. A held range holds a fixed moment at each end. For a live range and for a
-`following` range, each label states the distance from the present moment to that
+following range, each label states the distance from the present moment to that
 place on the axis. The label `-30s` marks the
 moment 30 seconds before the present moment. The label `now` appears only where
 the axis reaches the present moment.
@@ -143,19 +177,20 @@ does not hold the most recent sample.
 
 The status row is the one place that can tell a person why. While the window
 stands still in the past, the row names the two moments of that window. It also
-names the key that returns to the present moment:
+names the keys that follow the clock behind and that return the range of the
+dashboard:
 
 ```
-The panels hold 14:00:00 to 14:02:00 UTC. Press 0 to follow the clock.
+The panels hold 14:00:00 to 14:02:00 UTC. Press f to follow the clock behind, or 0 to return.
 ```
 
 The sentence holds no distance from the present moment. The picture of a held
-window stands still, so the sentence stands still too. A window that follows
-the clock ends before the present moment, and it moves on each refresh. The
-row then writes the width of that window and the distance back to it:
+window stands still, so the sentence stands still too. A following window ends
+before the present moment, and it moves on each refresh. The row then writes
+the width of that window and the distance back to it:
 
 ```
-The panels show 5 minutes that ended 1 hour ago.
+The panels show 5 minutes that ended 1 hour ago. Press f to hold, or 0 to return.
 ```
 
 The row and the axis of time read the same window, so the two always agree. No
@@ -202,9 +237,11 @@ states the decision.
 These records hold the detail:
 
 - [ADR 0035](../../contributor/adr/0035-the-program-binds-each-key-of-the-time-range.md):
-  the program binds each key of the time range.
+  the program binds each key of the time range. ADR 0093 supersedes it.
+- [ADR 0093](../../contributor/adr/0093-a-person-can-follow-the-clock-behind-the-present.md):
+  a person can follow the clock behind the present moment.
 - [ADR 0036](../../contributor/adr/0036-each-label-of-the-time-axis-states-its-distance-from-now.md):
-  a live range and a `following` range label the axis of time with distances from
+  a live range and a following range label the axis of time with distances from
   the present moment.
 - [ADR 0091](../../contributor/adr/0091-a-held-window-labels-its-time-axis-with-clock-times.md):
   a held window labels its axis of time with clock times.

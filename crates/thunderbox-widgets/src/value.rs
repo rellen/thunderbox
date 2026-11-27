@@ -230,8 +230,9 @@ pub fn format_window(window: TimeWindow) -> String {
 /// Returns the sentence that describes a window that stands still.
 ///
 /// A person held the window at two fixed moments. The sentence names both
-/// moments in Coordinated Universal Time, and it names the key that returns to
-/// the present moment. The sentence does not change while the window stands
+/// moments in Coordinated Universal Time. It also names two keys. The key `f`
+/// makes the window follow the clock behind. The key `0` returns to the range
+/// of the dashboard. The sentence does not change while the window stands
 /// still, because it holds no distance from the present moment.
 ///
 /// # Examples
@@ -242,13 +243,13 @@ pub fn format_window(window: TimeWindow) -> String {
 /// let window = TimeWindow { from: 50_400_000, to: 50_520_000, now: 60_000_000 };
 /// assert_eq!(
 ///     format_held_window(window),
-///     "The panels hold 14:00:00 to 14:02:00 UTC. Press 0 to follow the clock."
+///     "The panels hold 14:00:00 to 14:02:00 UTC. Press f to follow the clock behind, or 0 to return."
 /// );
 /// ```
 pub fn format_held_window(window: TimeWindow) -> String {
     let span = window.span_ms();
     format!(
-        "The panels hold {} to {} UTC. Press 0 to follow the clock.",
+        "The panels hold {} to {} UTC. Press f to follow the clock behind, or 0 to return.",
         format_clock(window.from, span),
         format_clock(window.to, span)
     )
@@ -262,7 +263,7 @@ pub fn format_held_window(window: TimeWindow) -> String {
 pub fn format_held_window_short(window: TimeWindow) -> String {
     let span = window.span_ms();
     format!(
-        "Held {} to {}. 0 follows.",
+        "Held {} to {}. f follows, 0 returns.",
         format_clock(window.from, span),
         format_clock(window.to, span)
     )
@@ -607,7 +608,7 @@ mod tests {
         };
         assert_eq!(
             format_held_window(window),
-            "The panels hold 14:00:00 to 14:02:00 UTC. Press 0 to follow the clock."
+            "The panels hold 14:00:00 to 14:02:00 UTC. Press f to follow the clock behind, or 0 to return."
         );
     }
 
@@ -620,7 +621,7 @@ mod tests {
         };
         assert_eq!(
             format_held_window(window),
-            "The panels hold 01-01 00:00 to 01-03 00:00 UTC. Press 0 to follow the clock."
+            "The panels hold 01-01 00:00 to 01-03 00:00 UTC. Press f to follow the clock behind, or 0 to return."
         );
     }
 
@@ -646,7 +647,7 @@ mod tests {
         };
         assert_eq!(
             format_held_window_short(window),
-            "Held 14:00:00 to 14:02:00. 0 follows."
+            "Held 14:00:00 to 14:02:00. f follows, 0 returns."
         );
     }
 

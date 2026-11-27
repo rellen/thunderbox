@@ -1000,7 +1000,7 @@ names ten crates, and `thunderbox` is not one of them. `view.rs:136` binds `m`
 inside `DashboardView::handle_key`, and no test reads that arm against a copy.
 The one test that reads `KEYS` alone is
 `the_list_of_the_keys_fits_a_terminal_of_eighty_columns`, at `main.rs:617-628`.
-It checks `KEYS.chars().count() <= 80` and `KEYS.ends_with(RANGE_KEY)`. Four
+It checks `KEYS.chars().count() <= 80`. Four
 assertions compare the output of `status_text` against `KEYS`. Each one names
 `KEYS`, at `:483`, `:506`, `:532` and `:585`, and both sides read the same
 constant. Two tests read `HELP`, at `main.rs:786-798` and at `:803-817`, and

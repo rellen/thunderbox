@@ -1,6 +1,6 @@
 //! The rule that maps a key to a time range.
 
-use thunderbox_core::{TimeRange, Timestamp};
+use thunderbox_core::{RelativeTime, TimeRange, Timestamp};
 
 use crate::view::Key;
 
@@ -23,8 +23,8 @@ const WIDTH_FACTOR: i64 = 2;
 /// below, so a program that wants those keys for itself keeps them. This
 /// function offers a default map from a key to a range, and it holds the rule
 /// alone. The program decides which key reaches it, and a program that wants
-/// another map ignores this function. ADR 0035 in `docs/contributor/adr` states that
-/// rule.
+/// another map ignores this function. ADR 0035 and ADR 0093 in
+/// `docs/contributor/adr` state that rule.
 ///
 /// The function reads these keys:
 ///
@@ -32,13 +32,22 @@ const WIDTH_FACTOR: i64 = 2;
 /// - `Right` moves the range forward by half of its width;
 /// - `-` makes the range twice as wide;
 /// - `+` makes the range half as wide;
-/// - `0` and `=` return the range that the dashboard states.
+/// - `0` and `=` return the range that the dashboard states;
+/// - `f` switches a range between a held mode and a following mode.
 ///
-/// A move fixes a moment at each end, so the window stands still and the
-/// panels stop at it. A move forward that reaches the present moment returns a
-/// range of the same width that follows the clock. The `declared` parameter
-/// takes the range of the dashboard, which is the range that `0` and `=`
-/// return.
+/// A range is in one of three modes. A live range ends at the present moment.
+/// A held range has a fixed moment at each end, so its window stands still. A
+/// following range ends before the present moment, and it moves with the
+/// clock. A move back from a live range holds the window. A move from a held
+/// range keeps it held. A move from a following range keeps that mode. A
+/// change of the width keeps the mode in each case. A move forward that reaches
+/// the present moment returns a live range of the same width.
+///
+/// The key `f` asks for a following range when the range is held. It asks for
+/// a held range when the range follows the clock behind. A live range already
+/// follows the clock, so the key asks for nothing there. The `declared`
+/// parameter takes the range of the dashboard, which is the range that `0` and
+/// `=` return.
 ///
 /// The function returns `None` for a key that asks for the range that the
 /// caller already holds. [`crate::DashboardRuntime::set_time_range`] starts a
@@ -61,6 +70,10 @@ const WIDTH_FACTOR: i64 = 2;
 /// assert!(!back.moves_with_the_clock());
 /// assert_eq!(time_key(Key::Char('0'), &back, &live, 1_000_000), Some(live.clone()));
 /// assert_eq!(time_key(Key::Tab, &back, &live, 1_000_000), None);
+/// // The key `f` makes the held window follow the clock behind.
+/// let following = time_key(Key::Char('f'), &back, &live, 1_000_000).expect("The key follows.");
+/// assert!(following.moves_with_the_clock());
+/// assert_eq!(following.resolve(1_000_000), back.resolve(1_000_000));
 /// // The range already follows the clock, so this key asks for nothing.
 /// assert_eq!(time_key(Key::Right, &live, &live, 1_000_000), None);
 /// ```
@@ -72,21 +85,51 @@ pub fn time_key(
 ) -> Option<TimeRange> {
     let span = range.span_ms(now);
     let step = span / MOVE_DIVISOR;
+    let following = range.moves_with_the_clock() && !range.ends_at_the_present();
     let asked = match key {
+        Key::Left if following => move_following(range, now, -step),
+        Key::Right if following => move_following(range, now, step),
         Key::Left => range.panned(now, -step),
         Key::Right => range.panned(now, step),
         Key::Char('-') => range.with_span_ms(now, span.saturating_mul(WIDTH_FACTOR)),
         Key::Char('+') => range.with_span_ms(now, span / WIDTH_FACTOR),
         Key::Char('0') | Key::Char('=') => declared.clone(),
+        Key::Char('f') if following => range.to_absolute(now),
+        Key::Char('f') if !range.moves_with_the_clock() => range.following(now),
         _ => return None,
     };
     (asked != *range).then_some(asked)
 }
 
+/// Returns a range that follows the clock behind, moved by `by_ms`.
+///
+/// The offsets of the two ends move, so the range keeps its mode. A move
+/// forward can stop less than one step before the present moment. The function
+/// then returns the live range of the same width, as [`TimeRange::panned`]
+/// does for a held range. The function returns the range as it was when the
+/// move would change the width.
+fn move_following(range: &TimeRange, now: Timestamp, by_ms: i64) -> TimeRange {
+    let span = range.span_ms(now);
+    let moved = range.moved(by_ms);
+    if moved.span_ms(now) != span {
+        return range.clone();
+    }
+    if by_ms > 0 && now.saturating_sub(moved.resolve(now).1) < by_ms {
+        // The width is 1 or more, so the negation cannot overflow.
+        if now.checked_sub(span).is_none() {
+            return range.clone();
+        }
+        return TimeRange {
+            from: RelativeTime::Offset(-span),
+            to: RelativeTime::Now,
+        };
+    }
+    moved
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use thunderbox_core::RelativeTime;
 
     /// The moment that every test in this module calls the present moment.
     const NOW: Timestamp = 1_000_000;
@@ -166,6 +209,159 @@ mod tests {
         assert_eq!(press(Key::Char('='), &moved), declared());
     }
 
+    /// Returns a range that follows the clock and ends five minutes before the
+    /// present moment. The width is two minutes.
+    fn following() -> TimeRange {
+        TimeRange {
+            from: RelativeTime::Offset(-420_000),
+            to: RelativeTime::Offset(-300_000),
+        }
+    }
+
+    /// Returns a range that holds the window of `following` still.
+    fn held() -> TimeRange {
+        following().to_absolute(NOW)
+    }
+
+    #[test]
+    fn the_f_key_makes_a_held_range_follow_the_clock() {
+        let asked = press(Key::Char('f'), &held());
+        assert_eq!(asked, following());
+        assert!(asked.moves_with_the_clock());
+        assert_eq!(asked.resolve(NOW), held().resolve(NOW));
+    }
+
+    #[test]
+    fn the_f_key_holds_a_range_that_follows_the_clock_behind() {
+        let asked = press(Key::Char('f'), &following());
+        assert_eq!(asked, held());
+        assert!(!asked.moves_with_the_clock());
+    }
+
+    #[test]
+    fn the_f_key_asks_for_nothing_on_a_live_range() {
+        assert_eq!(
+            time_key(Key::Char('f'), &declared(), &declared(), NOW),
+            None
+        );
+    }
+
+    #[test]
+    fn the_f_key_twice_returns_the_range_that_a_person_held() {
+        let again = press(Key::Char('f'), &press(Key::Char('f'), &held()));
+        assert_eq!(again, held());
+    }
+
+    #[test]
+    fn a_move_back_from_a_live_range_holds_the_window() {
+        let back = press(Key::Left, &declared());
+        assert!(!back.moves_with_the_clock());
+    }
+
+    #[test]
+    fn a_move_from_a_held_range_keeps_the_range_held() {
+        let back = press(Key::Left, &held());
+        assert!(!back.moves_with_the_clock(), "{back:?}");
+        assert_eq!(back.resolve(NOW), (NOW - 480_000, NOW - 360_000));
+        let ahead = press(Key::Right, &held());
+        assert!(!ahead.moves_with_the_clock(), "{ahead:?}");
+        assert_eq!(ahead.resolve(NOW), (NOW - 360_000, NOW - 240_000));
+    }
+
+    #[test]
+    fn a_move_forward_from_a_held_range_that_reaches_the_present_returns_the_live_range() {
+        let near = TimeRange {
+            from: RelativeTime::Absolute(NOW - 150_000),
+            to: RelativeTime::Absolute(NOW - 30_000),
+        };
+        let ahead = press(Key::Right, &near);
+        assert_eq!(ahead.to, RelativeTime::Now);
+        assert_eq!(ahead.span_ms(NOW), 120_000);
+    }
+
+    #[test]
+    fn a_move_back_from_a_following_range_keeps_it_following() {
+        let back = press(Key::Left, &following());
+        assert!(back.moves_with_the_clock(), "{back:?}");
+        assert_eq!(back.from, RelativeTime::Offset(-480_000));
+        assert_eq!(back.to, RelativeTime::Offset(-360_000));
+        assert_eq!(back.span_ms(NOW), 120_000);
+    }
+
+    #[test]
+    fn a_move_forward_from_a_following_range_keeps_it_following() {
+        let ahead = press(Key::Right, &following());
+        assert_eq!(ahead.from, RelativeTime::Offset(-360_000));
+        assert_eq!(ahead.to, RelativeTime::Offset(-240_000));
+    }
+
+    #[test]
+    fn a_move_forward_from_a_following_range_that_reaches_the_present_returns_the_live_range() {
+        let near = TimeRange {
+            from: RelativeTime::Offset(-150_000),
+            to: RelativeTime::Offset(-30_000),
+        };
+        let ahead = press(Key::Right, &near);
+        assert_eq!(ahead.to, RelativeTime::Now, "{ahead:?}");
+        assert_eq!(ahead.from, RelativeTime::Offset(-120_000));
+        let past = TimeRange {
+            from: RelativeTime::Offset(-30_000),
+            to: RelativeTime::Offset(-10_000),
+        };
+        assert_eq!(press(Key::Right, &past).to, RelativeTime::Now);
+    }
+
+    #[test]
+    fn a_move_forward_that_stops_less_than_one_step_before_the_present_returns_the_live_range() {
+        // The width is 60 seconds, so the step is 30 seconds. The move puts the
+        // end 20 seconds before the present moment.
+        let near = TimeRange {
+            from: RelativeTime::Offset(-110_000),
+            to: RelativeTime::Offset(-50_000),
+        };
+        let ahead = press(Key::Right, &near);
+        assert_eq!(ahead.to, RelativeTime::Now, "{ahead:?}");
+        assert_eq!(ahead.from, RelativeTime::Offset(-60_000));
+        // A move that stops one step before the present moment keeps the mode.
+        let far = TimeRange {
+            from: RelativeTime::Offset(-130_000),
+            to: RelativeTime::Offset(-70_000),
+        };
+        let kept = press(Key::Right, &far);
+        assert_eq!(kept.to, RelativeTime::Offset(-40_000), "{kept:?}");
+    }
+
+    #[test]
+    fn a_range_that_lists_its_ends_in_reverse_order_follows_the_rule_of_a_live_range() {
+        let reversed = TimeRange {
+            from: RelativeTime::Now,
+            to: RelativeTime::Offset(-300_000),
+        };
+        assert_eq!(time_key(Key::Char('f'), &reversed, &declared(), NOW), None);
+        let back = press(Key::Left, &reversed);
+        assert!(
+            !back.moves_with_the_clock(),
+            "A move back from a live range must hold the window. {back:?}"
+        );
+    }
+
+    #[test]
+    fn the_minus_and_plus_keys_keep_a_range_that_follows_the_clock_behind() {
+        let wider = press(Key::Char('-'), &following());
+        assert!(wider.moves_with_the_clock(), "{wider:?}");
+        assert_eq!(wider.to, RelativeTime::Offset(-300_000));
+        assert_eq!(wider.span_ms(NOW), 240_000);
+        let narrower = press(Key::Char('+'), &following());
+        assert!(narrower.moves_with_the_clock(), "{narrower:?}");
+        assert_eq!(narrower.to, RelativeTime::Offset(-300_000));
+        assert_eq!(narrower.span_ms(NOW), 60_000);
+    }
+
+    #[test]
+    fn the_zero_key_returns_the_range_that_the_dashboard_states_from_a_following_range() {
+        assert_eq!(press(Key::Char('0'), &following()), declared());
+    }
+
     /// A key that asks for the range that the caller already holds must ask
     /// for nothing. `DashboardRuntime::set_time_range` starts a new set of
     /// queries on every call. A person who holds such a key down would
@@ -203,15 +399,16 @@ mod tests {
         }
     }
 
-    /// The six keys of the range, in the order of the list in the comment of
+    /// The seven keys of the range, in the order of the list in the comment of
     /// `time_key`.
-    const RANGE_KEYS: [Key; 6] = [
+    const RANGE_KEYS: [Key; 7] = [
         Key::Left,
         Key::Right,
         Key::Char('-'),
         Key::Char('+'),
         Key::Char('0'),
         Key::Char('='),
+        Key::Char('f'),
     ];
 
     /// A person who holds a key down presses it many times. No press may
@@ -238,6 +435,12 @@ mod tests {
         press_key(Key::Right, 10_000, &mut range);
         press_key(Key::Char('+'), 200, &mut range);
         assert_eq!(range.span_ms(NOW), thunderbox_core::MIN_SPAN_MS);
+        // The same presses on a range that follows the clock behind.
+        let mut range = following();
+        press_key(Key::Char('-'), 200, &mut range);
+        press_key(Key::Left, 10_000, &mut range);
+        press_key(Key::Right, 10_000, &mut range);
+        press_key(Key::Char('f'), 3, &mut range);
     }
 
     /// The caller of `time_key` states the present moment and the range. Both

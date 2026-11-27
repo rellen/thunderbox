@@ -275,7 +275,8 @@ SCENES = {
             # Move the range back by half of its width. The status row names the
             # window in the past.
             (2.0, "\x1b[D"),
-            (1.5, "0"),  # Return to the range that the dashboard states.
+            (1.5, "f"),  # Follow the clock behind. The window moves on.
+            (0.5, "0"),  # Return to the range that the dashboard states.
             # Stop the program. The pause shows the range that the key returned.
             (1.0, "q"),
         ],

@@ -229,6 +229,81 @@ impl TimeRange {
         }
     }
 
+    /// Returns `true` if the later end of this range is at the present moment
+    /// or after it.
+    ///
+    /// A range of this kind is live. A later end is [`RelativeTime::Now`], or
+    /// an offset of 0 or more. A range can list its two ends in either order,
+    /// because [`TimeRange::window`] puts the smaller value first. The method
+    /// therefore reads both ends. A range that ends at a fixed moment, or at an
+    /// offset before the present moment, is not live.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use thunderbox_core::TimeRange;
+    /// let live = TimeRange::default();
+    /// assert!(live.ends_at_the_present());
+    /// assert!(!live.to_absolute(1_000_000).ends_at_the_present());
+    /// ```
+    pub fn ends_at_the_present(&self) -> bool {
+        let reaches = |end: RelativeTime| match end {
+            RelativeTime::Now => true,
+            RelativeTime::Offset(d) => d >= 0,
+            RelativeTime::Absolute(_) => false,
+        };
+        reaches(self.from) || reaches(self.to)
+    }
+
+    /// Returns the same window at `now`, as a range that follows the clock.
+    ///
+    /// Each end of the new range is an offset from the present moment, so the
+    /// window moves with the clock and keeps its width. A person who studied a
+    /// held window can then watch it move on. A range whose end reaches the
+    /// present moment, or passes it, returns the live form. The live form ends
+    /// at [`RelativeTime::Now`] and starts one width earlier.
+    ///
+    /// The method returns the range as it was when an offset does not fit in
+    /// a count of milliseconds.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use thunderbox_core::{RelativeTime, TimeRange};
+    /// let now = 1_000_000;
+    /// let held = TimeRange {
+    ///     from: RelativeTime::Absolute(now - 180_000),
+    ///     to: RelativeTime::Absolute(now - 60_000),
+    /// };
+    /// let following = held.following(now);
+    /// assert_eq!(following.from, RelativeTime::Offset(-180_000));
+    /// assert_eq!(following.to, RelativeTime::Offset(-60_000));
+    /// // One minute later, the window has moved one minute.
+    /// assert_eq!(following.resolve(now + 60_000), (now - 120_000, now));
+    /// ```
+    pub fn following(&self, now: Timestamp) -> Self {
+        let window = self.window(now);
+        if window.to >= now {
+            // The width is 1 or more, so the negation cannot overflow.
+            let span = window.span_ms();
+            if now.checked_sub(span).is_none() {
+                return self.clone();
+            }
+            return Self {
+                from: RelativeTime::Offset(-span),
+                to: RelativeTime::Now,
+            };
+        }
+        let (Some(from), Some(to)) = (window.from.checked_sub(now), window.to.checked_sub(now))
+        else {
+            return self.clone();
+        };
+        Self {
+            from: RelativeTime::Offset(from),
+            to: RelativeTime::Offset(to),
+        }
+    }
+
     /// Returns the same range, moved by a count of milliseconds.
     ///
     /// A negative value moves the range into the past. The method keeps the
@@ -821,6 +896,81 @@ mod tests {
     }
 
     #[test]
+    fn following_keeps_the_window_at_the_present_moment() {
+        let held = fixed_in_the_past();
+        let following = held.following(NOW);
+        assert_eq!(following.resolve(NOW), held.resolve(NOW));
+        assert_eq!(following.from, RelativeTime::Offset(-3_720_000));
+        assert_eq!(following.to, RelativeTime::Offset(-3_600_000));
+    }
+
+    #[test]
+    fn a_range_from_following_moves_with_the_clock() {
+        let following = fixed_in_the_past().following(NOW);
+        assert!(following.moves_with_the_clock());
+        let (from, to) = following.resolve(NOW + 60_000);
+        assert_eq!(from, NOW - 3_720_000 + 60_000);
+        assert_eq!(to, NOW - 3_600_000 + 60_000);
+        assert_eq!(to - from, 120_000, "The width must stay the same.");
+    }
+
+    #[test]
+    fn following_returns_the_live_form_when_the_end_reaches_the_present_moment() {
+        let expected = TimeRange {
+            from: RelativeTime::Offset(-300_000),
+            to: RelativeTime::Now,
+        };
+        assert_eq!(live().following(NOW), expected);
+        let at_now = TimeRange {
+            from: RelativeTime::Absolute(NOW - 300_000),
+            to: RelativeTime::Absolute(NOW),
+        };
+        assert_eq!(at_now.following(NOW), expected);
+        let in_the_future = TimeRange {
+            from: RelativeTime::Absolute(NOW - 100_000),
+            to: RelativeTime::Absolute(NOW + 200_000),
+        };
+        assert_eq!(
+            in_the_future.following(NOW),
+            TimeRange {
+                from: RelativeTime::Offset(-300_000),
+                to: RelativeTime::Now,
+            },
+            "The live form keeps the width."
+        );
+    }
+
+    #[test]
+    fn following_returns_the_range_as_it_was_when_an_offset_would_not_fit() {
+        let range = TimeRange {
+            from: RelativeTime::Absolute(i64::MIN + 10),
+            to: RelativeTime::Absolute(i64::MIN + 20),
+        };
+        assert_eq!(range.following(i64::MAX), range);
+    }
+
+    #[test]
+    fn ends_at_the_present_reports_the_range_that_ends_now_or_later() {
+        assert!(live().ends_at_the_present());
+        let later = TimeRange {
+            from: RelativeTime::Offset(-1_000),
+            to: RelativeTime::Offset(5_000),
+        };
+        assert!(later.ends_at_the_present());
+        assert!(!fixed_in_the_past().ends_at_the_present());
+        assert!(!fixed_in_the_past().following(NOW).ends_at_the_present());
+    }
+
+    #[test]
+    fn ends_at_the_present_reads_a_range_whose_ends_stand_in_reverse_order() {
+        let reversed = TimeRange {
+            from: RelativeTime::Now,
+            to: RelativeTime::Offset(-300_000),
+        };
+        assert!(reversed.ends_at_the_present());
+    }
+
+    #[test]
     fn moves_with_the_clock_reports_the_range_that_follows_the_clock() {
         assert!(live().moves_with_the_clock());
         assert!(!fixed_in_the_past().moves_with_the_clock());
@@ -1249,6 +1399,12 @@ mod tests {
                         assert!(window.span_ms() >= 1);
                         assert_eq!(range.resolve(now), (window.from, window.to));
                         assert!(range.span_ms(now) >= 1);
+                        let following = range.following(now);
+                        assert!(
+                            following == range || following.span_ms(now) == range.span_ms(now),
+                            "The method must keep the width. {range:?} {now}"
+                        );
+                        let _ = range.ends_at_the_present();
                         let fixed = range.to_absolute(now);
                         assert_eq!(fixed.resolve(0), (window.from, window.to));
                         let _ = range.moved(by_ms);

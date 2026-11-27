@@ -204,21 +204,23 @@ The labels do not change on a refresh, because the window does not change.
 
 The status row names a window that ends before the present moment. A held range
 has a fixed moment at each end. The row then writes the two moments in
-Coordinated Universal Time, and it names the key that follows the clock again:
+Coordinated Universal Time. It also names the keys that follow the clock behind
+and that return:
 
 ```
-The panels hold 14:00:00 to 14:02:00 UTC. Press 0 to follow the clock.
+The panels hold 14:00:00 to 14:02:00 UTC. Press f to follow the clock behind, or 0 to return.
 ```
 
-The row writes the short form `Held 14:00:00 to 14:02:00. 0 follows.` when the
-sentence does not fit. A window that is one day wide or wider writes each moment
+The row writes the short form
+`Held 14:00:00 to 14:02:00. f follows, 0 returns.` when the sentence does not
+fit. A window that is one day wide or wider writes each moment
 as `MM-DD HH:MM`.
 
-A range that follows the clock and ends before the present moment writes a
-sentence of this form:
+A following range ends before the present moment, and it moves with the clock.
+It writes a sentence of this form:
 
 ```
-The panels show 5 minutes that ended 1 hour ago.
+The panels show 5 minutes that ended 1 hour ago. Press f to hold, or 0 to return.
 ```
 
 The sentence writes each length in seconds, minutes, hours, or days. It rounds

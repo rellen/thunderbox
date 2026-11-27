@@ -2,7 +2,7 @@
 
 | field | value |
 |---|---|
-| Status | Accepted |
+| Status | Superseded by [ADR 0093](0093-a-person-can-follow-the-clock-behind-the-present.md) |
 | Recorded | 2026-11-27 |
 | Source | new |
 | Code | `crates/thunderbox-widgets/src/value.rs`, `crates/thunderbox/src/main.rs` |

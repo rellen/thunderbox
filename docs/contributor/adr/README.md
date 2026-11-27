@@ -77,7 +77,7 @@ git show 4d8c223a0e7ea3bd62b85e7819be8c4ee10cb451:docs/ARCHITECTURE.md
 | [0032](0032-each-rule-of-the-path-of-an-area-holds-a-test.md) | Each rule of the path of an area holds a test | Accepted | `docs/ARCHITECTURE.md` section 12 |
 | [0033](0033-no-text-writes-the-password-of-an-address.md) | No text writes the password of an address | Accepted | `docs/ARCHITECTURE.md` section 12 |
 | [0034](0034-a-dashboard-reads-more-than-one-data-source.md) | A dashboard reads more than one data source | Accepted | `docs/ARCHITECTURE.md` section 12 |
-| [0035](0035-the-program-binds-each-key-of-the-time-range.md) | The program binds each key of the time range | Accepted | `docs/ARCHITECTURE.md` section 12 |
+| [0035](0035-the-program-binds-each-key-of-the-time-range.md) | The program binds each key of the time range | Superseded by [0093](0093-a-person-can-follow-the-clock-behind-the-present.md) | `docs/ARCHITECTURE.md` section 12 |
 | [0036](0036-each-label-of-the-time-axis-states-its-distance-from-now.md) | Each label of the axis of time states its distance from the present moment | Accepted | `docs/ARCHITECTURE.md` section 12 |
 | [0037](0037-the-refresh-continues-while-the-window-stands-still.md) | The refresh continues while the window stands still | Accepted | `docs/ARCHITECTURE.md` section 12 |
 | [0038](0038-a-sysinfo-sample-carries-the-moment-of-the-machine.md) | A sample of sysinfo carries the moment of the machine | Accepted | `docs/ARCHITECTURE.md` section 12 |
@@ -134,4 +134,5 @@ git show 4d8c223a0e7ea3bd62b85e7819be8c4ee10cb451:docs/ARCHITECTURE.md
 | [0089](0089-the-labels-of-the-axis-of-values-stand-at-the-right.md) | The labels of the axis of values stand at the right | Accepted | new |
 | [0090](0090-a-filled-chart-draws-no-line-over-the-fill-of-its-last-series.md) | A filled chart draws no line over the fill of its last series | Accepted | new |
 | [0091](0091-a-held-window-labels-its-time-axis-with-clock-times.md) | A held window labels its time axis with clock times | Accepted | new |
-| [0092](0092-the-status-row-names-a-held-window-by-its-clock-times.md) | The status row names a held window by its clock times | Accepted | new |
+| [0092](0092-the-status-row-names-a-held-window-by-its-clock-times.md) | The status row names a held window by its clock times | Superseded by [0093](0093-a-person-can-follow-the-clock-behind-the-present.md) | new |
+| [0093](0093-a-person-can-follow-the-clock-behind-the-present.md) | A person can follow the clock behind the present | Accepted | new |

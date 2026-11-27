@@ -12,22 +12,46 @@ read the clock.
 3. Press `+` to make the time range half as wide.
 4. Press `Right` to move the time range forward by half of its width.
 5. Press `0` or `=` to return to the time range that the dashboard file states.
+6. Press `f` to make a held window follow the clock behind the present moment.
+   Press `f` again to hold the window.
 
-After a move back, the window stands still, and the status row names the two
-moments of the window in Coordinated Universal Time. This text is an example:
+After a move back from a live range, the window stands still. The status row
+names the two moments of the window in Coordinated Universal Time. This text is an example:
 
 ```
-The panels hold 14:00:00 to 14:02:00 UTC. Press 0 to follow the clock.
+The panels hold 14:00:00 to 14:02:00 UTC. Press f to follow the clock behind, or 0 to return.
 ```
 
 The sentence stays the same while the window stands still. The status row
-writes the short form `Held 14:00:00 to 14:02:00. 0 follows.` when the
-complete sentence does not fit. A window of one day or more also names the
+writes the short form `Held 14:00:00 to 14:02:00. f follows, 0 returns.` when
+the complete sentence does not fit. A window of one day or more also names the
 date, as in `01-01 00:00 to 01-03 00:00`. A change of the width keeps the later
 end of the window where it is.
 
 A move forward that reaches the present moment makes the time range follow the
 clock again. The time range keeps the width that you selected.
+
+## Choose to hold a window or to follow the clock
+
+A time range has one of three modes:
+
+- A live range ends at the present moment.
+- A held range has a fixed moment at each end. Its window stands still.
+- A following range ends before the present moment, and it moves with the
+  clock. Its window moves on, and it keeps the same distance from the present
+  moment.
+
+Follow these steps to watch an earlier window move on:
+
+1. Press `Left` to move back. The window is now held.
+2. Press `f`. The window now follows the clock behind. The status row writes
+   the width of the window and the distance back to it, and the distance stays
+   the same.
+3. Press `f` again to hold the window. Press `0` to return to the time range of
+   the dashboard.
+
+The keys `Left`, `Right`, `-`, and `+` keep the mode that you chose. A move
+forward that reaches the present moment returns a live range in each mode.
 
 The keys `-` and `+` keep the width between 1 second and 3650 days. A key that
 cannot move an end leaves the time range as it was.
