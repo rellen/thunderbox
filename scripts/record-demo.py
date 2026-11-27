@@ -264,19 +264,21 @@ SCENES = {
             # Each pause is short, so the picture stays under its limit of size.
             # The charts move while the selection moves, so a reader still sees
             # the live data.
-            (1.0, "\t"),  # Select the stat panel.
-            (1.0, "\t"),  # Select the gauge panel.
-            (1.0, "\t"),  # Select the bar gauge panel.
-            (1.0, "\t"),  # Select the second time series panel.
-            (1.0, "\t"),  # Select the table panel.
-            (1.0, "\t"),  # Select the top panel, which lists the processes.
-            (1.2, "\t"),  # Return to the first panel.
-            (1.6, "-"),  # Make the time range twice as wide.
+            (0.6, "\t"),  # Select the stat panel.
+            (0.6, "\t"),  # Select the gauge panel.
+            (0.6, "\t"),  # Select the bar gauge panel.
+            (0.6, "\t"),  # Select the second time series panel.
+            (0.6, "\t"),  # Select the table panel.
+            (0.6, "\t"),  # Select the top panel, which lists the processes.
+            (0.8, "\t"),  # Return to the first panel.
+            (1.0, "-"),  # Make the time range twice as wide.
             # Move the range back by half of its width. The status row names the
             # window in the past.
-            (2.0, "\x1b[D"),
-            (1.5, "f"),  # Follow the clock behind. The window moves on.
-            (0.5, "0"),  # Return to the range that the dashboard states.
+            (1.5, "\x1b[D"),
+            # Follow the clock behind. The pause before the key shows the held
+            # window, and the pause of the next step shows the window that moves.
+            (1.5, "f"),
+            (1.5, "0"),  # Return to the range that the dashboard states.
             # Stop the program. The pause shows the range that the key returned.
             (1.0, "q"),
         ],
