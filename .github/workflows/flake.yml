@@ -55,7 +55,7 @@ jobs:
 
       # The action installs Nix, and it turns the sandbox on. The sandbox keeps
       # a build away from the network and from the files of the machine.
-      - uses: cachix/install-nix-action@v31
+      - uses: cachix/install-nix-action@v32
 
       # The command builds each check of flake.nix. The first check is the
       # package, and the build of the package runs `cargo test` for the whole
