@@ -64,7 +64,10 @@ pub use table::TablePanel;
 pub use theme::Theme;
 pub use timeseries::{TimeLabels, TimeSeriesPanel, last_value};
 pub use top::TopPanel;
-pub use value::{MISSING, format_clock, format_from_now, format_time, format_value, format_window};
+pub use value::{
+    MISSING, format_clock, format_from_now, format_held_window, format_held_window_short,
+    format_time, format_value, format_window,
+};
 
 use thunderbox_core::Frame;
 

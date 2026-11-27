@@ -65,7 +65,7 @@ on `thunderbox-core`.
 | `Theme` | The colours that a panel uses. |
 | `Marker` | The glyph that a chart draws a point with. |
 | `draws_a_panel` | The function that states whether a panel of one size holds a cell for its data. |
-| `format_value`, `format_time`, `format_clock`, `format_from_now`, `format_window` | The functions that write a number, a time of day, a time of day with a date for a long span, a label of the axis of time, and the sentence of a window. |
+| `format_value`, `format_time`, `format_clock`, `format_from_now`, `format_window`, `format_held_window`, `format_held_window_short` | The functions that write a number, a time of day, a time of day with a date for a long span, a label of the axis of time, the sentence of a window, the sentence of a held window, and the short form of that sentence. |
 | `last_value` | The function that returns the most recent value of some frames. |
 | `LOADING`, `NO_DATA`, `MISSING` | The texts `loading…`, `no data`, and `—`. |
 | `ratatui_core` | A second name for the crate `ratatui-core`, in the version that thunderbox uses. |

@@ -226,7 +226,7 @@ It puts four spaces between two texts. The list of the keys comes last.
 | 2 | `The terminal is too small for 1 panel.` or `The terminal is too small for N panels.` | The renderer drops one panel or more. The count holds no panel that a collapsed row panel hides. |
 | 3 | `The variable "NAME" has no choice.` and the reason | The data source of a variable did not return the choices. The row names the first such variable. |
 | 4 | `The dashboard waits for an answer.` | A set of queries has waited for 1 second or more. |
-| 5 | `The panels show WIDTH that ended DISTANCE ago.` | The window ends before the present moment. The text `The panels show 5 minutes that ended 1 hour ago.` is an example. |
+| 5 | `The panels hold START to END UTC. Press 0 to follow the clock.` or `The panels show WIDTH that ended DISTANCE ago.` | The window ends before the present moment. A held range gets the first text, and a range that follows the clock gets the second text. The text `The panels hold 14:00:00 to 14:02:00 UTC. Press 0 to follow the clock.` is an example of the first, and `The panels show 5 minutes that ended 1 hour ago.` is an example of the second. The row writes the short form `Held 14:00:00 to 14:02:00. 0 follows.` of the first text when that text does not fit. |
 | 6 | `The numbers are N seconds old.` | The answers on the screen come from a set of queries that started 5 seconds ago or more. |
 | 7 | `q quit  tab next panel  m marker  r refresh  arrows move  -+ width  0 range` | The row always writes this list of the keys. |
 
@@ -235,9 +235,14 @@ that is under 3 cells wide or under 3 cells high. It also drops a row panel that
 takes no line. This documentation calls each such panel a panel that the
 renderer drops. Text 2 counts it.
 
-Text 5 writes each length of time in one unit. The unit is seconds, minutes,
-hours, or days. The row selects the unit from the length, and it rounds the
-count to a whole number.
+Text 5 holds two forms, and the row writes one of them. A time range that holds
+a fixed moment at each end is a held range. The row writes START and END as
+times of day. It writes each as `MM-DD HH:MM` when the window is one day wide or
+wider. The sentence of a held range stays the same on each refresh.
+
+The form of a range that follows the clock writes each length of time in one
+unit. The unit is seconds, minutes, hours, or days. The row selects the unit
+from the length, and it rounds the count to a whole number.
 
 ### Rules of the width of the status row
 
@@ -245,8 +250,12 @@ count to a whole number.
   never drops the first text.
 - The list of the keys holds 75 characters, so it fits a terminal of 80
   columns.
-- A row that names a window that stands still keeps the hint `0 range` after it
-  drops the list of the keys. It adds the hint only while the hint fits.
+- A row that names a window of a range that follows the clock keeps the hint
+  `0 range` after it drops the list of the keys. It adds the hint only while
+  the hint fits.
+- The sentence of a held range holds the key `0` already. The row draws the
+  short form `Held 14:00:00 to 14:02:00. 0 follows.` only when the complete
+  sentence does not fit, and it adds no hint after the short form.
 - For a dashboard that holds a row panel, the row adds the hint `enter fold`
   after the list of the keys. Two spaces stand before the hint.
 - The row adds the hint `enter fold` only while the row ends with the list of

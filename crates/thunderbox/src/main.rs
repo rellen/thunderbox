@@ -18,12 +18,12 @@ use anyhow::{Context, Result, bail};
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use ratatui::layout::{Constraint, Layout, Size};
 use ratatui::widgets::Paragraph;
-use thunderbox_core::{Dashboard, PanelKind, TimeWindow, now_ms};
+use thunderbox_core::{Dashboard, PanelKind, TimeRange, TimeWindow, now_ms};
 use thunderbox_dashboard::{
     Consumed, DashboardRuntime, DashboardView, Key, Snapshot, Variables, row_key, time_key,
     variable_key,
 };
-use thunderbox_widgets::format_window;
+use thunderbox_widgets::{format_held_window, format_held_window_short, format_window};
 
 /// The dashboard that the program shows when a person names no file.
 const DEFAULT_DASHBOARD: &str = include_str!("default.toml");
@@ -332,6 +332,28 @@ fn row_width(parts: &[String]) -> usize {
     parts.iter().map(|part| part.chars().count()).sum::<usize>() + gaps
 }
 
+/// A window that ends before the present moment, and the kind of range that
+/// names it.
+#[derive(Clone, Copy)]
+enum Behind {
+    /// The range holds a fixed moment at each end, so the window stands still.
+    Held(TimeWindow),
+    /// The range follows the clock, and it ends before the present moment.
+    Following(TimeWindow),
+}
+
+/// Returns the window that the status row must name, with the kind of range.
+///
+/// The function returns nothing for a window that ends at the present moment.
+fn behind(range: &TimeRange, window: Option<TimeWindow>) -> Option<Behind> {
+    let window = window.filter(|window| window.to < window.now)?;
+    Some(if range.moves_with_the_clock() {
+        Behind::Following(window)
+    } else {
+        Behind::Held(window)
+    })
+}
+
 /// Returns the text of the status row.
 ///
 /// The row is one cell high, so every sentence shares one line. The function
@@ -341,19 +363,24 @@ fn row_width(parts: &[String]) -> usize {
 /// `CLAUDE.md` states the rule for a text that does not fit, in the section
 /// `The rule for a short label inside a panel`.
 ///
-/// That rule has one exception. A row that names a window which stands still
-/// keeps [`RANGE_KEY`] after it drops the list. That key returns the range of
-/// the dashboard.
+/// That rule has one exception. A row that names a window that follows the
+/// clock keeps [`RANGE_KEY`] after it drops the list. That key returns the
+/// range of the dashboard. The sentence of a held window names that key
+/// itself.
 ///
 /// The function reports a refresh only when the caller states that the set of
 /// queries waits. A data source that answers at once therefore writes nothing,
 /// and the row does not change on each refresh.
 ///
-/// The `held` parameter holds the window while that window stands still in the
-/// past. The row then names the width of the window and the distance back to
-/// it. A person who reads `no data` in every panel learns from that sentence
-/// why the panels are empty. A window that ends at the present moment writes
-/// no sentence, because nothing is out of the ordinary.
+/// The `behind` parameter holds the window while that window ends before the
+/// present moment. A held range makes the row state the two moments of the
+/// window, and the sentence stays the same while the window stands still. A
+/// range that follows the clock makes the row state the width of the window and
+/// the distance back to it. The row writes the short form of the held sentence
+/// only when the complete sentence does not fit. It tries that form before it
+/// drops the sentence. A person who reads `no data` in every panel learns
+/// from that sentence why the panels are empty. A window that ends at the
+/// present moment writes no sentence, because nothing is out of the ordinary.
 ///
 /// The `variable` parameter holds the sentence of a variable that has no
 /// choice. `Variables::error` writes that sentence. The row of the variables
@@ -370,7 +397,7 @@ fn status_text(
     variable: Option<&str>,
     age: Option<Duration>,
     waits: bool,
-    held: Option<TimeWindow>,
+    behind: Option<Behind>,
     width: u16,
 ) -> String {
     let mut parts: Vec<String> = Vec::new();
@@ -390,20 +417,41 @@ fn status_text(
     if waits {
         parts.push("The dashboard waits for an answer.".to_string());
     }
-    if let Some(window) = held {
-        parts.push(format_window(window));
+    let held_sentence = match behind {
+        Some(Behind::Held(window)) => Some(format_held_window(window)),
+        _ => None,
+    };
+    match behind {
+        Some(Behind::Held(_)) => parts.extend(held_sentence.clone()),
+        Some(Behind::Following(window)) => parts.push(format_window(window)),
+        None => {}
     }
     if let Some(age) = age.filter(|age| *age >= OLD_NUMBERS) {
         parts.push(format!("The numbers are {} seconds old.", age.as_secs()));
     }
     parts.push(KEYS.to_string());
-    while parts.len() > 1 && row_width(&parts) > usize::from(width) {
-        parts.pop();
+    // The row drops the last part while it is too wide. First it swaps the
+    // sentence of a held window for the short form. A window that stands still
+    // then stays named beside another sentence.
+    while row_width(&parts) > usize::from(width) {
+        let is_sentence = parts.last().is_some() && parts.last() == held_sentence.as_ref();
+        match (behind, is_sentence) {
+            (Some(Behind::Held(window)), true) => {
+                parts.pop();
+                parts.push(format_held_window_short(window));
+            }
+            _ if parts.len() > 1 => {
+                parts.pop();
+            }
+            _ => break,
+        }
     }
     // The row dropped the list of the keys. A person who reads that the window
     // stands still needs the key that returns the range of the dashboard. The
-    // row therefore writes that one hint while it fits.
-    if held.is_some() && parts.last().is_some_and(|last| last != KEYS) {
+    // sentence of a held window names that key, and so does its short form.
+    // The row of a window that follows the clock takes the key here.
+    if matches!(behind, Some(Behind::Following(_))) && parts.last().is_some_and(|last| last != KEYS)
+    {
         let mut with_key = parts.clone();
         with_key.push(RANGE_KEY.to_string());
         if row_width(&with_key) <= usize::from(width) {
@@ -504,7 +552,7 @@ async fn draw_loop(
         // its own. The row and the axis of time then name one window. The row
         // names that window while it ends before the present moment, and it
         // stays quiet at every other time.
-        let held = snapshot.window().filter(|window| window.to < window.now);
+        let behind = behind(dash.time_range(), snapshot.window());
         let rows = dashboard
             .panels
             .iter()
@@ -531,7 +579,7 @@ async fn draw_loop(
                 variable_error.as_deref(),
                 age,
                 waits,
-                held,
+                behind,
                 status.width,
             );
             let text = with_row_key(text, rows, status.width);
@@ -790,10 +838,191 @@ mod tests {
             to: 300_000,
             now: 3_900_000,
         };
-        let text = status_text(0, 0, None, None, false, Some(window), 120);
+        let text = status_text(
+            0,
+            0,
+            None,
+            None,
+            false,
+            Some(Behind::Following(window)),
+            120,
+        );
         assert!(
             text.starts_with("The panels show 5 minutes that ended 1 hour ago."),
             "A reader must learn which window the panels show. Text: {text}"
+        );
+    }
+
+    fn held_window() -> TimeWindow {
+        TimeWindow {
+            from: 50_400_000,
+            to: 50_520_000,
+            now: 60_000_000,
+        }
+    }
+
+    #[test]
+    fn the_status_row_writes_the_held_sentence_for_a_held_window() {
+        let text = status_text(
+            0,
+            0,
+            None,
+            None,
+            false,
+            Some(Behind::Held(held_window())),
+            120,
+        );
+        assert!(
+            text.starts_with(
+                "The panels hold 14:00:00 to 14:02:00 UTC. Press 0 to follow the clock."
+            ),
+            "A reader must learn that the window stands still. Text: {text}"
+        );
+        assert!(
+            !text.contains("ended"),
+            "The sentence must hold no distance from the present moment. Text: {text}"
+        );
+    }
+
+    #[test]
+    fn the_status_row_writes_the_distance_for_a_window_that_follows_the_clock() {
+        let text = status_text(
+            0,
+            0,
+            None,
+            None,
+            false,
+            Some(Behind::Following(held_window())),
+            120,
+        );
+        assert!(
+            text.starts_with("The panels show 2 minutes that ended 3 hours ago."),
+            "A window that follows the clock keeps the distance. Text: {text}"
+        );
+    }
+
+    #[test]
+    fn the_status_row_writes_the_short_form_when_the_held_sentence_does_not_fit() {
+        let text = status_text(
+            0,
+            0,
+            None,
+            None,
+            false,
+            Some(Behind::Held(held_window())),
+            40,
+        );
+        assert_eq!(text, "Held 14:00:00 to 14:02:00. 0 follows.");
+        let wide = status_text(
+            0,
+            0,
+            None,
+            None,
+            false,
+            Some(Behind::Held(held_window())),
+            71,
+        );
+        assert!(
+            wide.starts_with("The panels hold"),
+            "The complete sentence must stay while it fits. Text: {wide}"
+        );
+    }
+
+    #[test]
+    fn the_status_row_writes_the_short_form_beside_the_sentence_of_an_error() {
+        let text = status_text(
+            1,
+            0,
+            None,
+            None,
+            false,
+            Some(Behind::Held(held_window())),
+            80,
+        );
+        assert_eq!(
+            text,
+            format!("1 panel holds an error.{GAP}Held 14:00:00 to 14:02:00. 0 follows."),
+            "The short form fits, so the row must name the window. Text: {text}"
+        );
+    }
+
+    #[test]
+    fn the_status_row_writes_the_short_form_beside_the_sentence_of_a_wait() {
+        let text = status_text(
+            0,
+            0,
+            None,
+            None,
+            true,
+            Some(Behind::Held(held_window())),
+            80,
+        );
+        assert_eq!(
+            text,
+            format!("The dashboard waits for an answer.{GAP}Held 14:00:00 to 14:02:00. 0 follows."),
+            "The short form fits, so the row must name the window. Text: {text}"
+        );
+    }
+
+    #[test]
+    fn the_status_row_keeps_the_complete_sentence_beside_the_sentence_of_an_error() {
+        let text = status_text(
+            1,
+            0,
+            None,
+            None,
+            false,
+            Some(Behind::Held(held_window())),
+            100,
+        );
+        assert!(
+            text.ends_with("UTC. Press 0 to follow the clock."),
+            "The complete sentence fits, so the row must keep it. Text: {text}"
+        );
+    }
+
+    #[test]
+    fn the_held_sentence_does_not_change_when_only_the_present_moment_changes() {
+        let at = |now| {
+            let window = TimeWindow {
+                now,
+                ..held_window()
+            };
+            status_text(0, 0, None, None, false, Some(Behind::Held(window)), 120)
+        };
+        assert_eq!(at(60_000_000), at(90_000_000));
+    }
+
+    #[test]
+    fn the_status_row_picks_the_sentence_by_the_kind_of_the_range() {
+        use thunderbox_core::RelativeTime;
+        let window = held_window();
+        let held = TimeRange {
+            from: RelativeTime::Absolute(window.from),
+            to: RelativeTime::Absolute(window.to),
+        };
+        let following = TimeRange {
+            from: RelativeTime::Offset(-600_000),
+            to: RelativeTime::Offset(-300_000),
+        };
+        let live = TimeRange {
+            from: RelativeTime::Offset(-300_000),
+            to: RelativeTime::Now,
+        };
+        assert!(matches!(behind(&held, Some(window)), Some(Behind::Held(_))));
+        assert!(matches!(
+            behind(&following, Some(window)),
+            Some(Behind::Following(_))
+        ));
+        assert!(
+            behind(
+                &live,
+                Some(TimeWindow {
+                    to: window.now,
+                    ..window
+                })
+            )
+            .is_none()
         );
     }
 
@@ -813,7 +1042,7 @@ mod tests {
             to: 300_000,
             now: 3_900_000,
         };
-        let text = status_text(0, 0, None, None, false, Some(window), 80);
+        let text = status_text(0, 0, None, None, false, Some(Behind::Following(window)), 80);
         assert!(
             text.starts_with("The panels show 5 minutes that ended 1 hour ago."),
             "A reader must learn which window the panels show. Text: {text}"

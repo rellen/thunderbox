@@ -158,6 +158,7 @@
   - [ADR 0089: The labels of the axis of values stand at the right](contributor/adr/0089-the-labels-of-the-axis-of-values-stand-at-the-right.md)
   - [ADR 0090: A filled chart draws no line over the fill of its last series](contributor/adr/0090-a-filled-chart-draws-no-line-over-the-fill-of-its-last-series.md)
   - [ADR 0091: A held window labels its time axis with clock times](contributor/adr/0091-a-held-window-labels-its-time-axis-with-clock-times.md)
+  - [ADR 0092: The status row names a held window by its clock times](contributor/adr/0092-the-status-row-names-a-held-window-by-its-clock-times.md)
   - [ADR NNNN: The decision, as one sentence](contributor/adr/0000-template.md)
 - [Make the pictures again](contributor/pictures.md)
 - [Libraries that this project examined](contributor/research.md)

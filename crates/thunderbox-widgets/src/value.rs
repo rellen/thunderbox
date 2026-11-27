@@ -227,6 +227,47 @@ pub fn format_window(window: TimeWindow) -> String {
     )
 }
 
+/// Returns the sentence that describes a window that stands still.
+///
+/// A person held the window at two fixed moments. The sentence names both
+/// moments in Coordinated Universal Time, and it names the key that returns to
+/// the present moment. The sentence does not change while the window stands
+/// still, because it holds no distance from the present moment.
+///
+/// # Examples
+///
+/// ```
+/// use thunderbox_core::TimeWindow;
+/// use thunderbox_widgets::format_held_window;
+/// let window = TimeWindow { from: 50_400_000, to: 50_520_000, now: 60_000_000 };
+/// assert_eq!(
+///     format_held_window(window),
+///     "The panels hold 14:00:00 to 14:02:00 UTC. Press 0 to follow the clock."
+/// );
+/// ```
+pub fn format_held_window(window: TimeWindow) -> String {
+    let span = window.span_ms();
+    format!(
+        "The panels hold {} to {} UTC. Press 0 to follow the clock.",
+        format_clock(window.from, span),
+        format_clock(window.to, span)
+    )
+}
+
+/// Returns the short form of the sentence of [`format_held_window`].
+///
+/// A program draws this text only when the complete sentence does not fit.
+/// `CLAUDE.md` states that rule in the section `The rule for a short label
+/// inside a panel`.
+pub fn format_held_window_short(window: TimeWindow) -> String {
+    let span = window.span_ms();
+    format!(
+        "Held {} to {}. 0 follows.",
+        format_clock(window.from, span),
+        format_clock(window.to, span)
+    )
+}
+
 /// Returns the text of a length of time, in words.
 ///
 /// The function selects the unit from the length itself, and it writes the
@@ -555,6 +596,58 @@ mod tests {
         let ten_years = thunderbox_core::MAX_SPAN_MS;
         assert_eq!(format_from_now(-ten_years, ten_years / 2), "-3650d");
         assert_eq!(format_from_now(-172_800_000, 86_400_000), "-2d");
+    }
+
+    #[test]
+    fn format_held_window_names_both_ends_of_a_window_under_a_day() {
+        let window = TimeWindow {
+            from: 50_400_000,
+            to: 50_520_000,
+            now: 60_000_000,
+        };
+        assert_eq!(
+            format_held_window(window),
+            "The panels hold 14:00:00 to 14:02:00 UTC. Press 0 to follow the clock."
+        );
+    }
+
+    #[test]
+    fn format_held_window_writes_the_date_for_a_window_of_two_days() {
+        let window = TimeWindow {
+            from: 0,
+            to: 172_800_000,
+            now: 200_000_000,
+        };
+        assert_eq!(
+            format_held_window(window),
+            "The panels hold 01-01 00:00 to 01-03 00:00 UTC. Press 0 to follow the clock."
+        );
+    }
+
+    #[test]
+    fn format_held_window_does_not_change_when_only_the_present_moment_changes() {
+        let window = |now| TimeWindow {
+            from: 50_400_000,
+            to: 50_520_000,
+            now,
+        };
+        assert_eq!(
+            format_held_window(window(60_000_000)),
+            format_held_window(window(90_000_000))
+        );
+    }
+
+    #[test]
+    fn format_held_window_short_names_both_ends_and_the_key() {
+        let window = TimeWindow {
+            from: 50_400_000,
+            to: 50_520_000,
+            now: 60_000_000,
+        };
+        assert_eq!(
+            format_held_window_short(window),
+            "Held 14:00:00 to 14:02:00. 0 follows."
+        );
     }
 
     #[test]

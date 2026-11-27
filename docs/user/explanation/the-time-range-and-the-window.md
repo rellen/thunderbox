@@ -142,7 +142,17 @@ list of processes keeps no past at all. It shows `no data` for each window that
 does not hold the most recent sample.
 
 The status row is the one place that can tell a person why. While the window
-stands still in the past, the row names that window:
+stands still in the past, the row names the two moments of that window. It also
+names the key that returns to the present moment:
+
+```
+The panels hold 14:00:00 to 14:02:00 UTC. Press 0 to follow the clock.
+```
+
+The sentence holds no distance from the present moment. The picture of a held
+window stands still, so the sentence stands still too. A window that follows
+the clock ends before the present moment, and it moves on each refresh. The
+row then writes the width of that window and the distance back to it:
 
 ```
 The panels show 5 minutes that ended 1 hour ago.

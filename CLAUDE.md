@@ -117,6 +117,7 @@ therefore left them as they are.
 | `no data` | `thunderbox-widgets`, the panel that has an empty result | Rule 4 asks for a complete sentence. The same width problem applies. |
 | `—` | `thunderbox-widgets`, the text of a value that is not finite | Rule 8 forbids an em dash as punctuation. This em dash is not punctuation. It is the symbol that a chart shows in place of a missing number. |
 | `+3` | `thunderbox-widgets`, the note that counts the series, the columns, or the rows that a panel dropped, and the note that counts the panels that a collapsed row panel hides | Rule 4 asks for a complete sentence. The panel writes one, and it takes this form only where the sentence does not fit. No file holds this text. Each `dropped_text` function and the function `hidden_text` build the form with `format!("+{dropped}")` or `format!("+{hidden}")`. The tests compare against `+2`, `+3`, `+4`, and `+12`. |
+| `Held 14:00:00 to 14:02:00. 0 follows.` | `thunderbox-widgets`, the function `format_held_window_short`, which the status row of the program draws | Rule 4 asks for a complete sentence, and this form has no subject. The complete sentence of `format_held_window` is 70 characters wide, and the status row of a narrow terminal does not hold it. The row draws this short form only when the complete sentence does not fit. A test of the program compares against the form. ADR 0092 in `docs/contributor/adr` records the decision. |
 
 ### The rule for a short label inside a panel
 
@@ -406,12 +407,12 @@ The measurement: one link to an item that does not exist gives
 `cargo doc --no-deps` one warning and the code 0. The same link gives
 `RUSTDOCFLAGS="-D warnings" cargo doc --no-deps` the code 101.
 
-The count of the doctests must not fall. That count is 27 today:
+The count of the doctests must not fall. That count is 28 today:
 
 | crate | doctests |
 |---|---|
 | `thunderbox-core` | 12 |
-| `thunderbox-widgets` | 13 |
+| `thunderbox-widgets` | 14 |
 | `thunderbox-dashboard` | 1 |
 | `thunderbox-source-prometheus` | 1 |
 | each other crate | 0 |

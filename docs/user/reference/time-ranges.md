@@ -202,7 +202,19 @@ The labels do not change on a refresh, because the window does not change.
 
 ## The sentence of the status row
 
-The status row names a window that ends before the present moment. It writes a
+The status row names a window that ends before the present moment. A held range
+has a fixed moment at each end. The row then writes the two moments in
+Coordinated Universal Time, and it names the key that follows the clock again:
+
+```
+The panels hold 14:00:00 to 14:02:00 UTC. Press 0 to follow the clock.
+```
+
+The row writes the short form `Held 14:00:00 to 14:02:00. 0 follows.` when the
+sentence does not fit. A window that is one day wide or wider writes each moment
+as `MM-DD HH:MM`.
+
+A range that follows the clock and ends before the present moment writes a
 sentence of this form:
 
 ```

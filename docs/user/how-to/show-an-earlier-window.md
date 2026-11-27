@@ -13,16 +13,18 @@ read the clock.
 4. Press `Right` to move the time range forward by half of its width.
 5. Press `0` or `=` to return to the time range that the dashboard file states.
 
-After a move back, the window stands still, and the status row names it. This
-text is an example:
+After a move back, the window stands still, and the status row names the two
+moments of the window in Coordinated Universal Time. This text is an example:
 
 ```
-The panels show 1 minute that ended 31 seconds ago.    0 range
+The panels hold 14:00:00 to 14:02:00 UTC. Press 0 to follow the clock.
 ```
 
-The status row keeps the hint `0 range` when the list of the keys does not fit
-beside that sentence. A change of the width keeps the later end of the window
-where it is.
+The sentence stays the same while the window stands still. The status row
+writes the short form `Held 14:00:00 to 14:02:00. 0 follows.` when the
+complete sentence does not fit. A window of one day or more also names the
+date, as in `01-01 00:00 to 01-03 00:00`. A change of the width keeps the later
+end of the window where it is.
 
 A move forward that reaches the present moment makes the time range follow the
 clock again. The time range keeps the width that you selected.
