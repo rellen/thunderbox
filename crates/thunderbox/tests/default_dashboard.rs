@@ -59,12 +59,12 @@ async fn answer() -> Arc<Snapshot> {
 }
 
 /// The sysinfo data source attaches a label to each series of the signal
-/// `cpu.cores`. A label reaches the name of a series, so this test holds the
-/// default dashboard to the names that it drew before that change.
+/// `cpu.cores`. Both panels of the cores name each series with the pattern
+/// `C{{core}}`, so the names read `C0`, `C1`, and one name for each other core.
+/// A short name leaves more width to the numbers.
 ///
-/// The names stand, and the order of the cores changed. The store of that data
-/// source orders its names by the text, so a machine of ten cores or more drew
-/// `core 0, core 1, core 10, core 11, core 2` before. It now draws the cores in
+/// The store of that data source orders its names by the text, so a machine of
+/// ten cores or more once drew `C0, C1, C10, C11, C2`. It now draws the cores in
 /// the order of their position, and this test reads that order back.
 ///
 /// Both panels of the cores state a pattern, and a pattern overwrites the name
@@ -72,7 +72,7 @@ async fn answer() -> Arc<Snapshot> {
 /// `a_target_of_the_sysinfo_data_source_that_states_no_pattern_keeps_the_short_name`
 /// in `thunderbox-dashboard` covers a target that states none.
 #[tokio::test]
-async fn the_default_dashboard_draws_the_names_that_it_drew_before() {
+async fn the_default_dashboard_names_each_core_by_its_position() {
     let snapshot = answer().await;
 
     assert_eq!(
@@ -92,7 +92,7 @@ async fn the_default_dashboard_draws_the_names_that_it_drew_before() {
             !cores.is_empty(),
             "The machine must report at least one core."
         );
-        let expected: Vec<String> = (0..cores.len()).map(|n| format!("core {n}")).collect();
+        let expected: Vec<String> = (0..cores.len()).map(|n| format!("C{n}")).collect();
         assert_eq!(
             cores, expected,
             "The pattern of this panel names each series after its core. Panel {panel}."

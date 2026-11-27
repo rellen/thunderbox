@@ -65,8 +65,8 @@ The middle row holds three panels:
 - The panel `memory` is a meter from 0 to 100. It shows the share of the memory
   that is in use. The meter is yellow at 70 or more, and it is red at 90 or
   more.
-- The panel `cores` holds one bar for each core, with the names `core 0`,
-  `core 1`, and one name for each other core. A bar is red at 80 or more.
+- The panel `cores` holds one bar for each core, with the names `C0`, `C1`,
+  and one name for each other core. A bar is red at 80 or more.
 - The panel `network` draws two lines. One line shows the bytes that the network
   cards received in each second. The other line shows the bytes that they sent.
 
@@ -76,7 +76,9 @@ The bottom row holds two panels:
 
 - The panel `the most recent rows for each core` is a table. Each row holds one
   sample, and the newest row is at the bottom. The first column holds the time
-  of the sample, in Coordinated Universal Time.
+  of the sample, in Coordinated Universal Time. Each other column holds the
+  share of one core, as a whole percent, under the name of that core, such as
+  `C0`.
 - The panel `processes` holds one row for each process of the machine. The
   busiest process comes first.
 

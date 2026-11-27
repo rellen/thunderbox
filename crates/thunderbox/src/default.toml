@@ -63,7 +63,7 @@ color = "critical"
 [[panel.target]]
 source = "machine"
 expr = "cpu.cores"
-legend = "core {{core}}"
+legend = "C{{core}}"
 
 [[panel]]
 title = "network"
@@ -81,12 +81,12 @@ expr = "network.tx"
 title = "the most recent rows for each core"
 kind = "table"
 unit = "percent"
-decimals = 1
-grid = { x = 0, y = 13, w = 12, h = 6 }
+decimals = 0
+grid = { x = 0, y = 13, w = 10, h = 6 }
 [[panel.target]]
 source = "machine"
 expr = "cpu.cores"
-legend = "core {{core}}"
+legend = "C{{core}}"
 
 # The settings of a top panel describe the column that puts the rows in
 # order. The other columns keep the hints that the data source states. The
@@ -96,7 +96,7 @@ legend = "core {{core}}"
 title = "processes"
 kind = "top"
 sort = "cpu"
-grid = { x = 12, y = 13, w = 12, h = 6 }
+grid = { x = 10, y = 13, w = 14, h = 6 }
 [[panel.threshold]]
 value = 60.0
 color = "warning"
