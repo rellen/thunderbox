@@ -1,18 +1,20 @@
 //! Tests that run the program itself.
 //!
 //! These tests check what a person, or another program, sees on the output.
-//! Every test starts the program through `run_with_limit`, so a fault of the
+//! Each test starts the program through `run_with_limit` or through `Screen`.
+//! Each of the two ways stops the program within `LIMIT`, so a fault of the
 //! program cannot hold the test for ever.
 
-use std::io::Read;
+use std::io::{Read, Write};
 use std::os::unix::process::CommandExt;
 use std::process::{Command, Output, Stdio};
-use std::sync::mpsc;
+use std::sync::{Arc, Mutex, mpsc};
 use std::thread;
 use std::time::{Duration, Instant};
 
 use rustix::fs::{Mode, OFlags};
 use rustix::pty::{OpenptFlags, grantpt, openpt, ptsname, unlockpt};
+use rustix::termios::{Winsize, tcsetwinsize};
 
 /// The longest time that a test lets the program run.
 const LIMIT: Duration = Duration::from_secs(30);
@@ -532,5 +534,304 @@ fn a_range_that_is_too_wide_gets_an_error_that_names_the_limit() {
     assert!(
         message.contains("3650 days"),
         "The message must name the limit. {message}"
+    );
+}
+
+/// The bytes that the backend of ratatui writes at the end of each draw.
+///
+/// A frame that wrote no cell holds this sequence and a hidden cursor, and
+/// nothing else. The test therefore counts a frame with this sequence, also
+/// when the frame changed no cell.
+const END_OF_FRAME: &[u8] = b"\x1b[39m\x1b[49m\x1b[59m\x1b[0m";
+
+/// A dashboard that never refreshes, so no new answer changes its screen.
+///
+/// The status row reports the age of the numbers after `OLD_NUMBERS`, which is
+/// 5 seconds, so the screen then changes once each second with no key. A test
+/// that uses this dashboard must end before the program has run for 5 seconds.
+const QUIET_DASHBOARD: &str = r#"
+title = "quiet"
+
+[source.test]
+kind = "testdata"
+
+[[panel]]
+title = "ramp"
+kind = "stat"
+grid = { x = 0, y = 0, w = 12, h = 4 }
+[[panel.target]]
+source = "test"
+expr = "ramp"
+
+[[panel]]
+title = "sine"
+kind = "stat"
+grid = { x = 12, y = 0, w = 12, h = 4 }
+[[panel.target]]
+source = "test"
+expr = "sine"
+"#;
+
+/// A program that runs in a pseudo-terminal, and the bytes that it wrote.
+struct Screen {
+    child: std::process::Child,
+    master: std::fs::File,
+    written: Arc<Mutex<Vec<u8>>>,
+}
+
+impl Screen {
+    /// Starts the program on the dashboard file, in a pseudo-terminal of the
+    /// size that the arguments give.
+    ///
+    /// # Panics
+    ///
+    /// Panics when the test cannot open the pseudo-terminal or run the program.
+    fn start(dashboard: &std::path::Path, columns: u16, rows: u16) -> Self {
+        let master = openpt(OpenptFlags::RDWR | OpenptFlags::NOCTTY)
+            .expect("The test must be able to open a pseudo-terminal.");
+        grantpt(&master).expect("The test must be able to grant the slave.");
+        unlockpt(&master).expect("The test must be able to unlock the slave.");
+        let name = ptsname(&master, Vec::new()).expect("The test must be able to name the slave.");
+        let slave = rustix::fs::open(
+            name.as_c_str(),
+            OFlags::RDWR | OFlags::NOCTTY,
+            Mode::empty(),
+        )
+        .expect("The test must be able to open the slave.");
+        // The test sets the size before the program starts. The program reads
+        // the size on each wake, so a later change also reaches it.
+        set_size(&slave, columns, rows);
+        let for_output = slave
+            .try_clone()
+            .expect("The test must be able to copy the slave.");
+        let for_errors = slave
+            .try_clone()
+            .expect("The test must be able to copy the slave.");
+
+        let mut command = program();
+        command
+            .arg(dashboard)
+            .stdin(Stdio::from(slave))
+            .stdout(Stdio::from(for_output))
+            .stderr(Stdio::from(for_errors));
+        let child = command
+            .spawn()
+            .expect("The test must be able to run the program.");
+        // The command holds the descriptors of the slave until the test drops
+        // it. An open copy of the slave keeps the master from its end.
+        drop(command);
+
+        let master = std::fs::File::from(master);
+        let written = Arc::new(Mutex::new(Vec::new()));
+        let mut reader = master
+            .try_clone()
+            .expect("The test must be able to copy the master.");
+        let sink = Arc::clone(&written);
+        thread::spawn(move || {
+            let mut buffer = [0_u8; 4096];
+            loop {
+                match reader.read(&mut buffer) {
+                    Ok(0) | Err(_) => break,
+                    Ok(count) => sink
+                        .lock()
+                        .expect("The reader must be able to lock the output.")
+                        .extend_from_slice(&buffer[..count]),
+                }
+            }
+        });
+        Self {
+            child,
+            master,
+            written,
+        }
+    }
+
+    /// Returns the number of frames that the program has drawn so far.
+    fn frames(&self) -> usize {
+        let written = self
+            .written
+            .lock()
+            .expect("The test must be able to lock the output.");
+        written
+            .windows(END_OF_FRAME.len())
+            .filter(|window| *window == END_OF_FRAME)
+            .count()
+    }
+
+    /// Sends bytes to the program, as a keyboard does.
+    fn type_bytes(&mut self, bytes: &[u8]) {
+        self.master
+            .write_all(bytes)
+            .expect("The test must be able to write to the master.");
+    }
+
+    /// Waits until the program has drawn more than `before` frames, and returns
+    /// `true` when that happens within `limit`.
+    fn draws_more_than(&self, before: usize, limit: Duration) -> bool {
+        let start = Instant::now();
+        while start.elapsed() < limit {
+            if self.frames() > before {
+                return true;
+            }
+            thread::sleep(Duration::from_millis(20));
+        }
+        self.frames() > before
+    }
+
+    /// Waits until the program has drawn its first frames and then drawn
+    /// nothing for `quiet`, and returns the number of frames.
+    ///
+    /// # Panics
+    ///
+    /// Panics when the program draws nothing, or when it never stops for `quiet`
+    /// without a new frame.
+    fn frames_after_start(&self, quiet: Duration) -> usize {
+        let start = Instant::now();
+        let mut count = 0;
+        let mut since = Instant::now();
+        while start.elapsed() < LIMIT {
+            let now = self.frames();
+            if now != count {
+                count = now;
+                since = Instant::now();
+            } else if count > 0 && since.elapsed() >= quiet {
+                return count;
+            }
+            thread::sleep(Duration::from_millis(20));
+        }
+        panic!("The program drew {count} frames and never stood still for {quiet:?}.");
+    }
+}
+
+impl Drop for Screen {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+
+/// Sets the size of a pseudo-terminal.
+fn set_size(terminal: impl std::os::fd::AsFd, columns: u16, rows: u16) {
+    tcsetwinsize(
+        terminal,
+        Winsize {
+            ws_row: rows,
+            ws_col: columns,
+            ws_xpixel: 0,
+            ws_ypixel: 0,
+        },
+    )
+    .expect("The test must be able to set the size.");
+}
+
+/// Writes the text of a dashboard to a file that only this test uses, and
+/// returns the path.
+fn write_dashboard(name: &str, text: &str) -> std::path::PathBuf {
+    let directory = std::env::temp_dir().join("thunderbox-cli-test");
+    std::fs::create_dir_all(&directory).expect("The test must be able to make a directory.");
+    let path = directory.join(name);
+    std::fs::write(&path, text).expect("The test must be able to write a file.");
+    path
+}
+
+/// A dashboard that refreshes each second changes its numbers once each
+/// second. Before the program drew a frame on each wake, it drew about ten
+/// frames each second. The program must now draw a frame only when the screen
+/// can change.
+///
+/// Each refresh can change the screen twice. The snapshot shows that a set of
+/// queries runs, and the next snapshot holds the answer. The limit below is
+/// therefore two frames each second, and a margin of two.
+#[test]
+fn an_idle_dashboard_that_refreshes_each_second_draws_about_two_frames_each_second() {
+    let mut screen = Screen::start(std::path::Path::new(dashboard_variables()), 110, 32);
+    thread::sleep(Duration::from_secs(1));
+    let before = screen.frames();
+    let seconds = 5;
+    thread::sleep(Duration::from_secs(seconds));
+    let frames = screen.frames() - before;
+    screen.type_bytes(b"q");
+    let limit = usize::try_from(2 * seconds + 2).expect("The limit must fit the number type.");
+    assert!(
+        frames >= 3,
+        "The dashboard refreshes each second, so the screen must change. The \
+         program drew {frames} frames in {seconds} seconds."
+    );
+    assert!(
+        frames <= limit,
+        "The program drew {frames} frames in {seconds} seconds. The limit is {limit}."
+    );
+}
+
+/// Returns the path of the dashboard that refreshes each second and declares
+/// a variable.
+fn dashboard_variables() -> &'static str {
+    concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../dashboards/variables.toml"
+    )
+}
+
+#[test]
+fn a_dashboard_that_never_refreshes_draws_no_frame_while_nobody_acts() {
+    let path = write_dashboard("quiet-idle.toml", QUIET_DASHBOARD);
+    let screen = Screen::start(&path, 80, 24);
+    let started = screen.frames_after_start(Duration::from_millis(500));
+    thread::sleep(Duration::from_secs(1));
+    let _ = std::fs::remove_file(&path);
+    assert_eq!(
+        screen.frames(),
+        started,
+        "An idle dashboard that never refreshes must draw no frame."
+    );
+}
+
+#[test]
+fn a_key_reaches_the_screen_at_once() {
+    let path = write_dashboard("quiet-key.toml", QUIET_DASHBOARD);
+    let mut screen = Screen::start(&path, 80, 24);
+    let started = screen.frames_after_start(Duration::from_millis(500));
+    // The key Tab moves the selection. It starts no set of queries, so it
+    // changes no snapshot, and only the event can draw the frame.
+    screen.type_bytes(b"\t");
+    let _ = std::fs::remove_file(&path);
+    assert!(
+        screen.draws_more_than(started, Duration::from_millis(1500)),
+        "The key Tab moves the selection, so the program must draw a frame."
+    );
+}
+
+#[test]
+fn a_new_size_of_the_terminal_reaches_the_screen_at_once() {
+    let path = write_dashboard("quiet-size.toml", QUIET_DASHBOARD);
+    let screen = Screen::start(&path, 80, 24);
+    let started = screen.frames_after_start(Duration::from_millis(500));
+    set_size(&screen.master, 100, 30);
+    let _ = std::fs::remove_file(&path);
+    assert!(
+        screen.draws_more_than(started, Duration::from_millis(1500)),
+        "A new size of the terminal must draw a frame."
+    );
+}
+
+#[test]
+fn a_burst_of_three_keys_costs_one_frame() {
+    let path = write_dashboard("quiet-burst.toml", QUIET_DASHBOARD);
+    let mut screen = Screen::start(&path, 80, 24);
+    let started = screen.frames_after_start(Duration::from_millis(500));
+    // One write puts the three keys into the queue of the terminal together.
+    // The loop must read all three in one wake, and it must draw one frame for
+    // them. A loop that reads one key on each wake draws three frames.
+    screen.type_bytes(b"\t\t\t");
+    let _ = std::fs::remove_file(&path);
+    assert!(
+        screen.draws_more_than(started, Duration::from_millis(1500)),
+        "The keys Tab move the selection, so the program must draw a frame."
+    );
+    thread::sleep(Duration::from_millis(500));
+    assert_eq!(
+        screen.frames() - started,
+        1,
+        "A burst of three keys must cost one frame."
     );
 }

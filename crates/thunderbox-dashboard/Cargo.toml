@@ -25,5 +25,11 @@ thunderbox-source-testdata = { workspace = true }
 ratatui = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time", "sync"] }
 
+# The example holds the decision to draw a frame. A program that embeds
+# thunderbox copies that decision, so the tests of the example must run.
+[[example]]
+name = "full_embed"
+test = true
+
 [lints]
 workspace = true

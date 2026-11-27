@@ -94,20 +94,29 @@ These records govern a data source:
 ## 5. The way of one refresh
 
 The program drives the runtime. The runtime owns no timer and no event loop.
-These steps run for each frame that the program draws:
+The loop of the program waits at most 100 milliseconds for an event, so it
+wakes at least ten times each second. A wake is one pass of that loop. These
+steps run on each wake:
 
-1. The program reads the newest snapshot with `DashboardRuntime::snapshot`. The
-   snapshot holds the state of each panel, the window, the values of the
-   variables, and the collapsed row panels.
-2. The program gives the snapshot to `DashboardView::render`, which draws each
+1. The program reads the size of the terminal, and it reads the newest
+   snapshot from the receiver of `DashboardRuntime::subscribe`. The snapshot
+   holds the state of each panel, the window, the values of the variables, and
+   the collapsed row panels.
+2. The program compares the facts of the wake with the facts of the last frame.
+   Section 5.1 lists them. The program draws a frame only when a fact differs.
+   A frame gives the snapshot to `DashboardView::render`, which draws each
    panel with a renderer of `thunderbox-widgets`.
 3. The program reports the area of the panels with
    `DashboardRuntime::set_panel_area`, and the marker with
-   `DashboardRuntime::set_marker`.
+   `DashboardRuntime::set_marker`. It reports the area of the last frame, also
+   on a wake that drew no frame.
 4. The program calls `DashboardRuntime::tick`. That method starts a set of
    queries in three conditions. The refresh interval passed, an area waited
    long enough, or the choices of a variable arrived.
-5. A set of queries runs on the async runtime of the program. `run_all` in
+5. The program waits for an event, and then it applies each event that waits.
+   A burst of keys therefore costs one frame. A key that stops the program
+   stops it at once.
+6. A set of queries runs on the async runtime of the program. `run_all` in
    `crates/thunderbox-dashboard/src/query.rs` runs one task for each panel,
    and it publishes one whole snapshot into a `watch` channel.
 
@@ -122,6 +131,93 @@ records govern that way:
 | the area of the panels | [0021](adr/0021-a-new-area-waits.md), [0022](adr/0022-an-area-that-changes-no-point-limit-starts-no-set.md), [0028](adr/0028-the-caller-reports-one-area-as-a-size.md), [0029](adr/0029-the-runtime-asks-about-every-panel-until-an-area-arrives.md) |
 | the jobs of one set | [0030](adr/0030-a-set-of-queries-holds-one-job-for-each-panel.md), [0045](adr/0045-the-panels-of-one-set-of-queries-run-at-the-same-time.md) |
 | the tests of that way | [0032](adr/0032-each-rule-of-the-path-of-an-area-holds-a-test.md) |
+| the decision to draw a frame | [0094](adr/0094-the-program-draws-a-frame-only-when-the-screen-can-change.md) |
+
+### 5.1 Facts of a frame
+
+A frame is one complete draw of the cells of the screen. The program once drew
+a frame on each wake, and nine frames of ten repeated the frame before them.
+ratatui wrote no cell for such a frame, but each one still drew the whole
+dashboard into a buffer. The program now draws a frame only when one of these
+facts differs from the frame before it:
+
+- The snapshot. The loop keeps one receiver of `DashboardRuntime::subscribe`
+  and asks it `has_changed` on each wake. A comparison of the `Arc` by address
+  is not safe. `DashboardRuntime::toggle_row` edits the snapshot in place while
+  no other owner holds the `Arc`, and the address then stays the same.
+- The size of the terminal. The loop reads the size on each wake. A resize
+  event alone is not enough, because a terminal can change its size between
+  the start of the program and its first read.
+- An event that the loop applied, such as a key.
+- The facts of the two rows of the program: the variables, the error of a
+  variable, the fact that a set of queries waits, and the age of the numbers.
+  The age takes the form that the status row shows, which is whole seconds
+  after the numbers reach the age of 5 seconds. A raw duration differs on each
+  wake, and the loop would then draw on each wake.
+
+`Facts` and `RowFacts` in `crates/thunderbox/src/main.rs` hold these facts in
+values that implement `PartialEq`, and `must_draw` compares them. The facts
+borrow the variables, so a wake that draws no frame copies nothing. The loop
+copies the variables only for a frame that it draws. The example
+`crates/thunderbox-dashboard/examples/full_embed.rs` holds the same decision
+for its own facts. Its line of text is one more fact.
+
+Five rules follow:
+
+- The loop applies each event that waits before it reads the snapshot. The
+  next wake therefore draws a frame that shows the result of the whole burst.
+- The function `apply_key` reads the snapshot again for each key. A key
+  `Enter` that collapses a row panel changes the snapshot. The key `Tab` after
+  it must skip the panels that the row panel hides now.
+- The loop reads the age from the snapshot that it draws, so the frame shows
+  the age of its own numbers.
+- A wake that draws no frame still calls `set_panel_area`, `set_marker`, and
+  `tick`. The program must wake at least ten times each second, so that the
+  runtime starts a refresh and takes an area that waited.
+- A new input of a frame needs a fact of its own when it reads the clock. It
+  also needs one when it changes with no event and no new snapshot. The doc
+  comment of `Facts` lists the inputs that need none, and it gives the reason
+  for each.
+
+[ADR 0094](adr/0094-the-program-draws-a-frame-only-when-the-screen-can-change.md)
+states the decision, and it records the designs that the project rejected.
+
+The method of the measurement, and the measurements of this change:
+
+The measurement uses a script that the project does not hold. The author kept
+it outside the repository, so this section states what it does. It starts the
+program in a pseudo-terminal of 110 by 32 cells. A pseudo-terminal is a
+terminal that a program simulates. The script gives the program the file
+`dashboards/variables.toml`. It sends no key for 10 seconds, and then it sends
+`q`. It counts each frame that the program ends within those 10 seconds. A
+frame ends with the sequence that resets the colours. A frame that holds only
+that sequence, the command that hides the cursor, or a command that moves the
+cursor wrote no cell. Any other frame wrote a cell.
+
+The script reads the processor time with `getrusage(RUSAGE_CHILDREN)` after the
+program exits. That call returns the user time and the system time of the child
+process, and it works the same way on macOS. The script divides the sum by the
+wall time of the run, which is the time that a clock shows. One run measures one program, because the call adds the
+time of every child that already exited. The method ran each program three
+times, and it alternated the two programs. The table gives the median of the
+three runs. The build is a debug build.
+
+| program | frames | frames that wrote no cell | frames that wrote a cell | processor time |
+|---|---|---|---|---|
+| before the change | 92 | 81 | 11 | 7.14 percent |
+| after the change | 11 | 0 | 11 | 1.11 percent |
+
+The change keeps the screen quick to react. A second script sent the key `Tab`
+five times, and it changed the window size five times with `TIOCSWINSZ` and
+`SIGWINCH`. `TIOCSWINSZ` is the request that sets the size of a terminal, and
+`SIGWINCH` is the signal that tells a program about the new size. The script
+measured the time from each action to the next frame. The check ran twice. Each
+delay was shorter than 200 milliseconds:
+
+| action | shortest delay | longest delay |
+|---|---|---|
+| the key `Tab` | 3.4 milliseconds | 17.2 milliseconds |
+| a change of the window size | 4.7 milliseconds | 17.4 milliseconds |
 
 ## 6. How a panel draws
 

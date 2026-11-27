@@ -33,8 +33,9 @@ thunderbox-widgets = { path = "crates/thunderbox-widgets", version = "0.0.0" }
 
 # The tests of the program open a pseudo-terminal, and they start the program
 # in a new session. The crate `rustix` does both. The crate `crossterm` already
-# uses it, so the lock file holds no new package.
-rustix = { version = "1", features = ["pty", "process", "fs"] }
+# uses it, so the lock file holds no new package. The feature `termios` lets a
+# test set the size of the pseudo-terminal.
+rustix = { version = "1", features = ["pty", "process", "fs", "termios"] }
 
 # The libraries that draw. `thunderbox-widgets` takes `ratatui-core` and
 # `ratatui-widgets` alone. It holds no backend, no crossterm, and no tokio. ADR

@@ -359,7 +359,10 @@ which key reaches that function.
 ## Next step
 
 - Read the example `crates/thunderbox-dashboard/examples/full_embed.rs` of your
-  copy. It also binds the keys of a variable and the keys of a row panel.
+  copy. It also binds the keys of a variable and the keys of a row panel. It
+  also draws a frame only when the screen can change, and the loop of this
+  tutorial draws a frame on each pass. Copy that decision when your program
+  must use little processor time.
 - Read [Two ways into another program](../explanation/two-ways-into-another-program.md)
   to choose between the two ways.
 - Read [The crates](../reference/crates.md) for the crates that a program uses.

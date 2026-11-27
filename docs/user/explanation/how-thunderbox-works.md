@@ -116,9 +116,10 @@ runtime sends a set of queries in these conditions:
   for;
 - a panel appears, because a row panel expands or the terminal grows.
 
-The program that holds the dashboard calls the runtime on each frame, and the
-runtime then starts a refresh when the refresh interval passes. thunderbox
-starts no timer of its own.
+The program that holds the dashboard calls the runtime on each wake. A wake is
+one pass of the loop of the program, and a wake comes at least ten times each
+second. The runtime then starts a refresh when the refresh interval passes.
+thunderbox starts no timer of its own.
 [Two ways into another program](two-ways-into-another-program.md) explains why.
 
 The runtime runs the panels of one set of queries at the same time. Assume a

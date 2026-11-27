@@ -81,7 +81,7 @@ that state together with the answers of the panels, and the renderer reads both.
 The renderer and the runtime therefore always hide the same panels.
 
 The project examined another design. In that design the code that draws holds
-the state, and the program reports that state to the runtime on every frame. A
+the state, and the program reports that state to the runtime on each wake. A
 program that forgot that report would draw a panel that no query ever reached.
 That panel would show `loading…` for ever, and nothing would name the fault.
 

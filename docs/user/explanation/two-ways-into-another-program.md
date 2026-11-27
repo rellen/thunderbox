@@ -108,7 +108,7 @@ The dashboard layer behaves as a library. It keeps these six promises:
   recent answers, and it returns immediately.
 
 The dashboard layer also starts no timer of its own, because it owns no event
-loop. The program calls one method on each frame, and that method starts a
+loop. The program calls one method on each wake, and that method starts a
 refresh when the refresh interval passes.
 
 The reason is the same for each promise. A program that holds a dashboard
@@ -125,11 +125,12 @@ keep four rules of its own:
   sequences. A runtime of one thread runs no query while the loop that draws
   waits for a key. Every panel then shows `loading…` for ever, and no error
   reaches the screen.
-- The program can report the area and the marker on every frame, because the
-  runtime ignores a value that did not change. The program changes the time
-  range only after a key press. Each change of the time range starts a new set
-  of queries, which is the whole group of queries of one refresh. A change on
-  every frame would stop each set before it answers.
+- The program can report the area and the marker on each wake, because the
+  runtime ignores a value that did not change. A wake is one pass of the loop
+  of the program. The program changes the time range only after a key press.
+  Each change of the time range starts a new set of queries, which is the whole
+  group of queries of one refresh. A change on each wake would stop each set
+  before it answers.
 - A dashboard that declares no data source accepts any name of a data source.
   An embedded dashboard often declares none, because the program builds its own
   list of data sources. A wrong name then appears as an error in each panel, and
@@ -141,6 +142,32 @@ keep four rules of its own:
 
 [ADR 0016](../../contributor/adr/0016-a-program-that-holds-a-dashboard-holds-four-rules.md)
 gives each rule and its measurement.
+
+## Why the program draws a frame only when the screen can change
+
+A frame is one complete draw of the cells of the screen. A dashboard that
+refreshes each second changes its numbers once each second. A program that
+draws a frame on each wake therefore repeats the frame before it on nine
+wakes of ten. ratatui writes no cell for such a frame, but it still draws the whole
+dashboard into a buffer.
+
+The program `thunderbox` and the example `full_embed` therefore compare the
+facts of a wake with the facts of the last frame. They draw a frame only when
+a fact differs. A fact is one of these:
+
+- a new snapshot, which the receiver of `DashboardRuntime::subscribe` reports;
+- a new size of the terminal;
+- an event that the program applied, such as a key;
+- a fact that the program shows outside the dashboard, such as its own line of
+  text or the row of the variables.
+
+The program still wakes at least ten times each second. A key and a new size
+therefore reach the screen at once. The program applies each event that waits
+before it draws, so a burst of keys costs one frame.
+
+A program that embeds a dashboard can copy that decision from the example
+`full_embed`. [ADR 0094](../../contributor/adr/0094-the-program-draws-a-frame-only-when-the-screen-can-change.md)
+states the decision and its measurement.
 
 ## Why the program binds the keys
 

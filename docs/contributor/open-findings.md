@@ -445,7 +445,7 @@ thunderbox that draw a round border.
 One smaller fact reaches no file. `Marker::from_str` accepts `tty` as a second
 name for `block` (`marker.rs:74`), and no document lists that name.
 
-## 2.2 The guard of `set_marker` carries every frame, and no test holds it
+## 2.2 The guard of `set_marker` carries each wake, and no test holds it
 
 **doc silent**
 
@@ -461,12 +461,14 @@ pub fn set_marker(&mut self, marker: Marker) {
 ```
 
 Both programs that embed thunderbox call `dash.set_marker(view.marker())` on
-**every frame** (`crates/thunderbox/src/main.rs:380`, `full_embed.rs:180`). A
+**each wake** (`crates/thunderbox/src/main.rs:917`, `full_embed.rs:287`). A
 reader who takes the guard out reads that step as a simplification. The
 dashboard then stops and starts its queries about ten times each second, and it
-finishes no refresh. The whole suite stays green, at 740 tests.
+finishes no refresh. A wake that draws no frame still makes the call, so ADR
+0094 in `docs/contributor/adr` does not reduce this rate. The whole suite stays
+green, at 740 tests.
 
-The measurement: with no guard, 10 frames across 200 milliseconds started 10
+The measurement: with no guard, 10 wakes across 200 milliseconds started 10
 queries, and the panel never left the state that holds no answer. With the
 guard, the same drive started 1 query, and the panel answered.
 
@@ -474,10 +476,10 @@ Three tests call `set_marker` (`tests/runtime.rs:692`, `:1114`, `:1616`), and
 each one calls it once with a value that differs. None of the three therefore
 holds the guard.
 
-The doc comment at `runtime.rs:257-263` does not state that a caller may call
-this method on every frame. It also does not state that the guard is the reason
-that such a caller is safe. The doc comment of `set_time_range`, at
-`runtime.rs:494-498`, does state that hazard for its own method.
+The doc comment at `runtime.rs:264-271` states that a caller may call this
+method on each wake. It also states that the guard is the reason that such
+a caller is safe. The doc comment of `set_time_range`, at
+`runtime.rs:552-555`, does state that hazard for its own method.
 
 Two more facts reach no file.
 
@@ -714,15 +716,15 @@ make the three fail at every run. Each one then passes sometimes, and fails
 sometimes.
 
 **The lines of the two loops.** `draw_loop` is the loop that draws, at
-`crates/thunderbox/src/main.rs:321-425`. It is an `async fn`, and its body holds
-no `.await`. It parks the thread at `:384`, inside
-`event::poll(Duration::from_millis(100))`. `run`, at `:161-178`, holds one
-`.await`, at `:175`, and that line awaits `draw_loop`. The loop of the example
-`full_embed` sits inside `run`, at
-`crates/thunderbox-dashboard/examples/full_embed.rs:117-236`, and that function
-holds no `.await` either. It polls at `:184` with the same 100 milliseconds. The
-doc comment of `AREA_QUIET_TIME`, at
-`crates/thunderbox-dashboard/src/runtime.rs:43-44`, states that duration for both
+`crates/thunderbox/src/main.rs:867-927`. It is an `async fn`, and its body holds
+no `.await`. It parks the thread at `:921`, where it calls `read_wake` with
+`event::poll`, and the constant `WAKE` at `:536` holds the wait of 100 milliseconds. `run`, at
+`:284-322`, holds one `.await`, at `:319`, and that line awaits `draw_loop`. The
+loop of the example `full_embed` sits inside `run`, at
+`crates/thunderbox-dashboard/examples/full_embed.rs:193-363`, and that function
+holds no `.await` either. It polls at `:293`, through `read_burst`, with the constant `WAKE` at
+`:115`. The doc comment of `AREA_QUIET_TIME`, at
+`crates/thunderbox-dashboard/src/runtime.rs:37-48`, states the wake of both
 programs.
 
 ## 4.2 No test reads the sentence that a panel shows for a data source that the registry does not hold
@@ -814,13 +816,19 @@ Each place reads the receiver while the runtime lives. The library test at
 leaves `refreshing` at `true`. That test holds the guard for a refresh, and no
 test holds it for a runtime that drops.
 
-**No program of this repository meets the fault.** Neither
-`crates/thunderbox/src/main.rs` nor
-`crates/thunderbox-dashboard/examples/full_embed.rs` calls `subscribe`. Those two
-programs are the only ones of this repository that embed a dashboard.
-`crates/thunderbox/src/main.rs:340` reads `refresh_age()` on the runtime itself.
-The fault therefore reaches a program that embeds thunderbox, keeps a receiver,
-and reads `is_refreshing()` on it without a wait on `changed()`.
+**No program of this repository meets the fault.** Both
+`crates/thunderbox/src/main.rs` and
+`crates/thunderbox-dashboard/examples/full_embed.rs` call `subscribe`, and each
+one keeps the receiver in a local value of its loop. Those two programs are the
+only ones of this repository that embed a dashboard. In `main.rs`, `draw_loop`
+reads `is_refreshing()` on the snapshot that the receiver gives, and it also
+reads `refresh_age()` on the runtime itself. The runtime outlives the loop,
+because `draw_loop` borrows it and returns first. The receiver drops when
+`draw_loop` returns, so no read comes after the runtime drops. In
+`full_embed.rs`, the receiver is declared after the runtime, so it drops
+first, and that program never reads `is_refreshing()`. The fault therefore
+reaches a program that embeds thunderbox, keeps a receiver, and reads
+`is_refreshing()` on it without a wait on `changed()`.
 
 ## 3.2 Four facts behind the fourth duty of a data source reach no file
 

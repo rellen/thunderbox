@@ -127,21 +127,20 @@ records the open question.
 
 ## Why a new size of the terminal waits a moment
 
-A program reports the size of the area of the panels to the runtime on every
-frame. The program `thunderbox` reads its terminal every 100 milliseconds. A
-person who
-drags the corner of a terminal window therefore reports a new size many times
-each second.
+A program reports the size of the area of the panels to the runtime on each
+wake. A wake is one pass of the loop of the program. The program `thunderbox`
+wakes at least ten times each second. A person who drags the corner of a
+terminal window therefore reports a new size many times each second.
 
 A new set of queries for each size would send one request to a server for each
-frame. Each new set would also stop the set before it, so most answers would
+wake. Each new set would also stop the set before it, so most answers would
 never arrive. The runtime holds a new size instead. It sends the next set of
 queries when no set of queries runs, and when one of these two conditions holds:
 
 - the size stood still for 250 milliseconds;
 - the size waited for one second.
 
-A drag across thirty frames therefore costs one set of queries. The second
+A drag across thirty wakes therefore costs one set of queries. The second
 condition serves a size that never stands still. A scroll bar that appears and
 disappears makes such a size.
 [ADR 0021](../../contributor/adr/0021-a-new-area-waits.md) states the

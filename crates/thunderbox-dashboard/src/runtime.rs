@@ -35,19 +35,21 @@ const ASSUMED_WIDTH: u16 = 80;
 
 /// The time that a new area must stand still before the runtime uses it.
 ///
-/// A caller reports the area of the panels on every frame. A person who drags
-/// the edge of a terminal window therefore reports a new area many times each
-/// second. The runtime holds such an area for this time, so that person sends
-/// one set of queries and not one set for each frame.
+/// A caller reports the area of the panels on each wake. A wake is one pass of
+/// the loop of the caller. The caller wakes also when it draws no frame, so it
+/// reports the area at least as often as it draws. A person who drags the edge
+/// of a terminal window therefore reports a new area many times each second.
+/// The runtime holds such an area for this time, so that person sends one set
+/// of queries and not one set for each wake.
 ///
-/// The program that runs alone and the example `full_embed` each read their
-/// terminal every 100 milliseconds. This time covers more than two frames of
-/// such a program, and it does not grow with the refresh interval.
+/// The program that runs alone and the example `full_embed` each wake at least
+/// ten times each second. This time covers more than two wakes of such a
+/// program, and it does not grow with the refresh interval.
 pub const AREA_QUIET_TIME: Duration = Duration::from_millis(250);
 
 /// The longest time that the runtime holds a new area.
 ///
-/// An area that changes on every frame never stands still for
+/// An area that changes on each wake never stands still for
 /// [`AREA_QUIET_TIME`]. A panel area that grows and shrinks by one cell is one
 /// example, and a scroll bar that appears and disappears makes one. The runtime
 /// would hold such an area for as long as it moved, and the point limit would
@@ -259,13 +261,14 @@ impl DashboardRuntime {
     /// starts the queries again. The panels keep the answers that they hold,
     /// because the marker changes the number of points and not the window.
     ///
-    /// A program can call this method on every frame. Both programs of this
-    /// repository do so. The comparison below is the reason that such a call is
-    /// safe: an equal marker starts nothing. Keep that comparison. Without it,
-    /// ten frames over 200 milliseconds start ten sets of queries, and no panel
-    /// ever leaves [`crate::PanelState::Loading`]. No test of this repository
-    /// holds this rule today, because each test that calls this method calls it
-    /// once with a marker that differs.
+    /// A program can call this method on each wake. Both programs of this
+    /// repository do so, also on a wake that draws no frame. The comparison
+    /// below is the reason that such a call is safe: an equal marker starts
+    /// nothing. Keep that comparison. Without it, ten wakes over 200
+    /// milliseconds start ten sets of queries, and no panel ever leaves
+    /// [`crate::PanelState::Loading`]. No test of this repository holds this
+    /// rule today, because each test that calls this method calls it once with
+    /// a marker that differs.
     pub fn set_marker(&mut self, marker: Marker) {
         if self.marker != marker {
             self.marker = marker;
@@ -285,8 +288,8 @@ impl DashboardRuntime {
     /// The runtime divides that area onto the panels of the dashboard, as
     /// [`crate::DashboardView`] divides it. Each panel then asks for one point
     /// for each position that the marker can address inside that panel. A
-    /// caller reports the area on every frame, and the runtime reads it on
-    /// every frame.
+    /// caller reports the area on each wake, and the runtime reads it on each
+    /// wake.
     ///
     /// The runtime asks a data source for nothing for a panel that the renderer
     /// drops. The renderer draws no panel under 3 cells wide or under 3 cells
@@ -548,9 +551,8 @@ impl DashboardRuntime {
     ///
     /// The method starts a new set of queries on every call, even when the new
     /// range equals the range before. A caller therefore calls this method
-    /// from a key press, and never on every frame. A caller that pushed a
-    /// range on every frame would stop and start a set of queries on every
-    /// frame.
+    /// from a key press, and never on each wake. A caller that pushed a range
+    /// on each wake would stop and start a set of queries on each wake.
     pub fn set_time_range(&mut self, range: TimeRange) {
         let kept = if self.range == range {
             Kept::Answers
@@ -725,7 +727,8 @@ impl DashboardRuntime {
     /// Returns the most recent snapshot.
     ///
     /// The method returns at once. It never waits for a query. The code that
-    /// draws calls this method on every frame.
+    /// draws calls this method on each wake, or it waits on the receiver of
+    /// [`DashboardRuntime::subscribe`] and calls this method after a change.
     pub fn snapshot(&self) -> Arc<Snapshot> {
         self.rx.borrow().clone()
     }
@@ -752,8 +755,15 @@ impl DashboardRuntime {
 
     /// Returns a receiver that reports each new snapshot.
     ///
-    /// A program that draws only after a change can wait on this receiver. A
-    /// program that draws on a timer does not need it.
+    /// A program that draws only after a change reads this receiver. The
+    /// program `thunderbox` and the example `full_embed` ask the receiver on
+    /// each wake. They draw a frame only when the receiver reports a change, or
+    /// when another fact of the frame changed.
+    ///
+    /// A comparison of two snapshots by the address of their `Arc` is not a
+    /// safe replacement. The runtime edits a snapshot in place when no other
+    /// owner holds its `Arc`. The address then stays the same. The receiver
+    /// reports such an edit.
     pub fn subscribe(&self) -> watch::Receiver<Arc<Snapshot>> {
         self.rx.clone()
     }

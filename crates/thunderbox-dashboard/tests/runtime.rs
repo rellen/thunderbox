@@ -1058,9 +1058,9 @@ async fn the_first_area_that_a_caller_reports_reaches_the_data_source_at_once() 
 }
 
 /// A person drags the corner of a terminal window, and the caller reports a new
-/// area on every frame. Each of those areas cost a set of queries before this
+/// area on each wake. Each of those areas cost a set of queries before this
 /// rule. A data source on another machine then received one request for each
-/// frame, and the runtime stopped every one of them but the last.
+/// wake, and the runtime stopped every one of them but the last.
 ///
 /// A drag of a corner changes the width and the height together. The runtime
 /// holds the two numbers in one field, so that drag costs one set of queries.
@@ -1156,7 +1156,7 @@ async fn a_dashboard_that_states_no_refresh_interval_still_receives_a_new_area()
 }
 
 /// The program calls `set_panel_area`, then `set_marker`, then `tick`, in that
-/// order on every frame. A person who changes the size of the window and then
+/// order on each wake. A person who changes the size of the window and then
 /// presses the key of the marker meets that pair. The one set of queries that
 /// follows must carry the new area and the new marker.
 #[tokio::test]
@@ -1232,7 +1232,7 @@ async fn the_same_area_does_not_start_the_queries_again() {
     assert_eq!(
         counter.calls.load(Ordering::SeqCst),
         before,
-        "A caller reports the area on every frame. That must cost nothing."
+        "A caller reports the area on each wake. That must cost nothing."
     );
 }
 
@@ -2119,7 +2119,7 @@ async fn an_area_that_never_stands_still_still_reaches_the_data_source() {
     );
 }
 
-/// The wait of an area has a known length. An area that changes on every frame
+/// The wait of an area has a known length. An area that changes on each wake
 /// must therefore reach a data source inside `AREA_MAX_HOLD`. The test above
 /// must not depend on a long run of turns.
 #[tokio::test]
@@ -2393,7 +2393,7 @@ async fn an_area_that_changes_no_point_limit_starts_no_set_of_queries() {
     settle(&runtime).await;
     let before = counter.calls.load(Ordering::SeqCst);
 
-    // A caller reports the area on every frame, so this loop reports the new
+    // A caller reports the area on each wake, so this loop reports the new
     // height on every turn. The loop runs for longer than `AREA_MAX_HOLD`.
     for _ in 0..60 {
         runtime.set_panel_area(Size::new(100, TALL_ENOUGH + 1));
@@ -2667,7 +2667,7 @@ async fn an_area_that_changes_no_point_limit_starts_no_wait() {
     settle(&runtime).await;
     let before = counter.calls.load(Ordering::SeqCst);
 
-    // The caller changes the height alone on every frame, for longer than the
+    // The caller changes the height alone on each wake, for longer than the
     // longest hold. No point limit changes, so no wait may start.
     for turn in 0..60_u16 {
         runtime.set_panel_area(Size::new(100, TALL_ENOUGH + 1 + turn % 3));
