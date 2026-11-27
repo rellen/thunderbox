@@ -155,8 +155,18 @@ states every rule of the keys of the time range.
 
 ## Labels of the axis of time
 
-A time series panel writes three labels under its axis of time. Each label
-states the distance from the present moment to that place on the axis.
+Three kinds of range exist:
+
+- A live range ends at the present moment, as `now-5m` to `now` does.
+- A following range follows the clock, but it ends before the present moment,
+  as `now-1h` to `now-55m` does.
+- A held range holds a fixed moment at each end. The left arrow key makes such
+  a range.
+
+A time series panel writes three labels under its axis of time. A live range
+and a following range give labels that state the distance from the present
+moment to that place on the axis. A held range gives labels that state the time
+of each place. The section "Labels of a held range" below describes that form.
 
 | label | what it states |
 |---|---|
@@ -172,6 +182,23 @@ states the distance from the present moment to that place on the axis.
   `-1s`, and never `-0m`.
 - The panel takes a longer unit when the count would need four digits.
 - A window that ends before the present moment holds no label `now`.
+
+### Labels of a held range
+
+A held range holds a fixed moment at each end, so its window stands still. The
+panel then writes the time of each place, in Coordinated Universal Time (UTC).
+The labels do not change on a refresh, because the window does not change.
+
+| label | what it states |
+|---|---|
+| `14:02:10` | The time of day, for a window that is narrower than one day. |
+| `01-02 14:02` | The month, the day, and the time, for a window that is one day wide or wider. |
+
+- The project holds no time zone database, so a label never states local time.
+  The table panel also writes UTC times.
+- A live range and a following range keep the labels that state a distance.
+- The column of labels at the left edge of a held chart is wider. The label
+  `14:00:00` holds more characters than the label `-2m` does.
 
 ## The sentence of the status row
 

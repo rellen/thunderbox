@@ -133,3 +133,4 @@ git show 4d8c223a0e7ea3bd62b85e7819be8c4ee10cb451:docs/ARCHITECTURE.md
 | [0088](0088-the-process-list-names-its-memory-column-memb-and-states-no-unit.md) | The process list names its memory column MemB and states no unit | Accepted | new |
 | [0089](0089-the-labels-of-the-axis-of-values-stand-at-the-right.md) | The labels of the axis of values stand at the right | Accepted | new |
 | [0090](0090-a-filled-chart-draws-no-line-over-the-fill-of-its-last-series.md) | A filled chart draws no line over the fill of its last series | Accepted | new |
+| [0091](0091-a-held-window-labels-its-time-axis-with-clock-times.md) | A held window labels its time axis with clock times | Accepted | new |

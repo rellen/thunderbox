@@ -11,7 +11,28 @@ use ratatui_widgets::chart::{Axis, Chart, Dataset, GraphType};
 use thunderbox_core::{Frame, LabelAlign, TimeWindow, Timestamp};
 
 use crate::panel::{NO_DATA, frames_or_message, panel_block, render_message};
-use crate::{Marker, PanelData, PanelOptions, Theme, draws_a_panel, format_from_now, format_value};
+use crate::{
+    Marker, PanelData, PanelOptions, Theme, draws_a_panel, format_clock, format_from_now,
+    format_value,
+};
+
+/// The text that a panel writes at each label of its axis of time.
+///
+/// A window that follows the clock names a new moment on each refresh. A
+/// window that stands still names the same moments for ever. The two kinds of
+/// window therefore need two kinds of label.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum TimeLabels {
+    /// Each label states the distance from the present moment to its place on
+    /// the axis, as `-5m` or `now`.
+    #[default]
+    FromNow,
+    /// Each label states the time of its place on the axis, in Coordinated
+    /// Universal Time. The text is `HH:MM:SS` for an axis that is narrower than
+    /// one day, and `MM-DD HH:MM` for a wider axis. The text does not change
+    /// when the present moment changes.
+    Clock,
+}
 
 /// A panel that draws one or more values against time.
 ///
@@ -30,6 +51,7 @@ pub struct TimeSeriesPanel<'a> {
     window: Option<TimeWindow>,
     label_width: Option<u16>,
     value_labels: LabelAlign,
+    time_labels: TimeLabels,
 }
 
 impl<'a> TimeSeriesPanel<'a> {
@@ -47,6 +69,7 @@ impl<'a> TimeSeriesPanel<'a> {
             window: None,
             label_width: None,
             value_labels: LabelAlign::default(),
+            time_labels: TimeLabels::default(),
         }
     }
 
@@ -61,6 +84,17 @@ impl<'a> TimeSeriesPanel<'a> {
     /// before: the newest point of the data is the present moment.
     pub fn window(mut self, window: TimeWindow) -> Self {
         self.window = Some(window);
+        self
+    }
+
+    /// Sets the kind of label that the axis of time draws.
+    ///
+    /// The default is [`TimeLabels::FromNow`]. A caller that draws a window
+    /// that stands still passes [`TimeLabels::Clock`]. Each label then names
+    /// the moment of its place, and it does not count further into the past on
+    /// each refresh.
+    pub fn time_labels(mut self, labels: TimeLabels) -> Self {
+        self.time_labels = labels;
         self
     }
 
@@ -167,6 +201,7 @@ impl<'a> TimeSeriesPanel<'a> {
         };
         needed_label_width(
             &plot,
+            self.time_labels,
             now,
             self.options.unit.or(plot.unit.as_deref()),
             self.options.decimals.or(plot.decimals),
@@ -372,6 +407,33 @@ fn x_labels(bounds: [f64; 2], now: f64, style: Style) -> Vec<Line<'static>> {
         .collect()
 }
 
+/// Returns the labels of the axis of time in the stated mode.
+///
+/// The mode [`TimeLabels::FromNow`] gives the labels of [`x_labels`]. The mode
+/// [`TimeLabels::Clock`] gives the labels of [`clock_labels`].
+fn axis_labels(mode: TimeLabels, bounds: [f64; 2], now: f64, style: Style) -> Vec<Line<'static>> {
+    match mode {
+        TimeLabels::FromNow => x_labels(bounds, now, style),
+        TimeLabels::Clock => clock_labels(bounds, style),
+    }
+}
+
+/// Returns the labels of the axis that holds time, as times of day.
+///
+/// Each label states the time of its place on the axis. The function reads no
+/// present moment, so the labels stay the same while the axis stays the same.
+/// [`format_clock`] selects the form of the text from the width of the axis.
+fn clock_labels(bounds: [f64; 2], style: Style) -> Vec<Line<'static>> {
+    let span = (bounds[1] - bounds[0]).max(0.0);
+    let step = span / 2.0;
+    (0..3)
+        .map(|i| {
+            let at = (bounds[0] + step * f64::from(i)).round() as i64;
+            Line::from(Span::styled(format_clock(at, span.round() as i64), style))
+        })
+        .collect()
+}
+
 /// Widens the axis of time so that it covers the window and every point.
 ///
 /// The panel draws the window that a person asked for, and not the window that
@@ -409,13 +471,19 @@ fn y_labels(
 /// below that column. The chart puts the last character of that time label
 /// below the axis of values. That label therefore needs one cell less than its
 /// own width.
-fn needed_label_width(plot: &Plot, now: f64, unit: Option<&str>, decimals: Option<u8>) -> u16 {
+fn needed_label_width(
+    plot: &Plot,
+    time_labels: TimeLabels,
+    now: f64,
+    unit: Option<&str>,
+    decimals: Option<u8>,
+) -> u16 {
     let values = y_labels(plot.y_bounds, unit, decimals, Style::default())
         .iter()
         .map(Line::width)
         .max()
         .unwrap_or(0) as u16;
-    let first_time = x_labels(plot.x_bounds, now, Style::default())
+    let first_time = axis_labels(time_labels, plot.x_bounds, now, Style::default())
         .first()
         .map_or(0, Line::width) as u16;
     values.max(first_time.saturating_sub(1))
@@ -571,7 +639,12 @@ impl Widget for &TimeSeriesPanel<'_> {
                 Axis::default()
                     .style(self.theme.axis)
                     .bounds(plot.x_bounds)
-                    .labels(x_labels(plot.x_bounds, now, self.theme.muted)),
+                    .labels(axis_labels(
+                        self.time_labels,
+                        plot.x_bounds,
+                        now,
+                        self.theme.muted,
+                    )),
             )
             .y_axis(
                 Axis::default()
@@ -1628,6 +1701,120 @@ mod align_tests {
                 "A panel that draws no chart widens no other panel."
             );
         }
+    }
+
+    /// Returns frames whose points lie inside a window of two minutes.
+    fn frames_at(start: i64, step: i64) -> Vec<Frame> {
+        let stamps: Vec<i64> = (0..3).map(|i| start + i * step).collect();
+        vec![Frame::named(
+            "s",
+            vec![
+                Field::time("time", stamps),
+                Field::f64("v", vec![Some(1.0), Some(2.0), Some(3.0)]),
+            ],
+        )]
+    }
+
+    /// Draws the panel, and returns the text of its last row but one, which
+    /// holds the labels of the axis of time.
+    fn axis_row(panel: &TimeSeriesPanel<'_>) -> String {
+        let area = Rect::new(0, 0, 60, 10);
+        let mut buf = Buffer::empty(area);
+        panel.render(area, &mut buf);
+        (0..area.width)
+            .map(|x| buf[(x, 8)].symbol().to_string())
+            .collect()
+    }
+
+    /// 14:00:00 UTC on 1970-01-02, in milliseconds.
+    const TWO_PM: i64 = 86_400_000 + 50_400_000;
+
+    #[test]
+    fn a_panel_with_clock_labels_writes_the_time_of_each_place() {
+        let theme = Theme::default();
+        let f = frames_at(TWO_PM, 60_000);
+        let window = TimeWindow {
+            from: TWO_PM,
+            to: TWO_PM + 120_000,
+            now: TWO_PM + 7_200_000,
+        };
+        let panel = TimeSeriesPanel::new("p", PanelData::Frames(&f), &theme)
+            .window(window)
+            .time_labels(TimeLabels::Clock);
+        let row = axis_row(&panel);
+        for label in ["14:00:00", "14:01:00", "14:02:00"] {
+            assert!(row.contains(label), "The axis must hold {label}. {row:?}");
+        }
+        assert!(!row.contains('-') && !row.contains("now"), "{row:?}");
+    }
+
+    #[test]
+    fn a_panel_with_clock_labels_writes_the_date_for_a_window_of_two_days() {
+        let theme = Theme::default();
+        let f = frames_at(TWO_PM, 86_400_000);
+        let window = TimeWindow {
+            from: TWO_PM,
+            to: TWO_PM + 172_800_000,
+            now: TWO_PM + 200_000_000,
+        };
+        let panel = TimeSeriesPanel::new("p", PanelData::Frames(&f), &theme)
+            .window(window)
+            .time_labels(TimeLabels::Clock);
+        let row = axis_row(&panel);
+        for label in ["01-02 14:00", "01-03 14:00", "01-04 14:00"] {
+            assert!(row.contains(label), "The axis must hold {label}. {row:?}");
+        }
+    }
+
+    #[test]
+    fn the_clock_labels_of_a_window_do_not_change_when_only_now_changes() {
+        let theme = Theme::default();
+        let f = frames_at(TWO_PM, 60_000);
+        let axis_at = |now: i64| {
+            let window = TimeWindow {
+                from: TWO_PM,
+                to: TWO_PM + 120_000,
+                now,
+            };
+            let panel = TimeSeriesPanel::new("p", PanelData::Frames(&f), &theme)
+                .window(window)
+                .time_labels(TimeLabels::Clock);
+            axis_row(&panel)
+        };
+        assert_eq!(axis_at(TWO_PM + 3_600_000), axis_at(TWO_PM + 7_200_000));
+    }
+
+    #[test]
+    fn the_labels_from_now_change_when_only_now_changes() {
+        let theme = Theme::default();
+        let f = frames_at(TWO_PM, 60_000);
+        let axis_at = |now: i64| {
+            let window = TimeWindow {
+                from: TWO_PM,
+                to: TWO_PM + 120_000,
+                now,
+            };
+            axis_row(&TimeSeriesPanel::new("p", PanelData::Frames(&f), &theme).window(window))
+        };
+        assert_ne!(axis_at(TWO_PM + 3_600_000), axis_at(TWO_PM + 7_200_000));
+    }
+
+    #[test]
+    fn the_measurement_covers_the_first_clock_label() {
+        let theme = Theme::default();
+        let f = frames_at(TWO_PM, 60_000);
+        let window = TimeWindow {
+            from: TWO_PM,
+            to: TWO_PM + 120_000,
+            now: TWO_PM + 120_000,
+        };
+        let p = TimeSeriesPanel::new("p", PanelData::Frames(&f), &theme).window(window);
+        assert_eq!(p.measure_label_width(), 2, "The label from now is -2m.");
+        assert_eq!(
+            p.time_labels(TimeLabels::Clock).measure_label_width(),
+            7,
+            "The label 14:00:00 needs one cell less than its own width."
+        );
     }
 
     /// The chart draws the first label of the axis of time below the labels of

@@ -65,6 +65,11 @@ ALLOWED_ING = {
     "everything",
 }
 
+# The word "following" names a mode of a time range, and only a noun that names
+# such a thing can come after it. The word in another place, such as "the
+# following list", is the -ing form of a verb, and the script reports it.
+FOLLOWING_NOUNS = {"range", "ranges", "window", "windows", "mode", "sentence"}
+
 # direnv is a program that loads the shell of the flake for a directory. It
 # writes `.direnv`, and that directory can hold a link to the source of nixpkgs.
 # The source of nixpkgs holds many files of other projects.
@@ -126,12 +131,25 @@ def prose_lines(path):
     return out
 
 
+def names_a_mode(lines, index, end):
+    """Return True when the word before `end` names a mode of a time range.
+
+    The next word of the text decides. That word can start the next line.
+    """
+    rest = lines[index][1][end:]
+    while not rest.strip() and index + 1 < len(lines):
+        index += 1
+        rest = lines[index][1]
+    match = re.match(r"\s*([A-Za-z]+)", rest)
+    return bool(match) and match.group(1).lower() in FOLLOWING_NOUNS
+
+
 def find_faults(path):
     """Return a list of faults. Each fault is a line number and a message."""
     faults = []
     lines = prose_lines(path)
 
-    for number, text in lines:
+    for index, (number, text) in enumerate(lines):
         for pattern, message in (
             ("—", "This line holds an em dash. Rule 8 forbids it."),
             (r"\be\.g\.", 'This line holds "e.g.". Rule 9 asks for "for example".'),
@@ -141,6 +159,8 @@ def find_faults(path):
                 faults.append((number, message))
         for match in re.finditer(r"\b([A-Za-z]{4,}ing)\b", text):
             word = match.group(1).lower()
+            if word == "following" and names_a_mode(lines, index, match.end()):
+                continue
             if word not in ALLOWED_ING:
                 faults.append(
                     (number, f'The word "{match.group(1)}" is an -ing form. Rule 3 forbids it.')
@@ -222,6 +242,20 @@ def selftest():
             else:
                 print(f"FAIL the check for {name} found nothing. Text: {messages}")
                 failures += 1
+        # The word "following" names a mode of a time range, and nothing else.
+        path = Path(directory) / "case.rs"
+        path.write_text("//! A following range ends before the present moment.\n")
+        if find_faults(path):
+            print("FAIL the checker read a following range as a fault")
+            failures += 1
+        else:
+            print("ok   the checker accepts a following range")
+        path.write_text("//! Read the following list of the keys.\n")
+        if find_faults(path):
+            print("ok   the checker reports the following list")
+        else:
+            print("FAIL the checker accepted the following list")
+            failures += 1
         # A span between two back quotes must not raise a fault.
         path = Path(directory) / "case.rs"
         path.write_text("//! The name `working_thing` is code, and not prose.\n")

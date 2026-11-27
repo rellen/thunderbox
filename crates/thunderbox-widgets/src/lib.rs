@@ -62,9 +62,9 @@ pub use row::RowPanel;
 pub use stat::StatPanel;
 pub use table::TablePanel;
 pub use theme::Theme;
-pub use timeseries::{TimeSeriesPanel, last_value};
+pub use timeseries::{TimeLabels, TimeSeriesPanel, last_value};
 pub use top::TopPanel;
-pub use value::{MISSING, format_from_now, format_time, format_value, format_window};
+pub use value::{MISSING, format_clock, format_from_now, format_time, format_value, format_window};
 
 use thunderbox_core::Frame;
 

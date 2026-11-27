@@ -69,6 +69,54 @@ pub fn format_time(t: Timestamp) -> String {
     format!("{h:02}:{m:02}:{s:02}")
 }
 
+/// Returns the month and the day of a count of days since 1970-01-01.
+///
+/// The function reads the calendar of the Gregorian rule, which holds the leap
+/// years. A count below 0 names a day before the epoch.
+fn month_and_day(days: i64) -> (i64, i64) {
+    let z = days + 719_468;
+    let day_of_era = z.rem_euclid(146_097);
+    let year_of_era =
+        (day_of_era - day_of_era / 1_460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
+    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
+    let shifted_month = (5 * day_of_year + 2) / 153;
+    let day = day_of_year - (153 * shifted_month + 2) / 5 + 1;
+    let month = if shifted_month < 10 {
+        shifted_month + 3
+    } else {
+        shifted_month - 9
+    };
+    (month, day)
+}
+
+/// Returns the text of a moment in time, for a label of an axis of time.
+///
+/// The `span_ms` argument holds the width of the axis in milliseconds. The
+/// function writes `HH:MM:SS` when that width is less than one day. It writes
+/// `MM-DD HH:MM` when that width is one day or more, because a time of day
+/// alone then names two moments. The function reads the clock of Coordinated
+/// Universal Time.
+///
+/// # Examples
+///
+/// ```
+/// use thunderbox_widgets::format_clock;
+/// assert_eq!(format_clock(3_661_000, 60_000), "01:01:01");
+/// assert_eq!(format_clock(3_661_000, 172_800_000), "01-01 01:01");
+/// ```
+pub fn format_clock(t: Timestamp, span_ms: i64) -> String {
+    if span_ms < 86_400_000 {
+        return format_time(t);
+    }
+    let (month, day) = month_and_day(t.div_euclid(86_400_000));
+    let seconds = t.div_euclid(1000).rem_euclid(86_400);
+    format!(
+        "{month:02}-{day:02} {:02}:{:02}",
+        seconds / 3600,
+        (seconds / 60) % 60
+    )
+}
+
 /// The units that [`format_from_now`] writes, from the shortest to the
 /// longest.
 ///
@@ -406,6 +454,35 @@ mod tests {
     #[test]
     fn format_time_reads_a_moment_before_the_epoch() {
         assert_eq!(format_time(-1000), "23:59:59");
+    }
+
+    #[test]
+    fn format_clock_writes_the_time_of_day_for_a_span_under_one_day() {
+        assert_eq!(format_clock(3_661_000, 60_000), "01:01:01");
+        assert_eq!(format_clock(3_661_000, 86_399_999), "01:01:01");
+    }
+
+    #[test]
+    fn format_clock_writes_the_date_for_a_span_of_one_day_or_more() {
+        assert_eq!(format_clock(0, 86_400_000), "01-01 00:00");
+        assert_eq!(format_clock(3_661_000, 172_800_000), "01-01 01:01");
+    }
+
+    #[test]
+    fn format_clock_reads_a_day_of_a_leap_year() {
+        // 2024-02-29 12:30:45 UTC.
+        assert_eq!(format_clock(1_709_209_845_000, 172_800_000), "02-29 12:30");
+        // 2024-03-01 00:00:00 UTC.
+        assert_eq!(format_clock(1_709_251_200_000, 172_800_000), "03-01 00:00");
+        // 2023-12-31 23:59:59 UTC.
+        assert_eq!(format_clock(1_704_067_199_000, 172_800_000), "12-31 23:59");
+    }
+
+    #[test]
+    fn format_clock_reads_a_moment_before_the_epoch() {
+        assert_eq!(format_clock(-1000, 172_800_000), "12-31 23:59");
+        // 1969-07-20 20:17:40 UTC.
+        assert_eq!(format_clock(-14_182_940_000, 172_800_000), "07-20 20:17");
     }
 
     #[test]

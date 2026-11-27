@@ -4,7 +4,7 @@ Every panel of a dashboard shares one time range. This page answers these
 questions:
 
 - What does a time range name?
-- What does a label of the axis of time state?
+- What does a label of the axis of time state, for each kind of range?
 - Why does a window in the past still refresh?
 
 The page gives no steps. [Show an earlier window](../how-to/show-an-earlier-window.md)
@@ -71,10 +71,13 @@ states the decision, and
 [Two ways into another program](two-ways-into-another-program.md) explains the
 reasons.
 
-## Each label of the axis of time states its distance from the present moment
+## A live window states distances, and a held window states clock times
 
-A chart writes labels under its axis of time. Each label states the distance
-from the present moment to that place on the axis. The label `-30s` marks the
+A chart writes labels under its axis of time. A live range ends at the present
+moment. A `following` range follows the clock, but it ends before the present
+moment. A held range holds a fixed moment at each end. For a live range and for a
+`following` range, each label states the distance from the present moment to that
+place on the axis. The label `-30s` marks the
 moment 30 seconds before the present moment. The label `now` appears only where
 the axis reaches the present moment.
 
@@ -94,6 +97,17 @@ corrects that unit in two conditions:
   `-61000ms` does not fit a narrow panel.
 
 [ADR 0036](../../contributor/adr/0036-each-label-of-the-time-axis-states-its-distance-from-now.md)
+states that rule.
+
+A held window needs another rule. Its trace stands still on each refresh. A
+label that states a distance from the present moment would count further into
+the past, while the trace did not move. That change would tell a person that
+the data changed, and it did not. A held window therefore labels its axis with
+the time of each place, as `14:00:00`. The time is in Coordinated Universal Time
+(UTC). A window that is one day wide or wider writes the date as well, as
+`01-02 14:02`. The labels then stand still with the trace.
+
+[ADR 0091](../../contributor/adr/0091-a-held-window-labels-its-time-axis-with-clock-times.md)
 states that rule.
 
 ## The axis covers the window, and not only the data
@@ -180,7 +194,10 @@ These records hold the detail:
 - [ADR 0035](../../contributor/adr/0035-the-program-binds-each-key-of-the-time-range.md):
   the program binds each key of the time range.
 - [ADR 0036](../../contributor/adr/0036-each-label-of-the-time-axis-states-its-distance-from-now.md):
-  each label of the axis of time states its distance from the present moment.
+  a live range and a `following` range label the axis of time with distances from
+  the present moment.
+- [ADR 0091](../../contributor/adr/0091-a-held-window-labels-its-time-axis-with-clock-times.md):
+  a held window labels its axis of time with clock times.
 - [ADR 0037](../../contributor/adr/0037-the-refresh-continues-while-the-window-stands-still.md):
   the refresh continues while the window stands still.
 - [ADR 0038](../../contributor/adr/0038-a-sysinfo-sample-carries-the-moment-of-the-machine.md):

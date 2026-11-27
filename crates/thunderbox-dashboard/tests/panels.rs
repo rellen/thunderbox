@@ -327,8 +327,8 @@ fn picture_of_window(range: TimeRange, updated_at: i64) -> String {
 }
 
 /// Each label of the axis of time states the distance from the present moment
-/// to that place. A window that ended one hour ago therefore holds no place
-/// that is the present moment.
+/// to that place, for a range that follows the clock. A window that ended one
+/// hour ago therefore holds no place that is the present moment.
 ///
 /// The data of the test covers the first 39 seconds of this window of two
 /// minutes. The axis still covers the whole window, so the panel draws the
@@ -337,8 +337,8 @@ fn picture_of_window(range: TimeRange, updated_at: i64) -> String {
 fn a_panel_that_draws_a_window_in_the_past_labels_no_place_as_now() {
     let drawn = picture_of_window(
         TimeRange {
-            from: RelativeTime::Absolute(0),
-            to: RelativeTime::Absolute(120_000),
+            from: RelativeTime::Offset(-3_720_000),
+            to: RelativeTime::Offset(-3_600_000),
         },
         3_720_000,
     );
@@ -349,6 +349,28 @@ fn a_panel_that_draws_a_window_in_the_past_labels_no_place_as_now() {
     assert!(
         drawn.contains("-62m") && drawn.contains("-60m"),
         "The axis must state the distance back in time. It drew this. {drawn}"
+    );
+}
+
+/// A range that holds a fixed moment at each end names one window for ever.
+/// The labels state the time of each place, because a distance from the present
+/// moment would grow on each refresh.
+#[test]
+fn a_panel_that_draws_a_held_window_labels_its_axis_with_clock_times() {
+    let drawn = picture_of_window(
+        TimeRange {
+            from: RelativeTime::Absolute(0),
+            to: RelativeTime::Absolute(120_000),
+        },
+        3_720_000,
+    );
+    assert!(
+        drawn.contains("00:00:00") && drawn.contains("00:01:00") && drawn.contains("00:02:00"),
+        "The axis must state the time of each place. It drew this. {drawn}"
+    );
+    assert!(
+        !drawn.contains("now") && !drawn.contains("-62m"),
+        "The axis must state no distance from the present moment. It drew this. {drawn}"
     );
 }
 

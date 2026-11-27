@@ -50,10 +50,12 @@ each column holds one value for each row.
 
 - The axis of time covers the whole window. A data source that covers part of
   the window fills part of the panel.
-- The axis of time holds three labels. Each label states the distance from the
-  present moment, as `-5m`, `-2m`, and `now` do. The page
-  [Time ranges](../time-ranges.md#labels-of-the-axis-of-time) states the
-  form.
+- The axis of time holds three labels. A live range and a following range give
+  labels that state the distance from the present moment, as `-5m`, `-2m`, and
+  `now` do. A held range gives labels that state the time of each place, as
+  `14:00:00` does. The page
+  [Time ranges](../time-ranges.md#labels-of-the-axis-of-time) states both
+  forms.
 - The axis of values holds three labels: the value at the bottom, the value in
   the middle, and the value at the top.
 - The labels of the axis of values stand at the right of their column by
@@ -143,6 +145,8 @@ The legend names each series. The page
   explains what a label of the axis of time states.
 - [Architecture decision record 0036](../../../contributor/adr/0036-each-label-of-the-time-axis-states-its-distance-from-now.md)
   states why each label names its distance from the present moment.
+- [Architecture decision record 0091](../../../contributor/adr/0091-a-held-window-labels-its-time-axis-with-clock-times.md)
+  states why a held window labels its axis of time with clock times.
 - [Architecture decision record 0039](../../../contributor/adr/0039-a-stack-of-charts-can-share-one-width.md)
   states why a stack of charts can share one width.
 - [Architecture decision record 0089](../../../contributor/adr/0089-the-labels-of-the-axis-of-values-stand-at-the-right.md)

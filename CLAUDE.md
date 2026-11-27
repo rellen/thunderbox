@@ -101,6 +101,7 @@ A writer can use these abbreviations without a definition:
 | TLS | Transport Layer Security, the rules that keep a connection private |
 | TOML | Tom's Obvious Minimal Language, a file format |
 | TTY | a plain terminal |
+| UTC | Coordinated Universal Time, the time of day at longitude 0, with no time zone |
 
 Add a row to this table before you use a new abbreviation.
 
@@ -405,12 +406,12 @@ The measurement: one link to an item that does not exist gives
 `cargo doc --no-deps` one warning and the code 0. The same link gives
 `RUSTDOCFLAGS="-D warnings" cargo doc --no-deps` the code 101.
 
-The count of the doctests must not fall. That count is 26 today:
+The count of the doctests must not fall. That count is 27 today:
 
 | crate | doctests |
 |---|---|
 | `thunderbox-core` | 12 |
-| `thunderbox-widgets` | 12 |
+| `thunderbox-widgets` | 13 |
 | `thunderbox-dashboard` | 1 |
 | `thunderbox-source-prometheus` | 1 |
 | each other crate | 0 |

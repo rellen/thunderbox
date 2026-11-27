@@ -8,7 +8,7 @@ use ratatui_core::widgets::Widget;
 use thunderbox_core::{Align, Dashboard, GridPos, Panel, PanelKind};
 use thunderbox_widgets::{
     BarGaugePanel, GaugePanel, Marker, PanelData, PanelOptions, RowPanel, StatPanel, TablePanel,
-    Theme, TimeSeriesPanel, TopPanel, draws_a_panel,
+    Theme, TimeLabels, TimeSeriesPanel, TopPanel, draws_a_panel,
 };
 
 use crate::grid::{hidden, owners, places};
@@ -302,6 +302,15 @@ impl DashboardView {
         // of an axis.
         if let Some(window) = snapshot.window() {
             chart = chart.window(window);
+        }
+        // A window that stands still names the same moments on each refresh.
+        // Its labels state those moments, because a distance from the present
+        // moment would count further into the past while the trace stays
+        // still. ADR 0091 in docs/contributor/adr records the rule. The
+        // measurement and the renderer both read this value, so both use one
+        // mode.
+        if !snapshot.range.moves_with_the_clock() {
+            chart = chart.time_labels(TimeLabels::Clock);
         }
         if let Some(width) = label_width {
             chart = chart.label_width(width);
