@@ -55,6 +55,9 @@ each column holds one value for each row.
   form.
 - The axis of values holds three labels: the value at the bottom, the value in
   the middle, and the value at the top.
+- The labels of the axis of values stand at the right of their column by
+  default. Each label then ends at the axis, and the labels end in the same
+  cell. The field `value_labels` chooses the side.
 - Each series takes the next colour of a fixed list of colours. The page
   [The panels](README.md#colour-of-a-series) gives that list.
 - The panel shows a legend in its top right corner only when each of these
@@ -104,6 +107,7 @@ explains the rule.
 | `decimals` | The panel writes the labels of the axis of values with this number of decimal places. A panel that states no number takes the number of the first series. |
 | `min` | The panel puts this value at the bottom of the axis of values. |
 | `max` | The panel puts this value at the top of the axis of values. |
+| `value_labels` | The panel draws the labels of the axis of values at this side of their column. The value `"right"` ends each label at the axis. The value `"left"` starts each label at the left edge of the column. A panel that states no value uses `"right"`. |
 | `[[panel.target]]` | The panel draws the answer of each target. |
 
 The panel ignores the field `reduce` and the thresholds.
@@ -140,5 +144,8 @@ The legend names each series. The page
   states why each label names its distance from the present moment.
 - [Architecture decision record 0039](../../../contributor/adr/0039-a-stack-of-charts-can-share-one-width.md)
   states why a stack of charts can share one width.
+- [Architecture decision record 0089](../../../contributor/adr/0089-the-labels-of-the-axis-of-values-stand-at-the-right.md)
+  states why the labels of the axis of values stand at the right, and why a
+  panel can choose the side.
 - [Architecture decision record 0069](../../../contributor/adr/0069-a-chart-cuts-its-line-at-each-hole.md)
   states why the line stops at each hole.

@@ -131,3 +131,4 @@ git show 4d8c223a0e7ea3bd62b85e7819be8c4ee10cb451:docs/ARCHITECTURE.md
 | [0086](0086-a-table-rounds-a-number-to-fit-its-column.md) | A table rounds a number to fit its column | Accepted | new |
 | [0087](0087-a-column-can-take-a-fixed-width-and-the-other-columns-share-the-rest.md) | A column can take a fixed width, and the other columns share the rest | Accepted | new |
 | [0088](0088-the-process-list-names-its-memory-column-memb-and-states-no-unit.md) | The process list names its memory column MemB and states no unit | Accepted | new |
+| [0089](0089-the-labels-of-the-axis-of-values-stand-at-the-right.md) | The labels of the axis of values stand at the right | Accepted | new |

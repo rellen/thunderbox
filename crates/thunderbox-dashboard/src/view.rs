@@ -294,6 +294,7 @@ impl DashboardView {
         )
         .marker(self.marker)
         .options(PanelOptions::from_panel(panel))
+        .value_labels(panel.value_labels.unwrap_or_default())
         .focused(selected);
         // The panel draws the window that a person asked for, and not the
         // window that the data happens to cover. A snapshot that holds no

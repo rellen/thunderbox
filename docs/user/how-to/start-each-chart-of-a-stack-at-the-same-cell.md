@@ -37,6 +37,9 @@ the same column on both axes of time.
 - Two charts with a different `x` or a different `w` keep their own
   measurements.
 - A chart gives no more than a third of its width to the labels.
+- The field `value_labels` of a panel chooses the side of the label column where
+  the labels of the values stand. Both values give the chart the same width, so
+  the rule keeps each chart at the same cell under both values.
 - The value `none` lets each chart measure its own labels. A dashboard file
   that states no field `align` uses that value.
 

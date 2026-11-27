@@ -166,3 +166,59 @@ fn a_panel_that_holds_no_data_widens_no_other_panel() {
         "The panel that waits for an answer must not move the chart beside it."
     );
 }
+
+/// Returns a dashboard of one chart that states this line, and the text of
+/// each row of its label column that holds a label.
+fn label_rows(line: &str) -> Vec<String> {
+    let text = format!(
+        r#"
+title = "labels"
+
+[[panel]]
+title = "cpu"
+kind = "timeseries"
+unit = "percent"
+{line}
+grid = {{ x = 0, y = 0, w = 24, h = 8 }}
+"#
+    );
+    let dashboard = Dashboard::from_toml(&text).expect("The test dashboard must be correct.");
+    let mut snapshot = Snapshot::loading(1, TimeRange::default());
+    snapshot.panels[0] = PanelState::Ready(Arc::new(frames(vec![Some(0.0), Some(100.0)])));
+    let area = Rect::new(0, 0, WIDTH, 10);
+    let mut buf = Buffer::empty(area);
+    DashboardView::new().render(&dashboard, &snapshot, area, &mut buf);
+    let axis = (0..WIDTH)
+        .filter(|x| buf[(*x, 1)].symbol() == "\u{2502}")
+        .nth(1)
+        .expect("The chart must draw an axis.");
+    // The last row inside the border holds the axis of time.
+    (1..8)
+        .map(|y| {
+            (1..axis)
+                .map(|x| buf[(x, y)].symbol().to_string())
+                .collect::<String>()
+        })
+        .filter(|row| !row.trim().is_empty())
+        .collect()
+}
+
+#[test]
+fn a_dashboard_that_states_no_value_labels_ends_each_label_at_the_axis() {
+    let rows = label_rows("");
+    assert!(rows.len() >= 2, "The chart must draw labels. {rows:?}");
+    assert!(rows.iter().all(|r| !r.ends_with(' ')), "{rows:?}");
+}
+
+#[test]
+fn a_panel_that_states_value_labels_left_starts_each_label_at_the_left_edge() {
+    let rows = label_rows("value_labels = \"left\"");
+    assert!(rows.len() >= 2, "The chart must draw labels. {rows:?}");
+    assert!(rows.iter().all(|r| !r.starts_with(' ')), "{rows:?}");
+}
+
+#[test]
+fn a_panel_that_states_value_labels_right_ends_each_label_at_the_axis() {
+    let rows = label_rows("value_labels = \"right\"");
+    assert!(rows.iter().all(|r| !r.ends_with(' ')), "{rows:?}");
+}

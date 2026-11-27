@@ -115,6 +115,8 @@ impl Dashboard {
     ///   `widths`;
     /// - a panel states a width for a column that has an empty name;
     /// - a panel states the width 0 for a column;
+    /// - a panel that is not a time series panel states the field
+    ///   `value_labels`;
     /// - a row panel does not span the whole width of the grid with one row;
     /// - a row panel holds a target;
     /// - a panel that is not a row panel states the field `collapsed`;
@@ -251,6 +253,16 @@ impl Dashboard {
                         panel.title
                     )));
                 }
+            }
+            // A panel of another kind draws no axis of values. A person who
+            // writes the field on such a panel expects a change that the panel
+            // never draws.
+            if panel.value_labels.is_some() && panel.kind != PanelKind::TimeSeries {
+                return Err(Error::Dashboard(format!(
+                    "panel {:?} states the field value_labels. Only a panel of the kind \
+                     timeseries reads that field",
+                    panel.title
+                )));
             }
             for target in &panel.targets {
                 if !self.sources.is_empty() && !self.sources.contains_key(&target.source) {
@@ -520,6 +532,18 @@ pub struct Panel {
     /// [`Dashboard::validate`] rejects the field on every other kind of panel.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub collapsed: Option<bool>,
+    /// States the side of the label column where the labels of the axis of
+    /// values stand.
+    ///
+    /// A chart keeps a column of cells at its left edge for those labels. The
+    /// value `right` ends each label at the axis, and the value `left` starts
+    /// each label at the edge of the panel. A panel that states no value uses
+    /// [`LabelAlign::Right`].
+    ///
+    /// Only a panel of the kind [`PanelKind::TimeSeries`] reads this field.
+    /// [`Dashboard::validate`] rejects the field on every other kind of panel.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value_labels: Option<LabelAlign>,
     /// The place of the panel on the grid.
     pub grid: GridPos,
     /// The thresholds that change the colour of a value.
@@ -615,6 +639,22 @@ impl Align {
     fn is_default(&self) -> bool {
         matches!(self, Self::None)
     }
+}
+
+/// The side of the label column where a chart draws the labels of its axis of
+/// values.
+///
+/// The labels of one chart differ in width. `100%` and `0%` are an example. The
+/// chart draws all of them in one column. This value states whether the labels
+/// start at the same cell or end at the same cell.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LabelAlign {
+    /// Each label starts at the left edge of the column.
+    Left,
+    /// Each label ends at the axis. This value is the default value.
+    #[default]
+    Right,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -1002,6 +1042,57 @@ grid = {{ x = 0, y = 0, w = 12, h = 8 }}
                 "{kind}"
             );
         }
+    }
+
+    #[test]
+    fn a_time_series_panel_reads_the_field_value_labels() {
+        for (text, want) in [("left", LabelAlign::Left), ("right", LabelAlign::Right)] {
+            let dash = Dashboard::from_toml(&one_panel(
+                "timeseries",
+                &format!("value_labels = \"{text}\""),
+            ))
+            .expect("The reader must accept the field value_labels.");
+            assert_eq!(dash.panels[0].value_labels, Some(want));
+            let round = Dashboard::from_toml(&dash.to_toml().unwrap()).unwrap();
+            assert_eq!(round, dash, "The field must survive a round trip.");
+        }
+    }
+
+    #[test]
+    fn a_panel_that_states_no_value_labels_writes_no_field() {
+        let dash = Dashboard::from_toml(&one_panel("timeseries", "")).unwrap();
+        assert_eq!(dash.panels[0].value_labels, None);
+        let written = dash.to_toml().unwrap();
+        assert!(
+            !written.contains("value_labels"),
+            "The writer leaves out a field that the panel does not state. {written}"
+        );
+    }
+
+    #[test]
+    fn validate_returns_an_error_for_value_labels_on_a_panel_that_is_not_a_time_series() {
+        for kind in ["table", "top", "stat", "gauge", "bargauge"] {
+            let err = Dashboard::from_toml(&one_panel(kind, "value_labels = \"left\""))
+                .unwrap_err()
+                .to_string();
+            assert_eq!(
+                err,
+                "The dashboard is not correct. panel \"processes\" states the field \
+                 value_labels. Only a panel of the kind timeseries reads that field",
+                "{kind}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_reader_rejects_a_value_of_value_labels_that_is_not_left_or_right() {
+        let err = Dashboard::from_toml(&one_panel("timeseries", "value_labels = \"centre\""))
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains("centre") && err.contains("left") && err.contains("right"),
+            "The message must name the value and the two choices. {err}"
+        );
     }
 
     #[test]

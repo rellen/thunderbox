@@ -3,12 +3,12 @@
 use std::ops::Range;
 
 use ratatui_core::buffer::Buffer;
-use ratatui_core::layout::Rect;
+use ratatui_core::layout::{Alignment, Rect};
 use ratatui_core::style::Style;
 use ratatui_core::text::{Line, Span};
 use ratatui_core::widgets::Widget;
 use ratatui_widgets::chart::{Axis, Chart, Dataset, GraphType};
-use thunderbox_core::{Frame, TimeWindow, Timestamp};
+use thunderbox_core::{Frame, LabelAlign, TimeWindow, Timestamp};
 
 use crate::panel::{NO_DATA, frames_or_message, panel_block, render_message};
 use crate::{Marker, PanelData, PanelOptions, Theme, draws_a_panel, format_from_now, format_value};
@@ -29,6 +29,7 @@ pub struct TimeSeriesPanel<'a> {
     show_legend: bool,
     window: Option<TimeWindow>,
     label_width: Option<u16>,
+    value_labels: LabelAlign,
 }
 
 impl<'a> TimeSeriesPanel<'a> {
@@ -45,6 +46,7 @@ impl<'a> TimeSeriesPanel<'a> {
             show_legend: true,
             window: None,
             label_width: None,
+            value_labels: LabelAlign::default(),
         }
     }
 
@@ -97,6 +99,19 @@ impl<'a> TimeSeriesPanel<'a> {
     /// the panel is too narrow to hold a legend.
     pub fn show_legend(mut self, show: bool) -> Self {
         self.show_legend = show;
+        self
+    }
+
+    /// States the side of the label column where the labels of the axis of
+    /// values stand.
+    ///
+    /// The labels of one chart differ in width. `100%` and `0%` are an
+    /// example. [`LabelAlign::Right`] ends each label at the axis, and
+    /// [`LabelAlign::Left`] starts each label at the left edge of the column.
+    /// The panel uses [`LabelAlign::Right`] until a caller states another
+    /// value. The axis of time does not change.
+    pub fn value_labels(mut self, align: LabelAlign) -> Self {
+        self.value_labels = align;
         self
     }
 
@@ -415,20 +430,27 @@ fn label_width_limit(area: Rect) -> u16 {
     area.width.saturating_sub(2) / 3
 }
 
-/// Adds spaces at the left of each label, until every label holds `width`.
+/// Adds spaces to each label, until every label holds `width`.
 ///
 /// The chart takes the width of the column of labels from the widest label. A
 /// caller that pads the labels of two panels to one width therefore gives the
 /// two charts one width. The function leaves a label that is wider than `width`
 /// as it is.
 ///
-/// The chart draws each label from the left of that column. Every label of one
-/// panel then ends at the axis, because every label holds the same width.
-fn pad_labels(labels: &mut [Line<'static>], width: u16, style: Style) {
+/// The spaces stand on the side that is away from the alignment. A label that
+/// the chart aligns at the right takes its spaces at the left. A label that the
+/// chart aligns at the left takes its spaces at the right. Every label of one
+/// panel then holds the same width, and the chart keeps its width under both
+/// values of `align`.
+fn pad_labels(labels: &mut [Line<'static>], width: u16, style: Style, align: LabelAlign) {
     for label in labels {
         let pad = usize::from(width).saturating_sub(label.width());
         if pad > 0 {
-            label.spans.insert(0, Span::styled(" ".repeat(pad), style));
+            let spaces = Span::styled(" ".repeat(pad), style);
+            match align {
+                LabelAlign::Right => label.spans.insert(0, spaces),
+                LabelAlign::Left => label.spans.push(spaces),
+            }
         }
     }
 }
@@ -527,8 +549,13 @@ impl Widget for &TimeSeriesPanel<'_> {
                 &mut value_labels,
                 width.min(label_width_limit(area)),
                 self.theme.muted,
+                self.value_labels,
             );
         }
+        let alignment = match self.value_labels {
+            LabelAlign::Left => Alignment::Left,
+            LabelAlign::Right => Alignment::Right,
+        };
 
         let mut chart = Chart::new(datasets)
             .block(block)
@@ -542,6 +569,7 @@ impl Widget for &TimeSeriesPanel<'_> {
                 Axis::default()
                     .style(self.theme.axis)
                     .bounds(plot.y_bounds)
+                    .labels_alignment(alignment)
                     .labels(value_labels),
             );
 
@@ -1321,6 +1349,8 @@ mod bounds_tests {
 
 #[cfg(test)]
 mod align_tests {
+    use std::collections::BTreeSet;
+
     use super::*;
     use thunderbox_core::{Field, Frame};
 
@@ -1493,9 +1523,124 @@ mod align_tests {
     }
 
     #[test]
+    fn pad_labels_puts_the_spaces_on_the_side_away_from_the_alignment() {
+        let mut right = vec![Line::from("1%")];
+        pad_labels(&mut right, 6, Style::default(), LabelAlign::Right);
+        let text: String = right[0].spans.iter().map(|s| s.content.as_ref()).collect();
+        assert_eq!(
+            text, "    1%",
+            "A right label takes its spaces at the left."
+        );
+        let mut left = vec![Line::from("1%")];
+        pad_labels(&mut left, 6, Style::default(), LabelAlign::Left);
+        let text: String = left[0].spans.iter().map(|s| s.content.as_ref()).collect();
+        assert_eq!(
+            text, "1%    ",
+            "A left label takes its spaces at the right."
+        );
+    }
+
+    /// Returns a panel whose axis of values holds `0%` and `100%`.
+    fn percent_frames() -> Vec<Frame> {
+        frames(vec![Some(0.0), Some(100.0)])
+    }
+
+    /// Returns the rows of the label column that hold a label of the axis of
+    /// values. The last row inside the border holds the first label of the axis
+    /// of time, and the function leaves that row out.
+    fn label_rows(panel: &TimeSeriesPanel<'_>, w: u16, h: u16) -> Vec<String> {
+        let mut rows = drawn_labels(panel, w, h);
+        rows.pop();
+        let rows: Vec<String> = rows
+            .into_iter()
+            .filter(|row| !row.trim().is_empty())
+            .collect();
+        assert!(rows.len() >= 2, "The chart must draw two labels. {rows:?}");
+        assert!(
+            rows.iter()
+                .map(|r| r.trim().len())
+                .collect::<BTreeSet<_>>()
+                .len()
+                > 1,
+            "The labels must differ in width. {rows:?}"
+        );
+        rows
+    }
+
+    #[test]
+    fn a_chart_ends_each_label_of_the_axis_of_values_in_the_same_cell_by_default() {
+        let theme = Theme::default();
+        let data = percent_frames();
+        let rows = label_rows(&panel(&data, "percent", &theme), 40, 8);
+        for row in &rows {
+            assert!(
+                !row.ends_with(' '),
+                "Each label must end at the axis. {rows:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_chart_starts_each_label_of_the_axis_of_values_in_the_same_cell_for_the_value_left() {
+        let theme = Theme::default();
+        let data = percent_frames();
+        let p = panel(&data, "percent", &theme).value_labels(LabelAlign::Left);
+        let rows = label_rows(&p, 40, 8);
+        for row in &rows {
+            assert!(
+                !row.starts_with(' '),
+                "Each label must start at the left edge. {rows:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_value_right_draws_the_same_chart_as_the_default() {
+        let theme = Theme::default();
+        let data = percent_frames();
+        let plain = panel(&data, "percent", &theme);
+        let right = panel(&data, "percent", &theme).value_labels(LabelAlign::Right);
+        assert_eq!(
+            drawn_labels(&plain, 40, 8),
+            drawn_labels(&right, 40, 8),
+            "The default must be the value right."
+        );
+    }
+
+    #[test]
+    fn a_stack_keeps_the_chart_width_under_both_values_and_the_labels_follow_the_value() {
+        let theme = Theme::default();
+        let data = percent_frames();
+        let wide = panel(&data, "percent", &theme).measure_label_width() + 4;
+        let left = panel(&data, "percent", &theme)
+            .label_width(wide)
+            .value_labels(LabelAlign::Left);
+        let right = panel(&data, "percent", &theme).label_width(wide);
+        let axis = axis_column(&right, 40, 8);
+        assert!(axis.is_some(), "The panel must draw an axis.");
+        assert_eq!(
+            axis_column(&left, 40, 8),
+            axis,
+            "Both values must keep the chart at one width."
+        );
+        for row in label_rows(&right, 40, 8) {
+            assert!(
+                !row.ends_with(' '),
+                "The labels must end at the axis. {row:?}"
+            );
+        }
+        for row in label_rows(&left, 40, 8) {
+            assert!(
+                !row.starts_with(' '),
+                "The labels must start at the left edge. {row:?}"
+            );
+        }
+    }
+
+    #[test]
     fn pad_labels_gives_every_label_one_width() {
         let mut labels = vec![Line::from("1%"), Line::from("100%")];
-        pad_labels(&mut labels, 6, Style::default());
+        pad_labels(&mut labels, 6, Style::default(), LabelAlign::Right);
         let widths: Vec<usize> = labels.iter().map(Line::width).collect();
         assert_eq!(widths, vec![6, 6]);
     }
@@ -1503,7 +1648,7 @@ mod align_tests {
     #[test]
     fn pad_labels_leaves_a_label_that_is_wider_than_the_width() {
         let mut labels = vec![Line::from("100000%")];
-        pad_labels(&mut labels, 3, Style::default());
+        pad_labels(&mut labels, 3, Style::default(), LabelAlign::Right);
         assert_eq!(labels[0].width(), 7, "The function removes nothing.");
     }
 
